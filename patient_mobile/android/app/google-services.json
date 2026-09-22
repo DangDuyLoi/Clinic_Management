@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "283099463283",
+    "project_id": "verify-otp-f794a",
+    "storage_bucket": "verify-otp-f794a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283099463283:android:a47dfc572306f86b1d3406",
+        "android_client_info": {
+          "package_name": "com.example.umc_care_clone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4gEH4-xu7bqhovhSxngP6C1SN2AImLpE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
