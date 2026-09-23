@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Quản lý bác sĩ — Admin</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>⚙️ Quản trị</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="users.html">👥 Tài khoản</a>
+      <a href="doctors.html" class="active">👨‍⚕️ Bác sĩ</a>
+      <a href="specialties.html">🏥 Chuyên khoa</a>
+      <a href="services.html">💉 Dịch vụ</a>
+      <a href="audit-log.html">📜 Nhật ký</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>👨‍⚕️ Quản lý bác sĩ</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex gap-1" style="flex:1">
+          <input type="text" id="searchInput" placeholder="🔍 Tìm theo tên..."
+                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;flex:1;max-width:300px">
+          <select id="filterCK" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả chuyên khoa</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="openDoctorModal()">+ Thêm bác sĩ</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mã BS</th><th>Họ tên</th><th>Chuyên khoa</th>
+            <th>Trình độ</th><th>Max lượt/ca</th><th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="doctorTable">
+          <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div id="doctorModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="modalTitle">Thêm bác sĩ</h3>
+      <button class="modal-close" onclick="closeDoctorModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_ma_bs">
+
+      <div id="accountSection">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tên đăng nhập <span class="required">*</span></label>
+            <input type="text" id="f_ten_dang_nhap" placeholder="bs_ten">
+          </div>
+          <div class="form-group">
+            <label>Mật khẩu <span class="required">*</span></label>
+            <input type="password" id="f_mat_khau" placeholder="Tối thiểu 6 ký tự">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Họ tên <span class="required">*</span></label>
+        <input type="text" id="f_ho_ten" placeholder="BS. Nguyễn Văn A">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Chuyên khoa <span class="required">*</span></label>
+          <select id="f_ma_chuyen_khoa">
+            <option value="">-- Chọn --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Số lượt khám tối đa / ca</label>
+          <input type="number" id="f_luot" value="20" min="1" max="100">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Trình độ</label>
+        <input type="text" id="f_trinh_do" placeholder="Thạc sĩ - BS CKII">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDoctorModal()">Hủy</button>
+      <button class="btn btn-primary" id="btnSaveDoctor" onclick="saveDoctor()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/admin-doctors.js"></script>
+</body>
+</html>

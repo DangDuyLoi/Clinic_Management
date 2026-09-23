@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Check-in bệnh nhân — Lễ tân</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/receptionist.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>🏥 Phòng Khám</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="checkin.html" class="active">✅ Check-in bệnh nhân</a>
+      <a href="appointment.html">📅 Đặt lịch khám</a>
+      <a href="patients.html">👥 Hồ sơ bệnh nhân</a>
+      <a href="payments.html">💰 Thanh toán</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>✅ Check-in bệnh nhân</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>🔍 Tìm bệnh nhân chờ đến khám</h3>
+        <div class="d-flex gap-1">
+          <input type="text" id="searchInput" placeholder="🔍 Tên hoặc SĐT..."
+                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:250px">
+          <button class="btn btn-primary btn-sm" onclick="loadPendingList()">🔄 Làm mới</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Bệnh nhân</th>
+            <th>Bác sĩ</th>
+            <th>Giờ</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="pendingTable">
+          <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/receptionist.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
+    auth.renderUserInfo();
+
+    document.getElementById('searchInput').addEventListener('input', debounce(loadPendingList, 400));
+    loadPendingList();
+  });
+
+  async function loadPendingList() {
+    const q = document.getElementById('searchInput')?.value?.trim() || '';
+    const tbody = document.getElementById('pendingTable');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
+
+    const today = todayStr();
+    const res = await api.get(`/lich-kham?ngay=${today}&per_page=100`);
+
+    if (res.status !== 'success') {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Lỗi: ${res.message}</td></tr>`;
+      return;
+    }
+
+    let data = res.data?.data || [];
+    // Chỉ hiển thị lịch chờ check-in
+    data = data.filter(l => ['ChoXacNhan', 'ChoDenKham'].includes(l.trang_thai));
+
+    // Lọc theo search
+    if (q) {
+      const lower = q.toLowerCase();
+      data = data.filter(l =>
+        (l.benh_nhan?.ho_ten || '').toLowerCase().includes(lower) ||
+        (l.benh_nhan?.so_dien_thoai || '').includes(q)
+      );
+    }
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Không có bệnh nhân chờ check-in</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((item, i) => {
+      const hoTenBn = item.benh_nhan?.ho_ten || '—';
+      const sdtBn   = item.benh_nhan?.so_dien_thoai || '';
+      const hoTenBs = item.bac_si?.ho_ten || '—';
+      const gio     = item.khung_gio?.gio_bat_dau?.slice(0,5) || '—';
+
+      return `
+        <tr>
+          <td>${i+1}</td>
+          <td><b>${hoTenBn}</b>${sdtBn ? `<small>${sdtBn}</small>` : ''}</td>
+          <td>${hoTenBs}</td>
+          <td><b>${gio}</b></td>
+          <td><span class="badge badge-wait">${statusLabel(item.trang_thai)}</span></td>
+          <td>
+            <button class="btn btn-success btn-sm" onclick="checkIn(${item.ma_lich_dat})">
+              ✓ Check-in
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function debounce(fn, wait) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+  }
+</script>
+</body>
+</html>
