@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý bệnh nhân — Lễ tân</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/receptionist.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>🏥 Phòng Khám</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="checkin.html">✅ Check-in bệnh nhân</a>
+      <a href="appointment.html">📅 Đặt lịch khám</a>
+      <a href="patients.html" class="active">👥 Hồ sơ bệnh nhân</a>
+      <a href="payments.html">💰 Thanh toán</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>👥 Quản lý bệnh nhân</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex gap-1 align-center" style="flex:1">
+          <input type="text" id="searchInput"
+                 placeholder="🔍 Tìm theo tên / SĐT / CCCD..."
+                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;flex:1;max-width:400px">
+          <select id="filterGioiTinh" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả giới tính</option>
+            <option value="Nam">Nam</option>
+            <option value="Nu">Nữ</option>
+            <option value="Khac">Khác</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ Thêm bệnh nhân</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Họ tên</th>
+            <th>SĐT</th>
+            <th>Giới tính</th>
+            <th>Ngày sinh</th>
+            <th>Nhóm máu</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="patientTable">
+          <tr><td colspan="7" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+
+      <!-- Phân trang -->
+      <div id="pagination" class="d-flex flex-between align-center mt-2" style="display:none">
+        <span id="pageInfo" class="text-muted"></span>
+        <div class="d-flex gap-1">
+          <button class="btn btn-outline btn-sm" id="btnPrev" onclick="changePage(-1)">← Trước</button>
+          <button class="btn btn-outline btn-sm" id="btnNext" onclick="changePage(1)">Sau →</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Thêm/Sửa -->
+<div id="patientModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="modalTitle">Thêm bệnh nhân</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_ma_bn">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Họ tên <span class="required">*</span></label>
+          <input type="text" id="f_ho_ten" placeholder="Nguyễn Văn A">
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại <span class="required">*</span></label>
+          <input type="text" id="f_so_dien_thoai" placeholder="0901234567">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ngày sinh</label>
+          <input type="date" id="f_ngay_sinh">
+        </div>
+        <div class="form-group">
+          <label>Giới tính</label>
+          <select id="f_gioi_tinh">
+            <option value="">-- Chọn --</option>
+            <option value="Nam">Nam</option>
+            <option value="Nu">Nữ</option>
+            <option value="Khac">Khác</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>CCCD</label>
+          <input type="text" id="f_cccd" placeholder="012345678901">
+        </div>
+        <div class="form-group">
+          <label>Nhóm máu</label>
+          <select id="f_nhom_mau">
+            <option value="">-- Chọn --</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="AB">AB</option>
+            <option value="O">O</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="f_email" placeholder="email@example.com">
+      </div>
+
+      <div class="form-group">
+        <label>Địa chỉ</label>
+        <input type="text" id="f_dia_chi" placeholder="Số nhà, đường, quận, TP...">
+      </div>
+
+      <div class="form-group">
+        <label>Dị ứng</label>
+        <textarea id="f_di_ung" rows="2" placeholder="Dị ứng thuốc, thức ăn..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Tiền sử bệnh</label>
+        <textarea id="f_tien_su_benh" rows="2" placeholder="Tiền sử bệnh lý..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Hủy</button>
+      <button class="btn btn-primary" id="btnSave" onclick="savePatient()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Chi tiết -->
+<div id="detailModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3>Chi tiết bệnh nhân</h3>
+      <button class="modal-close" onclick="document.getElementById('detailModal').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body" id="detailBody">Đang tải...</div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/receptionist.js"></script>
+<script src="/js/patients.js"></script>
+</body>
+</html>

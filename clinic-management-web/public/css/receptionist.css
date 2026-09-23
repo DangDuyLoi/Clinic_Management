@@ -1,0 +1,37 @@
+/* ============================================================
+   RECEPTIONIST — Style riêng cho Lễ tân
+   ============================================================ */
+
+/* Sidebar accent màu xanh dương (mặc định) */
+.sidebar nav a.active {
+  background: var(--primary);
+  border-left-color: var(--primary-dark);
+}
+
+/* Card header custom */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.card-header h3 {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

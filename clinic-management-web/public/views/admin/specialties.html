@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Quản lý chuyên khoa — Admin</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>⚙️ Quản trị</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="users.html">👥 Tài khoản</a>
+      <a href="doctors.html">👨‍⚕️ Bác sĩ</a>
+      <a href="specialties.html" class="active">🏥 Chuyên khoa</a>
+      <a href="services.html">💉 Dịch vụ</a>
+      <a href="audit-log.html">📜 Nhật ký</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>🏥 Quản lý chuyên khoa</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <input type="text" id="searchInput" placeholder="🔍 Tìm chuyên khoa..."
+               style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:300px">
+        <button class="btn btn-primary" onclick="openSpecModal()">+ Thêm chuyên khoa</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Mã</th><th>Tên chuyên khoa</th><th>Mô tả</th><th>Số bác sĩ</th><th>Hành động</th></tr>
+        </thead>
+        <tbody id="specTable">
+          <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div id="specModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Thêm chuyên khoa</h3>
+      <button class="modal-close" onclick="closeSpecModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_ma_ck">
+      <div class="form-group">
+        <label>Tên chuyên khoa <span class="required">*</span></label>
+        <input type="text" id="f_ten" placeholder="VD: Tim mạch">
+      </div>
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea id="f_mo_ta" rows="3" placeholder="Mô tả về chuyên khoa..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeSpecModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveSpec()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/admin-specialties.js"></script>
+</body>
+</html>

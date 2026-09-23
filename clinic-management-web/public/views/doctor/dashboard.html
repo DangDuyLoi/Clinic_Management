@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bác sĩ — Dashboard</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/doctor.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>🩺 Bác sĩ</h2>
+    <nav>
+      <a href="dashboard.html" class="active">📊 Dashboard</a>
+      <a href="schedule.html">📅 Lịch làm việc</a>
+      <a href="patient-record.html">📝 Phiên khám</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>Xin chào, Bác sĩ</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <!-- Thống kê -->
+    <div class="grid grid-4 mb-2">
+      <div class="card stat-card">
+        <div class="value" id="totalToday">—</div>
+        <div class="label">Lịch hôm nay</div>
+      </div>
+      <div class="card stat-card warning">
+        <div class="value" id="waitingCount">—</div>
+        <div class="label">Chờ khám</div>
+      </div>
+      <div class="card stat-card info">
+        <div class="value" id="doingCount">—</div>
+        <div class="label">Đang khám</div>
+      </div>
+      <div class="card stat-card success">
+        <div class="value" id="doneCount">—</div>
+        <div class="label">Đã xong</div>
+      </div>
+    </div>
+
+    <!-- Danh sách bệnh nhân hôm nay -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 Danh sách bệnh nhân hôm nay</h3>
+        <div class="d-flex gap-1 align-center">
+          <input type="date" id="filterDate"
+                 style="padding:6px 10px;border:1px solid #dee2e6;border-radius:6px">
+          <button class="btn btn-primary btn-sm" onclick="loadToday()">🔄 Làm mới</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Bệnh nhân</th>
+            <th>Giờ</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="patientTable">
+          <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/doctor.js"></script>
+</body>
+</html>
