@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Nhật ký hệ thống — Admin</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>⚙️ Quản trị</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="users.html">👥 Tài khoản</a>
+      <a href="doctors.html">👨‍⚕️ Bác sĩ</a>
+      <a href="specialties.html">🏥 Chuyên khoa</a>
+      <a href="services.html">💉 Dịch vụ</a>
+      <a href="audit-log.html" class="active">📜 Nhật ký</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>📜 Nhật ký hệ thống</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex gap-1" style="flex-wrap:wrap;flex:1">
+          <select id="filterTable" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả bảng</option>
+            <option value="TaiKhoan">TaiKhoan</option>
+            <option value="BacSi">BacSi</option>
+            <option value="BenhNhan">BenhNhan</option>
+            <option value="LichKham">LichKham</option>
+            <option value="PhienKham">PhienKham</option>
+            <option value="HoaDon">HoaDon</option>
+          </select>
+          <select id="filterAction" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả hành động</option>
+            <option value="CREATE">CREATE</option>
+            <option value="UPDATE">UPDATE</option>
+            <option value="DELETE">DELETE</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="loadLogs()">🔄 Làm mới</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>Thời gian</th><th>Người dùng</th>
+            <th>Hành động</th><th>Bảng</th><th>Chi tiết</th>
+          </tr>
+        </thead>
+        <tbody id="logTable">
+          <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+
+      <div id="pagination" class="d-flex flex-between align-center mt-2" style="display:none">
+        <span id="pageInfo" class="text-muted"></span>
+        <div class="d-flex gap-1">
+          <button class="btn btn-outline btn-sm" onclick="changePage(-1)">← Trước</button>
+          <button class="btn btn-outline btn-sm" onclick="changePage(1)">Sau →</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal chi tiết log -->
+<div id="logModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <h3>Chi tiết nhật ký</h3>
+      <button class="modal-close" onclick="document.getElementById('logModal').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body" id="logDetail"></div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/admin-logs.js"></script>
+</body>
+</html>

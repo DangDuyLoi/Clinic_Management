@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập — Phòng khám Đa khoa</title>
+
+  <!-- Favicon (tùy chọn) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏥</text></svg>">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+
+<body class="login-page">
+
+  <div class="login-container">
+
+    <!-- Hộp đăng nhập -->
+    <div class="login-box">
+
+      <!-- Logo + tiêu đề -->
+      <div class="login-logo">🏥</div>
+      <h1>Phòng khám Đa khoa</h1>
+      <p class="login-subtitle">Hệ thống Quản lý &amp; Đặt lịch khám</p>
+
+      <!-- Form đăng nhập -->
+      <form id="loginForm" novalidate autocomplete="on">
+
+        <!-- Trường: Tên đăng nhập -->
+        <div class="form-group">
+          <label for="ten_dang_nhap">
+            👤 Tên đăng nhập
+          </label>
+          <input
+            type="text"
+            id="ten_dang_nhap"
+            name="ten_dang_nhap"
+            placeholder="Nhập tên đăng nhập"
+            autocomplete="username"
+            autofocus
+            required>
+        </div>
+
+        <!-- Trường: Mật khẩu -->
+        <div class="form-group">
+          <label for="mat_khau">
+            🔒 Mật khẩu
+          </label>
+          <div class="password-wrapper">
+            <input
+              type="password"
+              id="mat_khau"
+              name="mat_khau"
+              placeholder="Nhập mật khẩu"
+              autocomplete="current-password"
+              required>
+            <button
+              type="button"
+              class="toggle-password"
+              id="togglePassword"
+              title="Hiện/ẩn mật khẩu"
+              tabindex="-1">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <!-- Ghi nhớ đăng nhập -->
+        <div class="form-checkbox">
+          <label>
+            <input type="checkbox" id="rememberMe">
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
+        </div>
+
+        <!-- Nút đăng nhập -->
+        <button
+          type="submit"
+          class="btn btn-primary btn-block"
+          id="btnLogin">
+          Đăng nhập
+        </button>
+
+        <!-- Vùng hiển thị lỗi -->
+        <p class="login-error" id="errorMsg" hidden></p>
+
+      </form>
+
+      <!-- Gợi ý tài khoản test (chỉ dùng khi dev) -->
+      <div class="login-hint">
+        <details>
+          <summary>🧪 Tài khoản test (dev)</summary>
+          <ul>
+            <li><b>admin</b> / 123456 — Quản trị viên</li>
+            <li><b>bs_hoang</b> / 123456 — Bác sĩ</li>
+            <li><b>letan_lan</b> / 123456 — Lễ tân</li>
+            <li><b>bn_nguyenvan</b> / 123456 — Bệnh nhân</li>
+          </ul>
+        </details>
+      </div>
+
+      <!-- Footer -->
+      <p class="login-footer">
+        © 2026 — Khoa CNTT, ĐH Công Thương TP.HCM
+      </p>
+
+    </div>
+  </div>
+
+  <!-- Scripts — thứ tự quan trọng -->
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/login.js"></script>
+
+</body>
+</html>

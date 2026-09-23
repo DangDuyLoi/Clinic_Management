@@ -1,0 +1,45 @@
+/* ============================================================
+   ADMIN — Style riêng cho Quản trị viên
+   ============================================================ */
+
+/* Sidebar accent đỏ đậm */
+.sidebar nav a.active {
+  background: #dc3545;
+  border-left-color: #bb2d3b;
+}
+
+/* Card header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.card-header h3 {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Stat card không có border-left mặc định */
+.card.stat-card {
+  border-left: none;
+}
+
+/* Log row */
+.log-row pre {
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 120px;
+  overflow: auto;
+  margin: 0;
+}

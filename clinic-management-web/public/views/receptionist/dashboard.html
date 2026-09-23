@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lễ tân — Dashboard</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/receptionist.css">
+</head>
+<body>
+<div class="layout">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <h2>🏥 Phòng Khám</h2>
+    <nav>
+      <a href="dashboard.html"    class="active">📊 Dashboard</a>
+      <a href="checkin.html">✅ Check-in bệnh nhân</a>
+      <a href="appointment.html">📅 Đặt lịch khám</a>
+      <a href="patients.html">👥 Hồ sơ bệnh nhân</a>
+      <a href="payments.html">💰 Thanh toán</a>
+    </nav>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <!-- Header -->
+    <div class="header-bar">
+      <h1>Dashboard Lễ tân</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <!-- 4 thẻ thống kê -->
+    <div class="grid grid-4 mb-2">
+      <div class="card stat-card">
+        <div class="value" id="totalToday">—</div>
+        <div class="label">Lịch hôm nay</div>
+      </div>
+      <div class="card stat-card warning">
+        <div class="value" id="waitingCount">—</div>
+        <div class="label">Chờ khám</div>
+      </div>
+      <div class="card stat-card success">
+        <div class="value" id="doneCount">—</div>
+        <div class="label">Đã hoàn thành</div>
+      </div>
+      <div class="card stat-card danger">
+        <div class="value" id="cancelledCount">—</div>
+        <div class="label">Đã hủy</div>
+      </div>
+    </div>
+
+    <!-- Danh sách lịch khám hôm nay -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 Danh sách lịch khám hôm nay</h3>
+        <div class="d-flex gap-1 align-center">
+          <input type="date" id="filterDate"
+                 style="padding:6px 10px;border:1px solid #dee2e6;border-radius:6px">
+          <select id="filterStatus"
+                  style="padding:6px 10px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả trạng thái</option>
+            <option value="ChoXacNhan">Chờ xác nhận</option>
+            <option value="ChoKham">Chờ khám</option>
+            <option value="DangKham">Đang khám</option>
+            <option value="HoanThanh">Hoàn thành</option>
+            <option value="DaHuy">Đã hủy</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="loadAppointments()">
+            🔄 Làm mới
+          </button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Bệnh nhân</th>
+            <th>Bác sĩ</th>
+            <th>Giờ khám</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="appointmentTable">
+          <tr>
+            <td colspan="6" class="text-center text-muted" style="padding: 32px">
+              Đang tải dữ liệu...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<!-- Scripts — thứ tự quan trọng -->
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/receptionist.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+/* ============================================================
+   DOCTOR — Style riêng cho Bác sĩ
+   ============================================================ */
+
+/* Sidebar accent xanh lá (medical green) */
+.sidebar nav a.active {
+  background: #198754;
+  border-left-color: #157347;
+}
+
+/* Card header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.card-header h3 {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Form thuốc inline */
+.medicine-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr auto;
+  gap: 8px;
+  align-items: end;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .medicine-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Lịch làm việc — Bác sĩ</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/doctor.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>🩺 Bác sĩ</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="schedule.html" class="active">📅 Lịch làm việc</a>
+      <a href="patient-record.html">📝 Phiên khám</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>📅 Lịch làm việc</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Chọn ngày xem lịch</h3>
+        <input type="date" id="filterDate" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>STT</th><th>Giờ</th><th>Bệnh nhân</th><th>Trạng thái</th><th>Hành động</th></tr>
+        </thead>
+        <tbody id="scheduleTable">
+          <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/doctor.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!auth.requireAuth(['BacSi', 'QuanTri'])) return;
+    auth.renderUserInfo();
+
+    // Chờ resolveMaBacSi từ doctor.js
+    await new Promise(r => setTimeout(r, 500));
+
+    const di = document.getElementById('filterDate');
+    di.value = todayStr();
+    di.addEventListener('change', loadSchedule);
+
+    loadSchedule();
+  });
+
+  async function loadSchedule() {
+    const date = document.getElementById('filterDate').value || todayStr();
+    const tbody = document.getElementById('scheduleTable');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Đang tải...</td></tr>';
+
+    let url = `/lich-kham?ngay=${date}&per_page=100`;
+    if (currentMaBs) url += `&ma_bs=${currentMaBs}`;
+
+    const res = await api.get(url);
+
+    if (res.status !== 'success') {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Lỗi: ${res.message}</td></tr>`;
+      return;
+    }
+
+    const data = res.data?.data || [];
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Không có lịch</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((l, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><b>${l.khung_gio?.gio_bat_dau?.slice(0,5) || '—'}</b></td>
+        <td>${l.benh_nhan?.ho_ten || '—'}</td>
+        <td><span class="badge ${statusBadgeClass(l.trang_thai)}">${statusLabel(l.trang_thai)}</span></td>
+        <td>
+          ${['ChoKham', 'DangKham'].includes(l.trang_thai)
+            ? `<button class="btn btn-primary btn-sm" onclick="openRecord(${l.ma_lich_dat})">📝 Khám</button>`
+            : '—'}
+        </td>
+      </tr>
+    `).join('');
+  }
+</script>
+</body>
+</html>

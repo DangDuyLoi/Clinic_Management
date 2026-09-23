@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Thanh toán — Lễ tân</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/receptionist.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>🏥 Phòng Khám</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="checkin.html">✅ Check-in bệnh nhân</a>
+      <a href="appointment.html">📅 Đặt lịch khám</a>
+      <a href="patients.html">👥 Hồ sơ bệnh nhân</a>
+      <a href="payments.html" class="active">💰 Thanh toán</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>💰 Quản lý thanh toán</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <!-- Thống kê -->
+    <div class="grid grid-3 mb-2">
+      <div class="card stat-card warning">
+        <div class="value" id="chuaTT">—</div>
+        <div class="label">Chưa thanh toán</div>
+      </div>
+      <div class="card stat-card success">
+        <div class="value" id="daTT">—</div>
+        <div class="label">Đã thanh toán</div>
+      </div>
+      <div class="card stat-card">
+        <div class="value" id="doanhThu">—</div>
+        <div class="label">Doanh thu hôm nay</div>
+      </div>
+    </div>
+
+    <!-- Danh sách hóa đơn -->
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 Danh sách hóa đơn</h3>
+        <div class="d-flex gap-1">
+          <select id="filterStatus" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả</option>
+            <option value="ChuaThanhToan">Chưa thanh toán</option>
+            <option value="DaThanhToan">Đã thanh toán</option>
+            <option value="DaHuy">Đã hủy</option>
+          </select>
+          <input type="date" id="filterDate" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+          <button class="btn btn-primary btn-sm" onclick="loadInvoices()">🔄 Làm mới</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mã HĐ</th>
+            <th>Bệnh nhân</th>
+            <th>Tiền khám</th>
+            <th>Dịch vụ</th>
+            <th>Thuốc</th>
+            <th>Tổng cộng</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="invoiceTable">
+          <tr><td colspan="8" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Thanh toán -->
+<div id="payModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>💳 Xác nhận thanh toán</h3>
+      <button class="modal-close" onclick="closePayModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pay_hoa_don_id">
+      <div id="payInfo" class="mb-2"></div>
+
+      <div class="form-group">
+        <label>Phương thức thanh toán <span class="required">*</span></label>
+        <select id="pay_phuong_thuc">
+          <option value="TienMat">💵 Tiền mặt</option>
+          <option value="Momo">📱 Momo</option>
+          <option value="VNPay">💳 VNPay</option>
+          <option value="ChuyenKhoan">🏦 Chuyển khoản</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePayModal()">Hủy</button>
+      <button class="btn btn-success" onclick="confirmPay()">✓ Xác nhận thanh toán</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/receptionist.js"></script>
+<script src="/js/payments.js"></script>
+</body>
+</html>

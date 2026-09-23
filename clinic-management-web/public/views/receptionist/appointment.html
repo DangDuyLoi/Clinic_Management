@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đặt lịch khám — Lễ tân</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/receptionist.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>🏥 Phòng Khám</h2>
+    <nav>
+      <a href="dashboard.html">📊 Dashboard</a>
+      <a href="checkin.html">✅ Check-in bệnh nhân</a>
+      <a href="appointment.html" class="active">📅 Đặt lịch khám</a>
+      <a href="patients.html">👥 Hồ sơ bệnh nhân</a>
+      <a href="payments.html">💰 Thanh toán</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>📅 Đặt lịch khám mới</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="grid grid-2">
+      <!-- FORM ĐẶT LỊCH -->
+      <div class="card">
+        <h3>1️⃣ Thông tin đặt lịch</h3>
+
+        <div class="form-group">
+          <label>Bệnh nhân <span class="required">*</span></label>
+          <select id="maBn">
+            <option value="">-- Chọn bệnh nhân --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Chuyên khoa <span class="required">*</span></label>
+          <select id="maChuyenKhoa">
+            <option value="">-- Chọn chuyên khoa --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Ngày khám <span class="required">*</span></label>
+          <input type="date" id="ngayKham">
+        </div>
+
+        <div class="form-group">
+          <label>Khung giờ <span class="text-muted">(để trống = tự động chọn)</span></label>
+          <select id="maKhungGio">
+            <option value="">-- Tự động chọn --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Điểm ưu tiên (0-10)</label>
+          <input type="number" id="diemUuTien" value="0" min="0" max="10">
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary btn-lg" onclick="submitBooking()" id="btnSubmit">
+            📅 Đặt lịch
+          </button>
+          <button class="btn btn-outline btn-lg" onclick="resetForm()">🔄 Làm mới</button>
+        </div>
+      </div>
+
+      <!-- KẾT QUẢ -->
+      <div class="card">
+        <h3>2️⃣ Khung giờ trống</h3>
+        <div id="slotsInfo" class="text-muted">
+          <p>Chọn chuyên khoa + ngày để xem khung giờ trống.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- LỊCH ĐÃ ĐẶT GẦN ĐÂY -->
+    <div class="card">
+      <h3>📋 Lịch khám đã đặt gần đây</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Bệnh nhân</th>
+            <th>Bác sĩ</th>
+            <th>Ngày</th>
+            <th>Giờ</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody id="recentTable">
+          <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/receptionist.js"></script>
+<script>
+  let dsBenhNhan = [];
+  let dsChuyenKhoa = [];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
+    auth.renderUserInfo();
+
+    // Set ngày mặc định = hôm nay
+    document.getElementById('ngayKham').value = todayStr();
+
+    // Load danh mục
+    await loadBenhNhan();
+    await loadChuyenKhoa();
+
+    // Load lịch gần đây
+    loadRecentBookings();
+
+    // Sự kiện
+    document.getElementById('maChuyenKhoa').addEventListener('change', loadSlots);
+    document.getElementById('ngayKham').addEventListener('change', loadSlots);
+  });
+
+  async function loadBenhNhan() {
+    // Tạm dùng API lich-kham để lấy bệnh nhân — sẽ thay bằng API bệnh nhân sau
+    // Hoặc gọi trực tiếp với giả định
+    const res = await api.get('/lich-kham?per_page=100');
+    if (res.status === 'success') {
+      const seen = new Set();
+      const list = [];
+      (res.data?.data || []).forEach(l => {
+        if (l.benh_nhan && !seen.has(l.benh_nhan.ma_bn)) {
+          seen.add(l.benh_nhan.ma_bn);
+          list.push(l.benh_nhan);
+        }
+      });
+      // Fallback: nếu chưa có bệnh nhân, hardcode tạm
+      if (list.length === 0) {
+        list.push({ ma_bn: 1, ho_ten: 'Nguyễn Văn A', so_dien_thoai: '0901234567' });
+        list.push({ ma_bn: 2, ho_ten: 'Trần Thị B', so_dien_thoai: '0912345678' });
+      }
+      dsBenhNhan = list;
+
+      const sel = document.getElementById('maBn');
+      sel.innerHTML = '<option value="">-- Chọn bệnh nhân --</option>' +
+        list.map(b => `<option value="${b.ma_bn}">${b.ho_ten} — ${b.so_dien_thoai || ''}</option>`).join('');
+    }
+  }
+
+  async function loadChuyenKhoa() {
+    const res = await api.get('/chuyen-khoa');
+    if (res.status === 'success') {
+      dsChuyenKhoa = res.data;
+      const sel = document.getElementById('maChuyenKhoa');
+      sel.innerHTML = '<option value="">-- Chọn chuyên khoa --</option>' +
+        res.data.map(ck => `<option value="${ck.ma_chuyen_khoa}">${ck.ten_chuyen_khoa} (${ck.bac_si_count} BS)</option>`).join('');
+    }
+  }
+
+  async function loadSlots() {
+    const maCk = document.getElementById('maChuyenKhoa').value;
+    const ngay = document.getElementById('ngayKham').value;
+    const infoEl = document.getElementById('slotsInfo');
+    const selKg = document.getElementById('maKhungGio');
+
+    if (!maCk || !ngay) {
+      infoEl.innerHTML = '<p class="text-muted">Chọn chuyên khoa + ngày để xem khung giờ trống.</p>';
+      selKg.innerHTML = '<option value="">-- Tự động chọn --</option>';
+      return;
+    }
+
+    infoEl.innerHTML = '<p class="text-muted">Đang tải...</p>';
+
+    const res = await api.get(`/lich-kham/khung-gio-trong?ngay=${ngay}&ma_chuyen_khoa=${maCk}`);
+
+    if (res.status !== 'success' || !res.data?.length) {
+      infoEl.innerHTML = '<p class="text-danger">⚠️ Không còn khung giờ trống cho ngày này.</p>';
+      selKg.innerHTML = '<option value="">-- Tự động chọn --</option>';
+      return;
+    }
+
+    const slots = res.data;
+    infoEl.innerHTML = `
+      <p class="text-success mb-2">✅ Có <b>${slots.length}</b> khung giờ trống:</p>
+      <table>
+        <thead>
+          <tr><th>Giờ</th><th>Ca</th><th>Số BS trống</th></tr>
+        </thead>
+        <tbody>
+          ${slots.map(s => `
+            <tr>
+              <td><b>${s.gio_bat_dau.slice(0,5)} - ${s.gio_ket_thuc.slice(0,5)}</b></td>
+              <td>${s.ten_ca || '—'}</td>
+              <td><span class="badge badge-success">${s.so_bac_si_trong}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    selKg.innerHTML = '<option value="">-- Tự động chọn --</option>' +
+      slots.map(s => `<option value="${s.ma_khung_gio}">${s.gio_bat_dau.slice(0,5)} - ${s.gio_ket_thuc.slice(0,5)} (${s.so_bac_si_trong} BS)</option>`).join('');
+  }
+
+  async function submitBooking() {
+    const maBn = document.getElementById('maBn').value;
+    const maCk = document.getElementById('maChuyenKhoa').value;
+    const ngay = document.getElementById('ngayKham').value;
+    const maKg = document.getElementById('maKhungGio').value;
+    const diemUuTien = document.getElementById('diemUuTien').value;
+    const btn = document.getElementById('btnSubmit');
+
+    // Validate
+    if (!maBn) return api.toast('Vui lòng chọn bệnh nhân', 'error');
+    if (!maCk) return api.toast('Vui lòng chọn chuyên khoa', 'error');
+    if (!ngay) return api.toast('Vui lòng chọn ngày khám', 'error');
+
+    const payload = {
+      ma_bn: parseInt(maBn),
+      ma_chuyen_khoa: parseInt(maCk),
+      ngay_kham: ngay,
+      diem_uu_tien: parseInt(diemUuTien) || 0,
+    };
+    if (maKg) payload.ma_khung_gio = parseInt(maKg);
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Đang đặt lịch...';
+
+    const res = await api.post('/lich-kham', payload);
+
+    if (res.status === 'success') {
+      api.toast('✅ Đặt lịch thành công!', 'success');
+      const d = res.data;
+      alert(`ĐẶT LỊCH THÀNH CÔNG!\n\nBác sĩ: ${d.bac_si?.ho_ten}\nGiờ: ${d.khung_gio?.gio_bat_dau?.slice(0,5)} - ${d.khung_gio?.gio_ket_thuc?.slice(0,5)}\nNgày: ${d.ngay_kham}`);
+      resetForm();
+      loadSlots();
+      loadRecentBookings();
+    } else {
+      api.toast(res.message || 'Đặt lịch thất bại', 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '📅 Đặt lịch';
+  }
+
+  async function loadRecentBookings() {
+    const tbody = document.getElementById('recentTable');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Đang tải...</td></tr>';
+
+    const res = await api.get('/lich-kham?per_page=10');
+    if (res.status !== 'success' || !res.data?.data?.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Chưa có lịch nào</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = res.data.data.map((item, i) => {
+      const cls = statusBadgeClass(item.trang_thai);
+      return `
+        <tr>
+          <td>${i+1}</td>
+          <td>${item.benh_nhan?.ho_ten || '—'}</td>
+          <td>${item.bac_si?.ho_ten || '—'}</td>
+          <td>${item.ngay_kham || '—'}</td>
+          <td>${item.khung_gio?.gio_bat_dau?.slice(0,5) || '—'}</td>
+          <td><span class="badge ${cls}">${statusLabel(item.trang_thai)}</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function resetForm() {
+    document.getElementById('maBn').value = '';
+    document.getElementById('maChuyenKhoa').value = '';
+    document.getElementById('ngayKham').value = todayStr();
+    document.getElementById('maKhungGio').value = '';
+    document.getElementById('diemUuTien').value = '0';
+    document.getElementById('slotsInfo').innerHTML = '<p class="text-muted">Chọn chuyên khoa + ngày để xem khung giờ trống.</p>';
+  }
+</script>
+</body>
+</html>
