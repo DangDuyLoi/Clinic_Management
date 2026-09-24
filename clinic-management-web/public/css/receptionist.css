@@ -140,3 +140,27 @@
     background: #f8f9fa;
     letter-spacing: 0.5px;
 }
+/* Hiệu ứng pulse khi QR sắp reset */
+@keyframes qrAboutToReset {
+  0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3); }
+  50%      { transform: scale(1.02); box-shadow: 0 2px 20px rgba(220, 53, 69, 0.6); }
+}
+
+.qr-about-to-reset {
+  animation: qrAboutToReset 1s ease-in-out infinite;
+}
+
+/* Hiệu ứng khi QR vừa reset */
+@keyframes qrJustReset {
+  0%   { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.qr-just-reset {
+  animation: qrJustReset 0.4s ease;
+}
+
+/* Progress bar mượt */
+#qrProgressBar {
+  transition: width 1s linear, background 0.3s;
+}
