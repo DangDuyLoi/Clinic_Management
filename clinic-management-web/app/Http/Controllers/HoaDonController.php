@@ -21,7 +21,17 @@ class HoaDonController extends Controller
             $query->where('trang_thai', $tt);
         }
 
-        if ($ngay = $request->query('ngay')) {
+        $trangThai = $request->query('trang_thai');
+        $ngay = $request->query('ngay');
+
+        if ($ngay && $trangThai) {
+            // Có cả status + ngày → filter theo cả 2
+            $query->whereDate('ngay_tao', $ngay);
+        } elseif ($trangThai) {
+            // Chỉ có status → filter theo status
+            $query->where('trang_thai', $trangThai);
+        } elseif ($ngay) {
+            // Chỉ có ngày → filter theo ngày
             $query->whereDate('ngay_tao', $ngay);
         }
 
@@ -106,49 +116,68 @@ class HoaDonController extends Controller
        Xác nhận thanh toán
        Body: { phuong_thuc: TienMat|Momo|VNPay|ChuyenKhoan }
        ============================================================ */
-    public function pay(Request $request, $id)
-    {
-        $request->validate([
-            'phuong_thuc' => 'required|in:TienMat,Momo,VNPay,ChuyenKhoan',
-        ], [
-            'phuong_thuc.required' => 'Vui lòng chọn phương thức thanh toán',
-            'phuong_thuc.in'       => 'Phương thức không hợp lệ',
-        ]);
+public function pay(Request $request, $id)
+{
+    $request->validate([
+        'phuong_thuc' => 'required|in:TienMat,Momo,VNPay,ChuyenKhoan',
+    ]);
 
-        $hd = HoaDon::find($id);
+    $hd = HoaDon::with('phienKham.lichKham')->find($id);
 
-        if (!$hd) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Không tìm thấy hóa đơn',
-            ], 404);
-        }
+    if (!$hd) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Không tìm thấy hóa đơn',
+        ], 404);
+    }
 
-        if ($hd->trang_thai === 'DaThanhToan') {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Hóa đơn đã được thanh toán',
-            ], 400);
-        }
+    if ($hd->trang_thai === 'DaThanhToan') {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Hóa đơn đã được thanh toán',
+        ], 400);
+    }
 
-        if ($hd->trang_thai === 'DaHuy') {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Hóa đơn đã bị hủy',
-            ], 400);
-        }
+    if ($hd->trang_thai === 'DaHuy') {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Hóa đơn đã bị hủy',
+        ], 400);
+    }
 
-        $hd->trang_thai      = 'DaThanhToan';
-        $hd->phuong_thuc     = $request->phuong_thuc;
-        $hd->ngay_thanh_toan = now();
-        $hd->save();
+    try {
+        DB::transaction(function () use ($hd, $request) {
+            // 1. Cập nhật hóa đơn
+            $hd->trang_thai      = 'DaThanhToan';
+            $hd->phuong_thuc     = $request->phuong_thuc;
+            $hd->ngay_thanh_toan = now();
+            $hd->save();
+
+            // 2. Cập nhật phiên khám → Hoàn thành
+            if ($hd->phienKham) {
+                $hd->phienKham->trang_thai = 'HoanThanh';
+                $hd->phienKham->save();
+
+                // 3. Cập nhật lịch khám → Hoàn thành (giờ mới xong)
+                if ($hd->phienKham->lichKham) {
+                    $hd->phienKham->lichKham->trang_thai = 'HoanThanh';
+                    $hd->phienKham->lichKham->save();
+                }
+            }
+        });
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Xác nhận thanh toán thành công',
-            'data'    => $hd,
+            'data'    => $hd->fresh(),
         ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Lỗi: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     /* ============================================================
        PUT /api/hoa-don/{id}/cancel

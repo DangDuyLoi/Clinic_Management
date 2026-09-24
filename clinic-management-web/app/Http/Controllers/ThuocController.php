@@ -7,10 +7,10 @@ use Illuminate\Http\Request;
 
 class ThuocController extends Controller
 {
-    /**
-     * GET /api/thuoc
-     * Query: ?q=search
-     */
+    /* ============================================================
+       GET /api/thuoc
+       Query: ?q=search
+       ============================================================ */
     public function index(Request $request)
     {
         $query = Thuoc::query();
@@ -25,6 +25,9 @@ class ThuocController extends Controller
         ]);
     }
 
+    /* ============================================================
+       POST /api/thuoc
+       ============================================================ */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -32,6 +35,10 @@ class ThuocController extends Controller
             'don_vi_tinh'  => 'nullable|string|max:50',
             'don_gia'      => 'required|numeric|min:0',
             'so_luong_ton' => 'nullable|integer|min:0',
+        ], [
+            'ten_thuoc.required' => 'Vui lòng nhập tên thuốc',
+            'ten_thuoc.unique'   => 'Tên thuốc đã tồn tại',
+            'don_gia.required'   => 'Vui lòng nhập đơn giá',
         ]);
 
         $t = Thuoc::create($data);
@@ -43,20 +50,35 @@ class ThuocController extends Controller
         ], 201);
     }
 
+    /* ============================================================
+       GET /api/thuoc/{id}
+       ============================================================ */
     public function show($id)
     {
         $t = Thuoc::find($id);
         if (!$t) {
-            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy thuốc'], 404);
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy thuốc',
+            ], 404);
         }
-        return response()->json(['status' => 'success', 'data' => $t]);
+        return response()->json([
+            'status' => 'success',
+            'data'   => $t,
+        ]);
     }
 
+    /* ============================================================
+       PUT /api/thuoc/{id}
+       ============================================================ */
     public function update(Request $request, $id)
     {
         $t = Thuoc::find($id);
         if (!$t) {
-            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy thuốc'], 404);
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy thuốc',
+            ], 404);
         }
 
         $data = $request->validate([
@@ -75,12 +97,30 @@ class ThuocController extends Controller
         ]);
     }
 
+    /* ============================================================
+       DELETE /api/thuoc/{id}
+       Chặn xóa nếu thuốc đã dùng trong đơn thuốc
+       ============================================================ */
     public function destroy($id)
     {
         $t = Thuoc::find($id);
         if (!$t) {
-            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy thuốc'], 404);
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy thuốc',
+            ], 404);
         }
+
+        // Chặn xóa nếu thuốc đã dùng trong đơn thuốc
+        $usedCount = \App\Models\ChiTietDonThuoc::where('ma_thuoc', $id)->count();
+        if ($usedCount > 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Không thể xóa. Thuốc đã được dùng trong {$usedCount} đơn thuốc. " .
+                             "Nếu muốn ngừng sử dụng, hãy đặt tồn kho về 0.",
+            ], 400);
+        }
+
         $t->delete();
 
         return response()->json([

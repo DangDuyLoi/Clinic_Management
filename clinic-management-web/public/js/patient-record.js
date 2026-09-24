@@ -176,10 +176,36 @@ function addMedicine() {
   const thuoc = dsThuoc.find(t => t.ma_thuoc == maThuoc);
   if (!thuoc) return;
 
-  const soLuong = parseInt(prompt('Số lượng:', '10'));
+  // ⭐ Cảnh báo nếu thuốc sắp hết
+  const soLuongDaKe = dsChiTietDonThuoc
+    .filter(ct => ct.ma_thuoc == maThuoc)
+    .reduce((s, ct) => s + ct.so_luong, 0);
+
+  const conLai = thuoc.so_luong_ton - soLuongDaKe;
+
+  if (thuoc.so_luong_ton <= 0) {
+    return api.toast(`Thuốc "${thuoc.ten_thuoc}" đã hết hàng`, 'error');
+  }
+
+  const soLuong = parseInt(prompt(
+    `Số lượng (tồn kho còn: ${conLai}):`,
+    '10'
+  ));
+
   if (!soLuong || soLuong < 1) return;
 
-  const lieuLuong = prompt('Liều lượng (VD: Ngày uống 2 lần, mỗi lần 1 viên):', 'Ngày uống 1 viên sau ăn');
+  // ⭐ Chặn nếu vượt tồn kho
+  if (soLuongDaKe + soLuong > thuoc.so_luong_ton) {
+    return api.toast(
+      `Không đủ tồn kho. Chỉ còn ${conLai} ${thuoc.don_vi_tinh || 'đơn vị'}`,
+      'error'
+    );
+  }
+
+  const lieuLuong = prompt(
+    'Liều lượng (VD: Ngày uống 2 lần, mỗi lần 1 viên):',
+    'Ngày uống 1 viên sau ăn'
+  );
   if (!lieuLuong) return;
 
   // Nếu thuốc đã có trong đơn → cộng số lượng
@@ -192,6 +218,7 @@ function addMedicine() {
     dsChiTietDonThuoc.push({
       ma_thuoc: thuoc.ma_thuoc,
       ten_thuoc: thuoc.ten_thuoc,
+      don_vi_tinh: thuoc.don_vi_tinh,
       so_luong: soLuong,
       lieu_luong: lieuLuong,
       thanh_tien: soLuong * parseFloat(thuoc.don_gia),
@@ -226,7 +253,9 @@ async function saveDiagnosis() {
 
 /* ---------- LƯU ĐƠN THUỐC ---------- */
 async function savePrescription() {
-  if (!dsChiTietDonThuoc.length) return api.toast('Chưa có thuốc nào', 'error');
+  if (!dsChiTietDonThuoc.length) {
+    return api.toast('Chưa có thuốc nào', 'error');
+  }
 
   const payload = {
     ma_phien_kham: maPhienKham,
@@ -240,7 +269,25 @@ async function savePrescription() {
   const res = await api.post('/don-thuoc', payload);
 
   if (res.status === 'success') {
-    api.toast('💊 Đã lưu đơn thuốc', 'success');
+    api.toast('💊 Đã lưu đơn thuốc và trừ kho', 'success');
+
+    // ⭐ RELOAD danh mục thuốc (để cập nhật tồn kho mới)
+    const thuocRes = await api.get('/thuoc');
+    if (thuocRes.status === 'success') {
+      dsThuoc = thuocRes.data;
+      document.getElementById('chonThuoc').innerHTML =
+        '<option value="">-- Chọn thuốc --</option>' +
+        dsThuoc.map(t => {
+          const disabled = t.so_luong_ton <= 0 ? 'disabled' : '';
+          const stockText = t.so_luong_ton <= 0
+            ? ' [HẾT HÀNG]'
+            : t.so_luong_ton <= 10
+              ? ` [còn ${t.so_luong_ton}]`
+              : '';
+          return `<option value="${t.ma_thuoc}" ${disabled}>${t.ten_thuoc} — ${api.formatMoney(t.don_gia)}/${t.don_vi_tinh || 'đv'}${stockText}</option>`;
+        }).join('');
+    }
+
     await loadRecord();
   } else {
     api.toast(res.message, 'error');

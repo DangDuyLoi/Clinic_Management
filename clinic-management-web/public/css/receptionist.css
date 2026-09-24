@@ -1,37 +1,142 @@
 /* ============================================================
-   RECEPTIONIST — Style riêng cho Lễ tân
+   RECEPTIONIST — Màu nhấn xanh dương
    ============================================================ */
 
-/* Sidebar accent màu xanh dương (mặc định) */
-.sidebar nav a.active {
-  background: var(--primary);
-  border-left-color: var(--primary-dark);
+:root {
+  --accent: #1b6ec2;
+  --accent-dark: #155a9f;
+  --accent-soft: #e7f0fa;
+  --accent-on-dark: #8fc0ee;
 }
 
-/* Card header custom */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f3f5;
-}
-
-.card-header h3 {
-  margin: 0;
-  padding: 0;
-  border: none;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-/* Responsive table */
 @media (max-width: 768px) {
   .card-header {
     flex-direction: column;
     align-items: stretch;
   }
+}
+.suggestion-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+    transition: background 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover,
+.suggestion-item.highlighted {
+    background: #e7f1ff;
+}
+
+.suggestion-item .info {
+    flex: 1;
+    min-width: 0;
+}
+
+.suggestion-item .name {
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 2px;
+}
+
+.suggestion-item .name mark {
+    background: #fff3cd;
+    color: #856404;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.suggestion-item .meta {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.suggestion-item .badge-code {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: #e2e3e5;
+    color: #41464b;
+    border-radius: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ---------- Trạng thái trống ---------- */
+.suggestion-empty {
+    padding: 16px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.suggestion-empty .btn-add-new {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 6px 14px;
+    background: #0d6efd;
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.suggestion-empty .btn-add-new:hover {
+    background: #0a58ca;
+    color: #fff;
+}
+
+/* ---------- Loading ---------- */
+.suggestion-loading {
+    padding: 12px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 13px;
+}
+
+/* ---------- Chip bệnh nhân đã chọn ---------- */
+.selected-patient-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.selected-patient-card .patient-info strong {
+    display: block;
+    color: #0f5132;
+    margin-bottom: 2px;
+}
+
+.selected-patient-card .patient-info small {
+    color: #198754;
+    font-size: 12px;
+}
+
+.selected-patient-card .patient-info small + small {
+    margin-left: 8px;
+}
+
+/* ---------- Input đã chọn → disabled ---------- */
+#patientSearch:disabled {
+    background: #f8f9fa;
+    color: #495057;
+    cursor: not-allowed;
+}
+
+/* ---------- Header "Bệnh nhân gần đây" (bonus) ---------- */
+.suggestion-header {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: #f8f9fa;
+    letter-spacing: 0.5px;
 }

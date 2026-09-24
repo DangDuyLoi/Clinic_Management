@@ -39,6 +39,7 @@ function statusBadgeClass(status) {
     'ChoDenKham': 'badge-wait',
     'ChoKham':    'badge-doing',
     'DangKham':   'badge-doing',
+    'ChoThanhToan': 'badge-info',
     'HoanThanh':  'badge-done',
     'DaHuy':      'badge-cancel',
   }[status] || 'badge-wait';
@@ -50,6 +51,7 @@ function statusLabel(status) {
     'ChoDenKham': 'Chờ đến khám',
     'ChoKham':    'Chờ khám',
     'DangKham':   'Đang khám',
+    'ChoThanhToan': 'Chờ thanh toán',
     'HoanThanh':  'Hoàn thành',
     'DaHuy':      'Đã hủy',
   }[status] || status;

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -9,14 +9,15 @@
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <h2>⚙️ Quản trị</h2>
+    <h2>Quản trị</h2>
     <nav>
-      <a href="dashboard.html" class="active">📊 Dashboard</a>
-      <a href="users.html">👥 Tài khoản</a>
-      <a href="doctors.html">👨‍⚕️ Bác sĩ</a>
-      <a href="specialties.html">🏥 Chuyên khoa</a>
-      <a href="services.html">💉 Dịch vụ</a>
-      <a href="audit-log.html">📜 Nhật ký</a>
+      <a href="dashboard.html" class="active">Dashboard</a>
+      <a href="users.html">Tài khoản</a>
+      <a href="doctors.html">Bác sĩ</a>
+      <a href="specialties.html">Chuyên khoa</a>
+      <a href="services.html">Dịch vụ</a>
+      <a href="medicines.html">Thuốc</a>
+      <a href="audit-log.html">Nhật ký</a>
     </nav>
   </aside>
 
@@ -48,7 +49,7 @@
 
     <!-- Hôm nay -->
     <div class="card">
-      <h3>📅 Hôm nay</h3>
+      <h3>Hôm nay</h3>
       <div class="grid grid-4">
         <div class="stat-card" style="border-left:4px solid #0d6efd">
           <div class="value" id="apptToday">—</div>
@@ -72,7 +73,7 @@
     <!-- Top bác sĩ -->
     <div class="grid grid-2">
       <div class="card">
-        <h3>🏆 Top bác sĩ (số lịch khám)</h3>
+        <h3>Top bác sĩ (số lịch khám)</h3>
         <table>
           <thead><tr><th>#</th><th>Bác sĩ</th><th>Số lịch</th></tr></thead>
           <tbody id="topDoctors"></tbody>
@@ -80,7 +81,7 @@
       </div>
 
       <div class="card">
-        <h3>🏥 Chuyên khoa & số bác sĩ</h3>
+        <h3>Chuyên khoa & số bác sĩ</h3>
         <table>
           <thead><tr><th>Chuyên khoa</th><th>Số BS</th></tr></thead>
           <tbody id="topSpecialties"></tbody>
@@ -90,7 +91,7 @@
 
     <!-- Doanh thu 7 ngày -->
     <div class="card">
-      <h3>💰 Doanh thu 7 ngày gần nhất</h3>
+      <h3>Doanh thu 7 ngày gần nhất</h3>
       <table>
         <thead>
           <tr><th>Ngày</th><th>Số hóa đơn</th><th>Doanh thu</th></tr>

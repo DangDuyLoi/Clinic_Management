@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -9,17 +9,18 @@
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <h2>🩺 Bác sĩ</h2>
+    <h2>Bác sĩ</h2>
     <nav>
-      <a href="dashboard.html">📊 Dashboard</a>
-      <a href="schedule.html">📅 Lịch làm việc</a>
-      <a href="patient-record.html" class="active">📝 Phiên khám</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="schedule.html">Lịch làm việc</a>
+      <a href="patient-record.html" class="active">Phiên khám</a>
+      <a href="medicines.html">Danh mục thuốc</a>
     </nav>
   </aside>
 
   <main class="main">
     <div class="header-bar">
-      <h1>📝 Phiên khám bệnh</h1>
+      <h1>Phiên khám bệnh</h1>
       <div class="user-info"></div>
     </div>
 
@@ -32,13 +33,13 @@
 
       <!-- Thông tin bệnh nhân -->
       <div class="card">
-        <h3>👤 Thông tin bệnh nhân</h3>
+        <h3>Thông tin bệnh nhân</h3>
         <div class="grid grid-3" id="patientInfo"></div>
       </div>
 
       <!-- Chẩn đoán -->
       <div class="card">
-        <h3>🩺 Chẩn đoán</h3>
+        <h3>Chẩn đoán</h3>
         <div class="form-group">
           <label>Chẩn đoán sơ bộ</label>
           <textarea id="chanDoanSoBo" rows="2" placeholder="Nhập chẩn đoán sơ bộ..."></textarea>
@@ -51,12 +52,12 @@
           <label>Ghi chú y tế</label>
           <textarea id="ghiChuYTe" rows="2" placeholder="Ghi chú thêm..."></textarea>
         </div>
-        <button class="btn btn-primary" onclick="saveDiagnosis()">💾 Lưu chẩn đoán</button>
+        <button class="btn btn-primary" onclick="saveDiagnosis()">Lưu chẩn đoán</button>
       </div>
 
       <!-- Chỉ định dịch vụ -->
       <div class="card">
-        <h3>🧪 Chỉ định dịch vụ cận lâm sàng</h3>
+        <h3>Chỉ định dịch vụ cận lâm sàng</h3>
         <div class="form-inline mb-2">
           <select id="chonDichVu" style="flex:1;padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
             <option value="">-- Chọn dịch vụ --</option>
@@ -73,7 +74,7 @@
 
       <!-- Kê đơn thuốc -->
       <div class="card">
-        <h3>💊 Đơn thuốc</h3>
+        <h3>Đơn thuốc</h3>
         <div class="form-inline mb-2">
           <select id="chonThuoc" style="flex:1;padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
             <option value="">-- Chọn thuốc --</option>
@@ -89,13 +90,13 @@
         <p class="text-right mt-2" style="text-align:right">
           <b>Tổng tiền thuốc: <span id="tongTienThuoc" style="color:#0d6efd;font-size:18px">0đ</span></b>
         </p>
-        <button class="btn btn-primary" onclick="savePrescription()">💾 Lưu đơn thuốc</button>
+        <button class="btn btn-primary" onclick="savePrescription()">Lưu</button>
       </div>
 
       <!-- Hành động cuối -->
       <div class="card d-flex flex-between align-center">
         <a href="dashboard.html" class="btn btn-outline">← Về Dashboard</a>
-        <button class="btn btn-success btn-lg" onclick="finishExam()">✅ Hoàn thành phiên khám</button>
+        <button class="btn btn-success btn-lg" onclick="finishExam()">Hoàn thành phiên khám</button>
       </div>
 
     </div>
