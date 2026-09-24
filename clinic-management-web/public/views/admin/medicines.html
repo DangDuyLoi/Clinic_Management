@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý thuốc — Admin</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="layout">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <h2>⚙️ Quản trị</h2>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="users.html">Tài khoản</a>
+      <a href="doctors.html">Bác sĩ</a>
+      <a href="specialties.html">Chuyên khoa</a>
+      <a href="services.html">Dịch vụ</a>
+      <a href="medicines.html" class="active">Thuốc</a>
+      <a href="audit-log.html">Nhật ký</a>
+    </nav>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="header-bar">
+      <h1>Quản lý danh mục thuốc</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <!-- Thống kê -->
+    <div class="grid grid-3 mb-2">
+      <div class="card stat-card">
+        <div class="value" id="totalMedicines">—</div>
+        <div class="label">Tổng số thuốc</div>
+      </div>
+      <div class="card stat-card success">
+        <div class="value" id="inStockCount">—</div>
+        <div class="label">Còn hàng (&gt;10)</div>
+      </div>
+      <div class="card stat-card danger">
+        <div class="value" id="lowStockCount">—</div>
+        <div class="label">Sắp hết (≤10)</div>
+      </div>
+    </div>
+
+    <!-- Bảng danh mục thuốc -->
+    <div class="card">
+      <div class="card-header">
+        <div class="d-flex gap-1 align-center" style="flex:1">
+          <input type="text" id="searchInput" placeholder="🔍 Tìm theo tên thuốc..."
+                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;flex:1;max-width:350px">
+          <select id="filterStock" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
+            <option value="">Tất cả tồn kho</option>
+            <option value="in_stock">Còn hàng</option>
+            <option value="low_stock">Sắp hết</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="openMedicineModal()">
+          + Thêm thuốc
+        </button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Tên thuốc</th>
+            <th>Đơn vị</th>
+            <th>Đơn giá</th>
+            <th>Tồn kho</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="medicineTable">
+          <tr>
+            <td colspan="6" class="text-center text-muted" style="padding:32px">
+              Đang tải...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ============ MODAL THÊM/SỬA ============ -->
+<div id="medicineModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3 id="modalTitle">Thêm thuốc mới</h3>
+      <button class="modal-close" onclick="closeMedicineModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_ma_thuoc">
+
+      <div class="form-group">
+        <label>Tên thuốc <span class="required">*</span></label>
+        <input type="text" id="f_ten_thuoc"
+               placeholder="VD: Amlodipine 5mg">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Đơn vị tính</label>
+          <select id="f_don_vi_tinh">
+            <option value="">-- Chọn --</option>
+            <option value="Viên">Viên</option>
+            <option value="Vỉ">Vỉ</option>
+            <option value="Hộp">Hộp</option>
+            <option value="Chai">Chai</option>
+            <option value="Ống">Ống</option>
+            <option value="Gói">Gói</option>
+            <option value="ml">ml</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Đơn giá (VNĐ) <span class="required">*</span></label>
+          <input type="number" id="f_don_gia" min="0" step="100"
+                 placeholder="2000">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Số lượng tồn kho</label>
+        <input type="number" id="f_so_luong_ton" min="0" value="0">
+        <span class="form-hint">Số lượng hiện có trong kho</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeMedicineModal()">Hủy</button>
+      <button class="btn btn-primary" id="btnSave" onclick="saveMedicine()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/admin-medicines.js"></script>
+</body>
+</html>

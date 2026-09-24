@@ -9,19 +9,19 @@
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <h2>🏥 Phòng Khám</h2>
+    <h2>Phòng Khám</h2>
     <nav>
-      <a href="dashboard.html">📊 Dashboard</a>
-      <a href="checkin.html">✅ Check-in bệnh nhân</a>
-      <a href="appointment.html">📅 Đặt lịch khám</a>
-      <a href="patients.html">👥 Hồ sơ bệnh nhân</a>
-      <a href="payments.html" class="active">💰 Thanh toán</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="checkin.html">Check-in bệnh nhân</a>
+      <a href="appointment.html">Đặt lịch khám</a>
+      <a href="patients.html">Hồ sơ bệnh nhân</a>
+      <a href="payments.html" class="active">Thanh toán</a>
     </nav>
   </aside>
 
   <main class="main">
     <div class="header-bar">
-      <h1>💰 Quản lý thanh toán</h1>
+      <h1>Quản lý thanh toán</h1>
       <div class="user-info"></div>
     </div>
 
@@ -44,7 +44,7 @@
     <!-- Danh sách hóa đơn -->
     <div class="card">
       <div class="card-header">
-        <h3>📋 Danh sách hóa đơn</h3>
+        <h3>Danh sách hóa đơn</h3>
         <div class="d-flex gap-1">
           <select id="filterStatus" style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
             <option value="">Tất cả</option>
@@ -78,30 +78,82 @@
   </main>
 </div>
 
-<!-- Modal Thanh toán -->
+<!-- ============ MODAL THANH TOÁN ============ -->
 <div id="payModal" class="modal-overlay hidden">
-  <div class="modal" style="max-width:480px">
+  <div class="modal" style="max-width:560px">
     <div class="modal-header">
       <h3>💳 Xác nhận thanh toán</h3>
       <button class="modal-close" onclick="closePayModal()">×</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="pay_hoa_don_id">
+
+      <!-- Thông tin hóa đơn -->
       <div id="payInfo" class="mb-2"></div>
 
+      <!-- Chọn phương thức -->
       <div class="form-group">
         <label>Phương thức thanh toán <span class="required">*</span></label>
-        <select id="pay_phuong_thuc">
+        <select id="pay_phuong_thuc" onchange="onPaymentMethodChange()">
           <option value="TienMat">💵 Tiền mặt</option>
           <option value="Momo">📱 Momo</option>
           <option value="VNPay">💳 VNPay</option>
           <option value="ChuyenKhoan">🏦 Chuyển khoản</option>
         </select>
       </div>
+
+      <!-- ============ VÙNG QR VNPAY ============ -->
+      <div id="vnpayQRSection" style="display:none;margin-top:16px">
+        <div style="background:#e7f1ff;border:1px solid #0d6efd;border-radius:8px;padding:16px;text-align:center">
+
+          <div style="font-size:13px;font-weight:600;color:#0a58ca;margin-bottom:12px">
+            📱 Quét mã QR để thanh toán qua VNPay
+          </div>
+
+          <!-- QR Code -->
+          <div style="display:inline-block;padding:12px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+            <img id="vnpayQRImage"
+                 src=""
+                 alt="QR Code VNPay"
+                 style="width:220px;height:220px;display:block">
+          </div>
+
+          <!-- Thông tin chuyển khoản -->
+          <div style="margin-top:16px;background:#fff;padding:12px;border-radius:6px;text-align:left;font-size:13px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Ngân hàng:</span>
+              <b>VNPAY Sandbox</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Số hóa đơn:</span>
+              <b id="vnpayInvoiceCode">—</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Số tiền:</span>
+              <b id="vnpayAmount" style="color:#dc3545;font-size:15px">—</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Nội dung:</span>
+              <b id="vnpayContent">—</b>
+            </div>
+          </div>
+
+          <!-- Trạng thái chờ -->
+          <div style="margin-top:12px;font-size:12px;color:#6c757d">
+            <span class="spinner spinner-dark" style="width:12px;height:12px;border-width:2px"></span>
+            Đang chờ khách hàng quét mã...
+          </div>
+
+        </div>
+      </div>
+      <!-- ============ END VÙNG QR ============ -->
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closePayModal()">Hủy</button>
-      <button class="btn btn-success" onclick="confirmPay()">✓ Xác nhận thanh toán</button>
+      <button class="btn btn-success" id="btnConfirmPay" onclick="confirmPay()">
+        ✓ Xác nhận thanh toán
+      </button>
     </div>
   </div>
 </div>

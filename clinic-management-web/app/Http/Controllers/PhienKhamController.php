@@ -6,6 +6,7 @@ use App\Models\PhienKham;
 use App\Models\LichKham;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\HoaDon;
 
 class PhienKhamController extends Controller
 {
@@ -140,7 +141,11 @@ class PhienKhamController extends Controller
        ============================================================ */
     public function finish($id)
     {
-        $pk = PhienKham::with('lichKham')->find($id);
+        $pk = PhienKham::with([
+            'lichKham',
+            'chiDinh.dichVu',
+            'donThuoc.chiTiet',
+        ])->find($id);
 
         if (!$pk) {
             return response()->json([
@@ -149,21 +154,68 @@ class PhienKhamController extends Controller
             ], 404);
         }
 
+        // Chặn finish 2 lần
+        if ($pk->trang_thai === 'HoanThanh') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Phiên khám đã hoàn thành trước đó',
+            ], 400);
+        }
+
         try {
-            DB::transaction(function () use ($pk) {
-                $pk->trang_thai = 'HoanThanh';
+            $result = DB::transaction(function () use ($pk) {
+
+                // 1. Cập nhật trạng thái phiên khám
+                $pk->trang_thai = 'ChoThanhToan';
                 $pk->save();
 
+                // 2. Cập nhật trạng thái lịch khám
                 if ($pk->lichKham) {
-                    $pk->lichKham->trang_thai = 'HoanThanh';
+                    $pk->lichKham->trang_thai = 'ChoThanhToan';
                     $pk->lichKham->save();
                 }
+
+                // 3. Tính tiền
+                $tienKhamBenh = 100000; // Phí khám cố định
+
+                // Tiền dịch vụ = tổng đơn giá dịch vụ đã chỉ định
+                $tienDichVu = 0;
+                foreach ($pk->chiDinh as $cd) {
+                    if ($cd->dichVu) {
+                        $tienDichVu += (float) $cd->dichVu->don_gia;
+                    }
+                }
+
+                // Tiền thuốc = tổng tiền đơn thuốc
+                $tienThuoc = 0;
+                if ($pk->donThuoc) {
+                    $tienThuoc = (float) $pk->donThuoc->tong_tien;
+                }
+
+                $tongCong = $tienKhamBenh + $tienDichVu + $tienThuoc;
+
+                // 4. Tạo hóa đơn (nếu chưa có)
+                $hoaDon = HoaDon::firstOrCreate(
+                    ['ma_phien_kham' => $pk->ma_phien_kham],
+                    [
+                        'tien_kham_benh' => $tienKhamBenh,
+                        'tien_dich_vu'   => $tienDichVu,
+                        'tien_thuoc'     => $tienThuoc,
+                        'tong_cong'      => $tongCong,
+                        'trang_thai'     => 'ChuaThanhToan',
+                    ]
+                );
+
+                return $hoaDon;
             });
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Đã hoàn thành phiên khám',
-                'data'    => $pk->fresh(),
+                'message' => 'Đã hoàn thành khám. Vui lòng chờ lễ tân thanh toán.',
+                'data'    => [
+                    'phien_kham' => $pk->fresh(),
+                    'hoa_don'    => $result->load('phienKham.lichKham.benhNhan'),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([

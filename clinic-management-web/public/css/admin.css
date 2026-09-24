@@ -1,43 +1,21 @@
 /* ============================================================
-   ADMIN — Style riêng cho Quản trị viên
+   ADMIN — Màu nhấn indigo (tách khỏi đỏ để đỏ chỉ dùng cho lỗi/xóa)
    ============================================================ */
 
-/* Sidebar accent đỏ đậm */
-.sidebar nav a.active {
-  background: #dc3545;
-  border-left-color: #bb2d3b;
+:root {
+  --accent: #4b4fa8;
+  --accent-dark: #3a3d8a;
+  --accent-soft: #ececf9;
+  --accent-on-dark: #a9acf0;
 }
 
-/* Card header */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f3f5;
-}
-
-.card-header h3 {
-  margin: 0;
-  padding: 0;
-  border: none;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-/* Stat card không có border-left mặc định */
-.card.stat-card {
-  border-left: none;
-}
-
-/* Log row */
+/* Nhật ký hệ thống: khối JSON */
 .log-row pre {
-  background: #f8f9fa;
-  padding: 8px;
-  border-radius: 4px;
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 6px;
+  font-family: Consolas, Monaco, monospace;
   font-size: 12px;
   max-height: 120px;
   overflow: auto;
