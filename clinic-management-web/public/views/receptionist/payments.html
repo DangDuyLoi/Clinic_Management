@@ -78,7 +78,9 @@
   </main>
 </div>
 
-<!-- ============ MODAL THANH TOÁN ============ -->
+<!-- ============================================================
+     MODAL THANH TOÁN
+     ============================================================ -->
 <div id="payModal" class="modal-overlay hidden">
   <div class="modal" style="max-width:560px">
     <div class="modal-header">
@@ -102,12 +104,14 @@
         </select>
       </div>
 
-      <!-- ============ VÙNG QR VNPAY ============ -->
+      <!-- ============================================================
+           VÙNG QR VNPAY
+           ============================================================ -->
       <div id="vnpayQRSection" style="display:none;margin-top:16px">
         <div style="background:#e7f1ff;border:1px solid #0d6efd;border-radius:8px;padding:16px;text-align:center">
 
           <div style="font-size:13px;font-weight:600;color:#0a58ca;margin-bottom:12px">
-            📱 Quét mã QR để thanh toán qua VNPay
+            💳 Quét mã QR để thanh toán qua VNPay
           </div>
 
           <!-- QR Code -->
@@ -138,17 +142,15 @@
             </div>
           </div>
 
-          <!-- Trạng thái chờ -->
-                    <!-- Countdown timer -->
-          <div id="qrCountdownBox"
-              style="margin-top:12px;padding:10px;background:#fff;border-radius:6px">
+          <!-- Countdown timer -->
+          <div style="margin-top:12px;padding:10px;background:#fff;border-radius:6px">
             <div style="font-size:13px;color:#0d6efd;font-weight:600">
               ⏱️ Mã QR sẽ tự động làm mới sau:
-              <span id="qrCountdown" style="font-size:18px;color:#dc3545">5:00</span>
+              <span id="vnpayCountdown" style="font-size:18px;color:#dc3545">5:00</span>
             </div>
             <div style="height:4px;background:#e9ecef;border-radius:2px;margin-top:8px;overflow:hidden">
-              <div id="qrProgressBar"
-                  style="height:100%;background:#0d6efd;width:100%;transition:width 1s linear"></div>
+              <div id="vnpayProgressBar"
+                   style="height:100%;background:#0d6efd;width:100%;transition:width 1s linear"></div>
             </div>
           </div>
 
@@ -161,14 +163,82 @@
           <!-- Nút làm mới QR thủ công -->
           <button type="button"
                   class="btn btn-outline btn-sm"
-                  onclick="refreshVNPayQR(true)"
+                  onclick="refreshPaymentQR(true)"
                   style="margin-top:8px;font-size:12px">
             🔄 Làm mới QR ngay
           </button>
 
         </div>
       </div>
-      <!-- ============ END VÙNG QR ============ -->
+      <!-- ============ END VÙNG QR VNPAY ============ -->
+
+      <!-- ============================================================
+           VÙNG QR MOMO
+           ============================================================ -->
+      <div id="momoQRSection" style="display:none;margin-top:16px">
+        <div style="background:#FCE4EC;border:1px solid #A50064;border-radius:8px;padding:16px;text-align:center">
+
+          <div style="font-size:13px;font-weight:600;color:#A50064;margin-bottom:12px">
+            📱 Quét mã QR để thanh toán qua Momo
+          </div>
+
+          <!-- QR Code -->
+          <div style="display:inline-block;padding:12px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(165,0,100,.15)">
+            <img id="momoQRImage"
+                 src=""
+                 alt="QR Code Momo"
+                 style="width:220px;height:220px;display:block">
+          </div>
+
+          <!-- Thông tin chuyển khoản -->
+          <div style="margin-top:16px;background:#fff;padding:12px;border-radius:6px;text-align:left;font-size:13px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Ví điện tử:</span>
+              <b>Momo Sandbox</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Số hóa đơn:</span>
+              <b id="momoInvoiceCode">—</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Số tiền:</span>
+              <b id="momoAmount" style="color:#dc3545;font-size:15px">—</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0">
+              <span style="color:#6c757d">Nội dung:</span>
+              <b id="momoContent">—</b>
+            </div>
+          </div>
+
+          <!-- Countdown timer -->
+          <div style="margin-top:12px;padding:10px;background:#fff;border-radius:6px">
+            <div style="font-size:13px;color:#A50064;font-weight:600">
+              Mã QR sẽ tự động làm mới sau:
+              <span id="momoCountdown" style="font-size:18px;color:#dc3545">5:00</span>
+            </div>
+            <div style="height:4px;background:#e9ecef;border-radius:2px;margin-top:8px;overflow:hidden">
+              <div id="momoProgressBar"
+                   style="height:100%;background:#A50064;width:100%;transition:width 1s linear"></div>
+            </div>
+          </div>
+
+          <!-- Trạng thái chờ -->
+          <div style="margin-top:12px;font-size:12px;color:#6c757d">
+            <span class="spinner spinner-dark" style="width:12px;height:12px;border-width:2px"></span>
+            Đang chờ khách hàng quét mã...
+          </div>
+
+          <!-- Nút làm mới QR thủ công -->
+          <button type="button"
+                  class="btn btn-outline btn-sm"
+                  onclick="refreshPaymentQR(true)"
+                  style="margin-top:8px;font-size:12px">
+            🔄 Làm mới QR ngay
+          </button>
+
+        </div>
+      </div>
+      <!-- ============ END VÙNG QR MOMO ============ -->
 
     </div>
     <div class="modal-footer">

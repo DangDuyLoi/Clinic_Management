@@ -36,7 +36,7 @@ class TaiKhoanController extends Controller
         $perPage = (int) $request->query('per_page', 15);
         $perPage = max(1, min($perPage, 100)); // Giới hạn 1-100
 
-        $users = $query->orderBy('ma_tk', 'desc')->paginate($perPage);
+        $users = $query->orderBy('ma_tk', 'asc')->paginate($perPage);
 
         return response()->json([
             'status' => 'success',
