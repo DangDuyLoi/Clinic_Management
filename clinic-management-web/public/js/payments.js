@@ -449,3 +449,40 @@ function updateQRCountdownUI() {
     }
   }
 }
+
+/* ============================================================
+   REALTIME POLLING cho Thanh toán — Cập nhật mỗi 20s
+   ============================================================ */
+let paymentsRealtimeInterval = null;
+
+function startPaymentsPolling() {
+  if (paymentsRealtimeInterval) clearInterval(paymentsRealtimeInterval);
+
+  paymentsRealtimeInterval = setInterval(async () => {
+    if (document.hidden) return;
+    if (!document.getElementById('payModal').classList.contains('hidden')) return;
+
+    try {
+      if (document.getElementById('invoiceTable')) {
+        await loadInvoices();
+        await loadStats();
+        console.log('🔄 [Payments auto-refresh]', new Date().toLocaleTimeString('vi-VN'));
+      }
+    } catch (e) {
+      console.warn('Payments polling lỗi:', e);
+    }
+  }, 20000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(startPaymentsPolling, 3000);
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && document.getElementById('invoiceTable')) {
+    if (document.getElementById('payModal').classList.contains('hidden')) {
+      loadInvoices();
+      loadStats();
+    }
+  }
+});

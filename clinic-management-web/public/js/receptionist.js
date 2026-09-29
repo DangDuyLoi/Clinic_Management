@@ -59,6 +59,7 @@ function statusLabel(status) {
 
 /* ---------- DASHBOARD STATS ---------- */
 async function loadDashboard() {
+  if (!document.getElementById('totalToday')) return; 
   const date = document.getElementById('filterDate')?.value || todayStr();
 
   const res = await api.get(`/lich-kham?ngay=${date}&per_page=100`);
@@ -75,17 +76,24 @@ async function loadDashboard() {
   const done      = data.filter(l => l.trang_thai === 'HoanThanh').length;
   const cancelled = data.filter(l => l.trang_thai === 'DaHuy').length;
 
-  document.getElementById('totalToday').textContent     = total;
-  document.getElementById('waitingCount').textContent   = waiting;
-  document.getElementById('doneCount').textContent      = done;
-  document.getElementById('cancelledCount').textContent = cancelled;
+  const totalEl   = document.getElementById('totalToday');
+  const waitEl    = document.getElementById('waitingCount');
+  const doneEl    = document.getElementById('doneCount');
+  const cancelEl  = document.getElementById('cancelledCount');
+
+  if (totalEl)  totalEl.textContent  = total;
+  if (waitEl)   waitEl.textContent   = waiting;
+  if (doneEl)   doneEl.textContent   = done;
+  if (cancelEl) cancelEl.textContent = cancelled;
 }
 
 /* ---------- DANH SÁCH LỊCH KHÁM ---------- */
 async function loadAppointments() {
+  const tbody = document.getElementById('appointmentTable');
+  if (!tbody) return;
+
   const date   = document.getElementById('filterDate')?.value || todayStr();
   const status = document.getElementById('filterStatus')?.value || '';
-  const tbody  = document.getElementById('appointmentTable');
 
   tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
 
@@ -141,7 +149,6 @@ async function loadAppointments() {
     `;
   }).join('');
 }
-
 /* ---------- CHECK-IN ---------- */
 async function checkIn(id) {
   if (!confirm('Xác nhận check-in bệnh nhân này?')) return;
@@ -172,3 +179,47 @@ async function cancelAppt(id) {
     api.toast(res.message || 'Hủy lịch thất bại', 'error');
   }
 }
+
+/* ============================================================
+   REALTIME POLLING — Tự động cập nhật mỗi 15 giây
+   ============================================================ */
+let realtimeInterval = null;
+
+function startRealtimePolling() {
+  if (realtimeInterval) clearInterval(realtimeInterval);
+
+  realtimeInterval = setInterval(async () => {
+    if (document.hidden) return;
+
+    try {
+      if (document.getElementById('appointmentTable')) {
+        await loadDashboard();
+        await loadAppointments();
+        console.log('🔄 [Dashboard auto-refresh]', new Date().toLocaleTimeString('vi-VN'));
+      } else if (document.getElementById('pendingTable')) {
+        await loadPendingList();
+        console.log('🔄 [Checkin auto-refresh]', new Date().toLocaleTimeString('vi-VN'));
+      }
+    } catch (e) {
+      console.warn('Auto-refresh lỗi:', e);
+    }
+  }, 15000);
+
+  console.log('✅ Đã bật auto-refresh mỗi 15s');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(startRealtimePolling, 3000);
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    console.log('👁 Tab active lại — reload ngay');
+    if (document.getElementById('appointmentTable')) {
+      loadDashboard();
+      loadAppointments();
+    } else if (document.getElementById('pendingTable')) {
+      loadPendingList();
+    }
+  }
+});
