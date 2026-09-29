@@ -14,6 +14,8 @@ use App\Http\Controllers\ThuocController;
 use App\Http\Controllers\DonThuocController;
 use App\Http\Controllers\NhatKyHeThongController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CaLamViecController;
+use App\Http\Controllers\KhungGioController;
 /* ============================================================
    PUBLIC ROUTES — Không cần đăng nhập
    ============================================================ */
@@ -163,6 +165,24 @@ Route::middleware('auth:api')->group(function () {
 
     Route::middleware('role:BacSi,QuanTri')->group(function () {
         Route::post('don-thuoc', [DonThuocController::class, 'store']);
+    });
+        /* ============================================================
+       CẤU HÌNH LỊCH KHÁM — CA + KHUNG GIỜ (chỉ Admin)
+       ============================================================ */
+    Route::middleware('role:QuanTri')->group(function () {
+        // Ca làm việc
+        Route::get('ca-lam-viec',      [CaLamViecController::class, 'index']);
+        Route::post('ca-lam-viec',     [CaLamViecController::class, 'store']);
+        Route::get('ca-lam-viec/{id}', [CaLamViecController::class, 'show']);
+        Route::put('ca-lam-viec/{id}', [CaLamViecController::class, 'update']);
+        Route::delete('ca-lam-viec/{id}', [CaLamViecController::class, 'destroy']);
+
+        // Khung giờ
+        Route::get('khung-gio',      [KhungGioController::class, 'index']);
+        Route::post('khung-gio',     [KhungGioController::class, 'store']);
+        Route::get('khung-gio/{id}', [KhungGioController::class, 'show']);
+        Route::put('khung-gio/{id}', [KhungGioController::class, 'update']);
+        Route::delete('khung-gio/{id}', [KhungGioController::class, 'destroy']);
     });
     /* ============================================================
        ============================================================ */

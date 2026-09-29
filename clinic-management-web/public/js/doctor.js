@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     dateInput.addEventListener('change', loadToday);
   }
 
-  loadToday();
+  if (document.getElementById('patientTable')) {
+    loadToday();
+  }
 });
 
 /* ---------- MAP MA_TK → MA_BS ---------- */
@@ -66,8 +68,9 @@ function statusLabel(status) {
 
 /* ---------- LOAD LỊCH HÔM NAY ---------- */
 async function loadToday() {
-  const date = document.getElementById('filterDate')?.value || todayStr();
   const tbody = document.getElementById('patientTable');
+  if (!tbody) return;
+  const date = document.getElementById('filterDate')?.value || todayStr();
   tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
 
   let url = `/lich-kham?ngay=${date}&per_page=100`;
@@ -123,3 +126,34 @@ async function loadToday() {
 function openRecord(maLich) {
   window.location.href = `patient-record.html?lich=${maLich}`;
 }
+
+/* ============================================================
+   REALTIME POLLING cho Bác sĩ — Cập nhật lịch làm việc mỗi 20s
+   ============================================================ */
+let doctorRealtimeInterval = null;
+
+function startDoctorPolling() {
+  if (doctorRealtimeInterval) clearInterval(doctorRealtimeInterval);
+
+  doctorRealtimeInterval = setInterval(async () => {
+    if (document.hidden) return;
+    try {
+      if (document.getElementById('patientTable')) {
+        await loadToday();
+        console.log('🔄 [Doctor auto-refresh]', new Date().toLocaleTimeString('vi-VN'));
+      }
+    } catch (e) {
+      console.warn('Doctor polling lỗi:', e);
+    }
+  }, 20000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(startDoctorPolling, 3000);
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && document.getElementById('patientTable')) {
+    loadToday();
+  }
+});
