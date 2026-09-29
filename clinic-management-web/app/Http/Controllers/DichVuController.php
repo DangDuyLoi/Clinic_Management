@@ -29,9 +29,9 @@ class DichVuController extends Controller
         }
 
         // Sắp xếp
-        $sortBy = $request->query('sort_by', 'ten_dich_vu');
+        $sortBy = $request->query('sort_by', 'ma_dich_vu');
         $sortDir = $request->query('sort_dir', 'asc');
-        $allowedSort = ['ten_dich_vu', 'don_gia'];
+        $allowedSort = ['ma_dich_vu', 'ten_dich_vu', 'don_gia'];
         if (in_array($sortBy, $allowedSort, true)) {
             $query->orderBy($sortBy, $sortDir === 'desc' ? 'desc' : 'asc');
         }

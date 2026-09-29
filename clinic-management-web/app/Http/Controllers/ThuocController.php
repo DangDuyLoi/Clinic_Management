@@ -21,7 +21,7 @@ class ThuocController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('ten_thuoc')->get(),
+            'data'   => $query->orderBy('ma_thuoc', 'asc')->get(),
         ]);
     }
 

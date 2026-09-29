@@ -21,7 +21,7 @@ class ChuyenKhoaController extends Controller
             $query->where('ten_chuyen_khoa', 'like', "%{$q}%");
         }
 
-        $data = $query->orderBy('ten_chuyen_khoa')->get();
+        $data = $query->orderBy('ma_chuyen_khoa', 'asc')->get();
 
         return response()->json([
             'status' => 'success',

@@ -36,7 +36,7 @@ class BacSiController extends Controller
             });
         }
 
-        $data = $query->orderBy('ho_ten')->get();
+        $data = $query->orderBy('ma_bs', 'asc')->get();
 
         return response()->json([
             'status' => 'success',

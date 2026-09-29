@@ -5,6 +5,8 @@ let qrCountdownTimer = null;     // Interval đếm ngược
 const QR_DURATION = 300;         // Thời gian QR sống (giây) — 5 phút
 let qrCountdownValue = QR_DURATION;      // Số giây còn lại
 let qrRefreshCount = 0;          // Số lần đã reset (để log)
+let currentPaymentMethod = null;
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
   auth.renderUserInfo();
@@ -139,8 +141,15 @@ function openPayModal(id, tongCong) {
   // Reset về Tiền mặt
   document.getElementById('pay_phuong_thuc').value = 'TienMat';
 
-  // Ẩn QR
-  document.getElementById('vnpayQRSection').style.display = 'none';
+  // Ẩn cả 2 QR
+  const vnpaySec = document.getElementById('vnpayQRSection');
+  const momoSec = document.getElementById('momoQRSection');
+  if (vnpaySec) vnpaySec.style.display = 'none';
+  if (momoSec) momoSec.style.display = 'none';
+
+  // Reset biến
+  currentPaymentMethod = null;
+  qrRefreshCount = 0;
 
   // Hiện modal
   document.getElementById('payModal').classList.remove('hidden');
@@ -150,11 +159,24 @@ function closePayModal() {
   // ⭐ Dừng timer QR
   stopQRCountdown();
   qrRefreshCount = 0;
+  currentPaymentMethod = null;
 
   document.getElementById('payModal').classList.add('hidden');
-  document.getElementById('vnpayQRSection').style.display = 'none';
-  document.getElementById('vnpayQRImage').src = '';
+
+// Reset VNPay QR
+  const vnpaySec = document.getElementById('vnpayQRSection');
+  const vnpayImg = document.getElementById('vnpayQRImage');
+  if (vnpaySec) vnpaySec.style.display = 'none';
+  if (vnpayImg) vnpayImg.src = '';
+
+  // Reset Momo QR
+  const momoSec = document.getElementById('momoQRSection');
+  const momoImg = document.getElementById('momoQRImage');
+  if (momoSec) momoSec.style.display = 'none';
+  if (momoImg) momoImg.src = '';
+
   document.getElementById('pay_phuong_thuc').value = 'TienMat';
+
   window.currentInvoice = null;
 }
 
@@ -163,9 +185,11 @@ async function confirmPay() {
   const pt = document.getElementById('pay_phuong_thuc').value;
   stopQRCountdown();
   // Nếu VNPay → yêu cầu xác nhận thêm (giả lập khách đã quét QR)
-  if (pt === 'VNPay') {
+  if (pt === 'VNPay'|| pt === 'Momo') {
+    const walletName = pt === 'VNPay' ? 'VNPay' : 'Momo';
+    const emoji = pt === 'VNPay' ? '💳' : '📱';
     const confirmed = confirm(
-      '💳 Xác nhận khách đã thanh toán qua VNPay?\n\n' +
+      '${emoji} Xác nhận khách đã thanh toán qua ${walletName}?\n\n' +
       'Sau khi xác nhận, hệ thống sẽ đánh dấu hóa đơn là ĐÃ THANH TOÁN.'
     );
     if (!confirmed) return;
@@ -181,6 +205,8 @@ async function confirmPay() {
     let msg = '✅ Xác nhận thanh toán thành công!';
     if (pt === 'VNPay') {
       msg = '✅ Thanh toán VNPay thành công! Hóa đơn đã được đánh dấu hoàn thành.';
+    } else if (pt === 'Momo') {
+      msg = '✅ Thanh toán Momo thành công! Hóa đơn đã được đánh dấu hoàn thành.';
     }
     api.toast(msg, 'success', 4000);
 
@@ -230,20 +256,45 @@ function onPaymentMethodChange() {
     qrRefreshCount = 0;
   }
 }
+/* ============================================================
+   QR ĐA PHƯƠNG THỨC — VNPAY + MOMO
+   ============================================================ */
 
-/* ============================================================
-   HIỂN THỊ QR VNPAY (GIẢ LẬP)
-   ============================================================ */
-/* ============================================================
-   HIỂN THỊ QR VNPAY — CÓ AUTO RESET MỖI 60 GIÂY
-   ============================================================ */
-function showVNPayQR() {
-  refreshVNPayQR(false);          // Tạo QR lần đầu (không log)
-  startQRCountdown();             // Bắt đầu đếm ngược
+/* ---------- XỬ LÝ ĐỔI PHƯƠNG THỨC ---------- */
+function onPaymentMethodChange() {
+  const method = document.getElementById('pay_phuong_thuc').value;
+
+  // Ẩn cả 2 QR trước
+  document.getElementById('vnpayQRSection').style.display = 'none';
+  document.getElementById('momoQRSection').style.display = 'none';
+
+  // Dừng timer nếu có
+  stopQRCountdown();
+
+  if (method === 'VNPay' || method === 'Momo') {
+    // Lưu method hiện tại
+    currentPaymentMethod = method;
+
+    // Hiện QR tương ứng
+    if (method === 'VNPay') {
+      document.getElementById('vnpayQRSection').style.display = 'block';
+    } else {
+      document.getElementById('momoQRSection').style.display = 'block';
+    }
+
+    // Tạo QR + bắt đầu countdown
+    refreshPaymentQR(false);
+    startQRCountdown();
+  } else {
+    // Tiền mặt / Chuyển khoản → không cần QR
+    currentPaymentMethod = null;
+  }
 }
 
-/* Tạo QR mới (gọi mỗi khi hết countdown hoặc bấm nút) */
-function refreshVNPayQR(isManual = false) {
+/* ---------- TẠO / LÀM MỚI QR ---------- */
+function refreshPaymentQR(isManual = false) {
+  if (!currentPaymentMethod) return;
+
   const inv = window.currentInvoice || {};
   if (!inv.id) return;
 
@@ -253,45 +304,65 @@ function refreshVNPayQR(isManual = false) {
   const amount = inv.amount || 0;
   const content = `Thanh toan ${invoiceCode}`;
 
-  // ⭐ Tạo nonce ngẫu nhiên + timestamp mới mỗi lần reset
+  // Tạo nonce + timestamp mỗi lần reset
   const nonce = Math.random().toString(36).substring(2, 12).toUpperCase();
   const timestamp = Date.now();
 
-  // Cập nhật thông tin hiển thị
-  document.getElementById('vnpayInvoiceCode').textContent = invoiceCode;
-  document.getElementById('vnpayAmount').textContent = api.formatMoney(amount);
-  document.getElementById('vnpayContent').textContent = content;
+  // Cấu hình theo phương thức
+  const config = {
+    VNPay: {
+      wallet: 'VNPAY_SANDBOX',
+      invoiceCodeEl: 'vnpayInvoiceCode',
+      amountEl: 'vnpayAmount',
+      contentEl: 'vnpayContent',
+      qrImgEl: 'vnpayQRImage',
+      logoEmoji: '💳'
+    },
+    Momo: {
+      wallet: 'MOMO_SANDBOX',
+      invoiceCodeEl: 'momoInvoiceCode',
+      amountEl: 'momoAmount',
+      contentEl: 'momoContent',
+      qrImgEl: 'momoQRImage',
+      logoEmoji: '📱'
+    }
+  }[currentPaymentMethod];
 
-  // Dữ liệu QR — có nonce + timestamp để mỗi lần khác nhau
+  if (!config) return;
+
+  // Cập nhật thông tin hiển thị
+  document.getElementById(config.invoiceCodeEl).textContent = invoiceCode;
+  document.getElementById(config.amountEl).textContent = api.formatMoney(amount);
+  document.getElementById(config.contentEl).textContent = content;
+
+  // Dữ liệu QR
   const qrData = JSON.stringify({
-    bank: 'VNPAY_SANDBOX',
+    wallet: config.wallet,
     invoice: invoiceCode,
     amount: amount,
     content: content,
     nonce: nonce,
     timestamp: timestamp,
-    expiry: timestamp + (QR_DURATION * 1000),     // Hết hạn sau 60s
+    expiry: timestamp + (QR_DURATION * 1000),
   });
 
-  // URL QR — thêm &_t=timestamp để bypass cache browser
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&_t=${timestamp}`;
 
-  const qrImg = document.getElementById('vnpayQRImage');
-
-  // Hiệu ứng loading nhẹ trước khi đổi ảnh
+  const qrImg = document.getElementById(config.qrImgEl);
   qrImg.style.opacity = '0.5';
   qrImg.onload = () => { qrImg.style.opacity = '1'; };
   qrImg.src = qrUrl;
+  qrImg.alt = `QR ${currentPaymentMethod} - ${invoiceCode} - ${nonce}`;
+
+  // Xóa pulse cũ, thêm hiệu ứng reset
   qrImg.classList.remove('qr-about-to-reset');
-  // Thêm hiệu ứng xuất hiện
   qrImg.classList.add('qr-just-reset');
   setTimeout(() => qrImg.classList.remove('qr-just-reset'), 400);
-  qrImg.alt = `QR thanh toán ${invoiceCode} - ${nonce}`;
 
-  // Log để chứng minh QR đã đổi
+  // Log
   const method = isManual ? 'thủ công' : 'tự động';
   console.log(
-    `🔄 [${method}] Đã tạo QR lần ${qrRefreshCount}\n` +
+    `🔄 [${currentPaymentMethod} - ${method}] QR #${qrRefreshCount}\n` +
     `   Hóa đơn: ${invoiceCode}\n` +
     `   Số tiền: ${api.formatMoney(amount)}\n` +
     `   Nonce: ${nonce}\n` +
@@ -299,11 +370,8 @@ function refreshVNPayQR(isManual = false) {
   );
 }
 
-/* ============================================================
-   COUNTDOWN TIMER — ĐẾM NGƯỢC 60 GIÂY
-   ============================================================ */
+/* ---------- COUNTDOWN TIMER (DÙNG CHUNG) ---------- */
 function startQRCountdown() {
-  // Xóa timer cũ nếu có
   stopQRCountdown();
 
   qrCountdownValue = QR_DURATION;
@@ -314,14 +382,13 @@ function startQRCountdown() {
     updateQRCountdownUI();
 
     if (qrCountdownValue <= 0) {
-      refreshVNPayQR(false);
+      refreshPaymentQR(false);
       qrCountdownValue = QR_DURATION;
       updateQRCountdownUI();
     }
   }, 1000);
 }
 
-/* Dừng timer */
 function stopQRCountdown() {
   if (qrCountdownTimer) {
     clearInterval(qrCountdownTimer);
@@ -329,54 +396,56 @@ function stopQRCountdown() {
   }
 }
 
-/* Cập nhật UI countdown */
+/* ---------- CẬP NHẬT UI COUNTDOWN ---------- */
 function updateQRCountdownUI() {
-  const countdownEl = document.getElementById('qrCountdown');
-  const progressEl = document.getElementById('qrProgressBar');
-  const qrImg = document.getElementById('vnpayQRImage');
+  if (!currentPaymentMethod) return;
 
-  // ⭐ Hiển thị dạng MM:SS khi > 60 giây
-  if (countdownEl) {
-    if (qrCountdownValue >= 60) {
-      const min = Math.floor(qrCountdownValue / 60);
-      const sec = qrCountdownValue % 60;
-      countdownEl.textContent = `${min}:${String(sec).padStart(2, '0')}`;
-    } else {
-      countdownEl.textContent = qrCountdownValue;
-    }
+  // Chọn element theo phương thức
+  const prefix = currentPaymentMethod === 'VNPay' ? 'vnpay' : 'momo';
+  const countdownEl = document.getElementById(`${prefix}Countdown`);
+  const progressEl = document.getElementById(`${prefix}ProgressBar`);
+  const qrImgEl = document.getElementById(`${prefix}QRImage`);
 
-    // Đổi màu khi gần hết (ngưỡng dựa trên tổng thời gian)
-    const warningThreshold = Math.floor(QR_DURATION * 0.17);   // ~17% cuối
-    const cautionThreshold = Math.floor(QR_DURATION * 0.33);   // ~33% cuối
+  if (!countdownEl) return;
 
-    if (qrCountdownValue <= warningThreshold) {
-      countdownEl.style.color = '#dc3545';
-      countdownEl.style.fontWeight = '700';
-      qrImg.classList.add('qr-about-to-reset');
-    } else if (qrCountdownValue <= cautionThreshold) {
-      countdownEl.style.color = '#fd7e14';
-      qrImg.classList.remove('qr-about-to-reset');
-    } else {
-      countdownEl.style.color = '#dc3545';
-      countdownEl.style.fontWeight = '600';
-      qrImg.classList.remove('qr-about-to-reset');
-    }
+  // Format MM:SS
+  if (qrCountdownValue >= 60) {
+    const min = Math.floor(qrCountdownValue / 60);
+    const sec = qrCountdownValue % 60;
+    countdownEl.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+  } else {
+    countdownEl.textContent = qrCountdownValue;
   }
 
-  // Progress bar — chia theo QR_DURATION thay vì 60
+  // Ngưỡng cảnh báo
+  const warningThreshold = Math.floor(QR_DURATION * 0.17);
+  const cautionThreshold = Math.floor(QR_DURATION * 0.33);
+
+  // Đổi màu số đếm
+  if (qrCountdownValue <= warningThreshold) {
+    countdownEl.style.color = '#dc3545';
+    countdownEl.style.fontWeight = '700';
+    qrImgEl?.classList.add('qr-about-to-reset');
+  } else if (qrCountdownValue <= cautionThreshold) {
+    countdownEl.style.color = '#fd7e14';
+    qrImgEl?.classList.remove('qr-about-to-reset');
+  } else {
+    countdownEl.style.color = currentPaymentMethod === 'VNPay' ? '#0d6efd' : '#A50064';
+    countdownEl.style.fontWeight = '600';
+    qrImgEl?.classList.remove('qr-about-to-reset');
+  }
+
+  // Progress bar
   if (progressEl) {
     const percent = (qrCountdownValue / QR_DURATION) * 100;
     progressEl.style.width = percent + '%';
-
-    const warningThreshold = Math.floor(QR_DURATION * 0.17);
-    const cautionThreshold = Math.floor(QR_DURATION * 0.33);
 
     if (qrCountdownValue <= warningThreshold) {
       progressEl.style.background = '#dc3545';
     } else if (qrCountdownValue <= cautionThreshold) {
       progressEl.style.background = '#fd7e14';
     } else {
-      progressEl.style.background = '#0d6efd';
+      progressEl.style.background = currentPaymentMethod === 'VNPay' ? '#0d6efd' : '#A50064';
     }
   }
 }
