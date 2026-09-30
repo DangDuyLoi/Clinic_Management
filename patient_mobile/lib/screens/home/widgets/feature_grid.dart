@@ -4,21 +4,23 @@ import '../../../core/app_colors.dart';
 class FeatureGrid extends StatelessWidget {
   final VoidCallback onBookAppointment;
   final VoidCallback onEmr;
+  final VoidCallback? onProfile;
 
   const FeatureGrid({
     Key? key,
     required this.onBookAppointment,
     required this.onEmr,
+    this.onProfile,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final features = [
       {'icon': Icons.calendar_month, 'label': 'Đặt khám', 'onTap': onBookAppointment},
-      {'icon': Icons.folder_shared, 'label': 'Hồ sơ', 'onTap': onEmr},
+      {'icon': Icons.person_add_alt_1, 'label': 'Tạo hồ sơ', 'onTap': onProfile ?? () {}},
+      {'icon': Icons.folder_shared, 'label': 'HS Sức khoẻ', 'onTap': onEmr},
       {'icon': Icons.payment, 'label': 'Thanh toán', 'onTap': () {}},
       {'icon': Icons.history, 'label': 'Lịch sử', 'onTap': () {}},
-      {'icon': Icons.menu_book, 'label': 'Cẩm nang', 'onTap': () {}},
       {'icon': Icons.support_agent, 'label': 'Hỗ trợ', 'onTap': () {}},
     ];
 

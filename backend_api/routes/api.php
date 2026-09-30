@@ -33,3 +33,11 @@ Route::put('luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']);
 
 // Phân hệ Bác sĩ
 Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']);
+
+use App\Http\Controllers\Api\PatientProfileController;
+
+Route::prefix('patient-profiles')->group(function () {
+    Route::post('/', [PatientProfileController::class, 'store']);
+    Route::get('/search-by-code', [PatientProfileController::class, 'findByCode']);
+    Route::get('/search-by-info', [PatientProfileController::class, 'findByInfo']);
+});

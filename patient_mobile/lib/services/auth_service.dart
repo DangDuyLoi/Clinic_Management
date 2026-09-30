@@ -66,7 +66,10 @@ class AuthService {
         await _storage.write(key: tokenKey, value: token);
       }
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Invalid credentials');
+      if (e.response == null) {
+        throw Exception('Không thể kết nối đến máy chủ. Vui lòng kiểm tra Server Backend.');
+      }
+      throw Exception(e.response?.data['message'] ?? 'Sai số điện thoại hoặc mật khẩu');
     }
   }
 

@@ -9,14 +9,7 @@ class CustomHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 180,
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
+      height: 160,
       padding: const EdgeInsets.only(top: 60, left: 20, right: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,7 +21,7 @@ class CustomHeader extends StatelessWidget {
               const Text(
                 'Chào buổi sáng,',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: AppColors.primary,
                   fontSize: 14,
                 ),
               ),
@@ -36,8 +29,8 @@ class CustomHeader extends StatelessWidget {
               Text(
                 patientName,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
+                  color: AppColors.primary,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -47,7 +40,7 @@ class CustomHeader extends StatelessWidget {
             onPressed: () {},
             icon: const Icon(
               Icons.notifications_none_rounded,
-              color: Colors.white,
+              color: AppColors.primary,
               size: 28,
             ),
           )
