@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Danh mục thuốc — Bác sĩ</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/doctor.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Bác sĩ</h2>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="schedule.html">Lịch làm việc</a>
+      <a href="patient-record.html">Phiên khám</a>
+      <a href="medicines.html" class="active">Danh mục thuốc</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <h1>Danh mục thuốc</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Tra cứu thuốc</h3>
+        <input type="text" id="searchInput" placeholder="🔍 Tìm theo tên thuốc..."
+               style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:300px">
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Tên thuốc</th>
+            <th>Đơn vị</th>
+            <th>Đơn giá</th>
+            <th>Tồn kho</th>
+          </tr>
+        </thead>
+        <tbody id="medicineTable">
+          <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/doctor.js"></script>
+<script>
+  let allMedicines = [];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!auth.requireAuth(['BacSi', 'QuanTri'])) return;
+    auth.renderUserInfo();
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      const list = q
+        ? allMedicines.filter(t => (t.ten_thuoc || '').toLowerCase().includes(q))
+        : allMedicines;
+      renderMedicines(list);
+    });
+
+    await loadMedicinesForDoctor();
+  });
+
+  async function loadMedicinesForDoctor() {
+    const tbody = document.getElementById('medicineTable');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
+
+    const res = await api.get('/thuoc');
+    if (res.status !== 'success') {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Lỗi: ${res.message}</td></tr>`;
+      return;
+    }
+
+    allMedicines = res.data || [];
+    renderMedicines(allMedicines);
+  }
+
+  function renderMedicines(list) {
+    const tbody = document.getElementById('medicineTable');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Không có thuốc nào</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(t => {
+      const stockBadge = t.so_luong_ton > 10
+        ? `<span class="badge badge-done">${t.so_luong_ton}</span>`
+        : t.so_luong_ton > 0
+          ? `<span class="badge badge-wait">${t.so_luong_ton}</span>`
+          : `<span class="badge badge-cancel">Hết hàng</span>`;
+
+      return `
+        <tr>
+          <td><b>${t.ma_thuoc}</b></td>
+          <td><b>${t.ten_thuoc}</b></td>
+          <td>${t.don_vi_tinh || '—'}</td>
+          <td><span class="text-primary">${api.formatMoney(t.don_gia)}</span></td>
+          <td>${stockBadge}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+</script>
+</body>
+</html>

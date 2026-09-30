@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cấu hình lịch khám — Admin</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <h2>Quản trị</h2>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="users.html">Tài khoản</a>
+      <a href="doctors.html">Bác sĩ</a>
+      <a href="specialties.html">Chuyên khoa</a>
+      <a href="services.html">Dịch vụ</a>
+      <a href="medicines.html">Thuốc</a>
+      <a href="schedule-config.html" class="active">Cấu hình lịch</a>
+      <a href="audit-log.html">Nhật ký</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="header-bar">
+      <h1>Cấu hình lịch khám</h1>
+      <div class="user-info"></div>
+    </div>
+
+    <div class="grid grid-2">
+      <!-- ============ CA LÀM VIỆC ============ -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Ca làm việc</h3>
+          <button class="btn btn-primary btn-sm" onclick="openCaModal()">+ Thêm ca</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Tên ca</th>
+              <th>Giờ</th>
+              <th>Số KG</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="caTable">
+            <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ KHUNG GIỜ ============ -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Khung giờ</h3>
+          <button class="btn btn-primary btn-sm" onclick="openKgModal()">+ Thêm khung giờ</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Ca</th>
+              <th>Giờ</th>
+              <th>Max BN</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="kgTable">
+            <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ MAX LƯỢT/CÁ THEO BÁC SĨ ============ -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Giới hạn lượt khám tối đa/ca theo bác sĩ</h3>
+        <a href="doctors.html" class="btn btn-outline btn-sm">Chỉnh sửa chi tiết →</a>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mã BS</th>
+            <th>Họ tên</th>
+            <th>Chuyên khoa</th>
+            <th>Max lượt/ca</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="bsTable">
+          <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============ MODAL CA ============ -->
+<div id="caModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="caModalTitle">Thêm ca làm việc</h3>
+      <button class="modal-close" onclick="closeCaModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_ca_ma">
+      <div class="form-group">
+        <label>Tên ca <span class="required">*</span></label>
+        <input type="text" id="f_ca_ten" placeholder="VD: Ca sáng">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Giờ bắt đầu <span class="required">*</span></label>
+          <input type="time" id="f_ca_bd" value="07:30">
+        </div>
+        <div class="form-group">
+          <label>Giờ kết thúc <span class="required">*</span></label>
+          <input type="time" id="f_ca_kt" value="11:30">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Max lượt khám / ca</label>
+        <input type="number" id="f_ca_max" value="100" min="1" max="500">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCaModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveCa()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL KHUNG GIỜ ============ -->
+<div id="kgModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="kgModalTitle">Thêm khung giờ</h3>
+      <button class="modal-close" onclick="closeKgModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_kg_ma">
+      <div class="form-group">
+        <label>Ca làm việc <span class="required">*</span></label>
+        <select id="f_kg_ca">
+          <option value="">-- Chọn ca --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Giờ bắt đầu <span class="required">*</span></label>
+          <input type="time" id="f_kg_bd" value="07:30">
+        </div>
+        <div class="form-group">
+          <label>Giờ kết thúc <span class="required">*</span></label>
+          <input type="time" id="f_kg_kt" value="08:30">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Số bệnh nhân tối đa / khung giờ</label>
+        <input type="number" id="f_kg_max" value="5" min="1" max="100">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeKgModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveKg()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/admin-schedule.js"></script>
+</body>
+</html>
