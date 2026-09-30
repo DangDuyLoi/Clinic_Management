@@ -1,0 +1,23 @@
+/* ============================================================
+   ADMIN — Màu nhấn indigo (tách khỏi đỏ để đỏ chỉ dùng cho lỗi/xóa)
+   ============================================================ */
+
+:root {
+  --accent: #4b4fa8;
+  --accent-dark: #3a3d8a;
+  --accent-soft: #ececf9;
+  --accent-on-dark: #a9acf0;
+}
+
+/* Nhật ký hệ thống: khối JSON */
+.log-row pre {
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 6px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  max-height: 120px;
+  overflow: auto;
+  margin: 0;
+}

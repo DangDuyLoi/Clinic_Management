@@ -1,0 +1,27 @@
+/* ============================================================
+   DOCTOR — Màu nhấn xanh teal y tế
+   ============================================================ */
+
+:root {
+  --accent: #0f7b6c;
+  --accent-dark: #0b5f54;
+  --accent-soft: #e0f3ef;
+  --accent-on-dark: #6fd3c2;
+}
+
+/* Form thuốc inline */
+.medicine-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr auto;
+  gap: 8px;
+  align-items: end;
+  padding: 12px;
+  background: #f7f9fb;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .medicine-row { grid-template-columns: 1fr; }
+}
