@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Exception;
+use Carbon\Carbon; // Thêm thư viện xử lý thời gian
 
 class LuotKhamController extends Controller
 {
@@ -107,5 +108,50 @@ class LuotKhamController extends Controller
                 'message' => $e->getMessage()
             ], 400);
         }
+    }
+
+    // 4. API Bệnh nhân: Lấy danh sách khung giờ trống của Bác sĩ trong 1 ngày
+    public function layGioTrong(Request $request)
+    {
+        // 1. Kiểm tra dữ liệu truyền lên
+        $validator = Validator::make($request->all(), [
+            'ma_bac_si' => 'required|integer',
+            'ngay_kham' => 'required|date_format:Y-m-d' // Truyền lên ngày dạng YYYY-MM-DD
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Dữ liệu không hợp lệ', 'errors' => $validator->errors()], 422);
+        }
+
+        $maBacSi = $request->ma_bac_si;
+        $ngayKham = $request->ngay_kham;
+
+        // 2. Khởi tạo danh sách giờ làm việc mặc định
+        $khungGioMacDinh = [
+            '08:00:00', '08:30:00', '09:00:00', '09:30:00',
+            '10:00:00', '10:30:00', '11:00:00', '11:30:00',
+            '13:00:00', '13:30:00', '14:00:00', '14:30:00',
+            '15:00:00', '15:30:00', '16:00:00', '16:30:00'
+        ];
+
+        // 3. Truy vấn Database lấy các giờ đã có người đặt
+        $cacLichDaDat = LuotKham::where('ma_bac_si', $maBacSi)
+            ->whereDate('thoi_gian_den_kham', $ngayKham)
+            ->where('trang_thai', '!=', 'da_huy') // Bỏ qua các lịch đã bị hủy
+            ->pluck('thoi_gian_den_kham')
+            ->map(function ($datetime) {
+                return Carbon::parse($datetime)->format('H:i:s');
+            })
+            ->toArray();
+
+        // 4. Lọc ra các giờ còn trống (Giờ mặc định TRỪ đi Giờ đã đặt)
+        $gioTrong = array_values(array_diff($khungGioMacDinh, $cacLichDaDat));
+
+        return response()->json([
+            'message' => 'Lấy danh sách giờ trống thành công',
+            'ma_bac_si' => $maBacSi,
+            'ngay_kham' => $ngayKham,
+            'danh_sach_gio_trong' => $gioTrong
+        ], 200);
     }
 }
