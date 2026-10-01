@@ -33,7 +33,8 @@ Route::post('/login', [AuthController::class, 'login']);
 // Phân hệ Lượt Khám (Lễ tân, Bác sĩ, Bệnh nhân)
 Route::put('luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân
 Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']); // Bác sĩ
-Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // Bệnh nhân đặt lịch (API vừa thêm)
+Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // Bệnh nhân đặt lịch
+Route::get('luot-kham/gio-trong', [LuotKhamController::class, 'layGioTrong']); // API lấy giờ trống của Bác sĩ
 
 // Quản lý hồ sơ bệnh nhân
 Route::prefix('patient-profiles')->group(function () {
