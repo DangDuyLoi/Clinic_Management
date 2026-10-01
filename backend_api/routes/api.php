@@ -3,15 +3,20 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// Gom tất cả các khai báo Controller lên đầu file
 use App\Http\Controllers\ChuyenKhoaController;
+use App\Http\Controllers\DichVuController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\LuotKhamController;
+use App\Http\Controllers\Api\PatientProfileController;
 
+// Quản lý Chuyên Khoa
 Route::prefix('chuyen-khoa')->group(function () {
     Route::get('/', [ChuyenKhoaController::class, 'index']);
     Route::post('/', [ChuyenKhoaController::class, 'store']);
     Route::put('/{id}', [ChuyenKhoaController::class, 'update']);
     Route::delete('/{id}', [ChuyenKhoaController::class, 'destroy']);
 });
-use App\Http\Controllers\DichVuController;
 
 // Quản lý Dịch vụ khám bệnh
 Route::get('dich-vu', [DichVuController::class, 'index']);
@@ -19,23 +24,18 @@ Route::post('dich-vu', [DichVuController::class, 'store']);
 Route::put('dich-vu/{id}', [DichVuController::class, 'update']);
 Route::delete('dich-vu/{id}', [DichVuController::class, 'destroy']);
 
-use App\Http\Controllers\Api\AuthController;
-
+// Auth
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
 
-use App\Http\Controllers\LuotKhamController;
+// Phân hệ Lượt Khám (Lễ tân, Bác sĩ, Bệnh nhân)
+Route::put('luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân
+Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']); // Bác sĩ
+Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // Bệnh nhân đặt lịch (API vừa thêm)
 
-// Phân hệ Lễ tân
-Route::put('luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']);
-
-// Phân hệ Bác sĩ
-Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']);
-
-use App\Http\Controllers\Api\PatientProfileController;
-
+// Quản lý hồ sơ bệnh nhân
 Route::prefix('patient-profiles')->group(function () {
     Route::post('/', [PatientProfileController::class, 'store']);
     Route::get('/search-by-code', [PatientProfileController::class, 'findByCode']);
