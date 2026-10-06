@@ -8,10 +8,10 @@ use Illuminate\Support\Facades\DB;
 class PaymentController extends Controller
 {
     // 1. API Tạo URL thanh toán VNPay
-    public function taoLinkVNPay(Request $request,$id)
+    public function taoLinkVNPay(Request $request, $id)
     {
         // Tìm hóa đơn trong Database dựa vào mã hóa đơn ($id)
-        $hoaDon = DB::table('hoa_don')->where('ma_hoa_don',$id)->first();
+        $hoaDon = DB::table('hoa_don')->where('ma_hoa_don', $id)->first();
         
         if (!$hoaDon) {
             return response()->json(['message' => 'Không tìm thấy hóa đơn'], 404);
@@ -22,16 +22,18 @@ class PaymentController extends Controller
         }
 
         // Lấy cấu hình từ file .env
-        $vnp_TmnCode = env('VNPAY_TMN_CODE');$vnp_HashSecret = env('VNPAY_HASH_SECRET');
-        $vnp_Url = env('VNPAY_URL');$vnp_Returnurl = env('VNPAY_RETURN_URL');
+        $vnp_TmnCode = env('VNPAY_TMN_CODE');
+        $vnp_HashSecret = env('VNPAY_HASH_SECRET');
+        $vnp_Url = env('VNPAY_URL');
+        $vnp_Returnurl = env('VNPAY_RETURN_URL');
 
         // Tạo mã giao dịch (Thêm time() để đảm bảo mã là duy nhất khi test nhiều lần)
-        $vnp_TxnRef =$hoaDon->ma_hoa_don . '_' . time(); 
+        $vnp_TxnRef = $hoaDon->ma_hoa_don . '_' . time(); 
         $vnp_OrderInfo = "Thanh toan hoa don y te ma " . $hoaDon->ma_hoa_don;
         $vnp_OrderType = 'billpayment';
-        $vnp_Amount =$hoaDon->tong_cong * 100; // VNPay yêu cầu số tiền nhân với 100
+        $vnp_Amount = $hoaDon->tong_cong * 100; // VNPay yêu cầu số tiền nhân với 100
         $vnp_Locale = 'vn';
-        $vnp_IpAddr =$request->ip();
+        $vnp_IpAddr = $request->ip();
 
         $inputData = array(
             "vnp_Version" => "2.1.0",
@@ -49,19 +51,24 @@ class PaymentController extends Controller
         );
 
         // Sắp xếp dữ liệu theo thứ tự a-z trước khi tạo chữ ký bảo mật
-        ksort($inputData);$query = "";
+        ksort($inputData);
+        $query = "";
         $i = 0;
         $hashdata = "";
-        foreach ($inputData as $key =>$value) {
-            if ($i == 1) {$hashdata .= '&' . urlencode($key) . "=" . urlencode($value);
+        foreach ($inputData as $key => $value) {
+            if ($i == 1) {
+                $hashdata .= '&' . urlencode($key) . "=" . urlencode($value);
             } else {
                 $hashdata .= urlencode($key) . "=" . urlencode($value);
-                $i = 1;             }$query .= urlencode($key) . "=" . urlencode($value) . '&';
+                $i = 1;
+            }
+            $query .= urlencode($key) . "=" . urlencode($value) . '&';
         }
 
         $vnp_Url = $vnp_Url . "?" . $query;
-        if (isset($vnp_HashSecret)) {$vnpSecureHash = hash_hmac('sha512', $hashdata,$vnp_HashSecret);
-            $vnp_Url .= 'vnp_SecureHash=' .$vnpSecureHash;
+        if (isset($vnp_HashSecret)) {
+            $vnpSecureHash = hash_hmac('sha512', $hashdata, $vnp_HashSecret);
+            $vnp_Url .= 'vnp_SecureHash=' . $vnpSecureHash;
         }
 
         // Trả về link để Frontend/Mobile mở trang thanh toán
@@ -74,30 +81,62 @@ class PaymentController extends Controller
     // 2. API Webhook nhận kết quả trả về từ VNPay
     public function vnpayReturn(Request $request)
     {
-        $vnp_HashSecret = env('VNPAY_HASH_SECRET');$inputData = array();
+        $vnp_HashSecret = env('VNPAY_HASH_SECRET');
+        $inputData = array();
         
         // Lấy toàn bộ tham số do VNPay gửi về
-        foreach ($request->all() as $key =>$value) {
+        foreach ($request->all() as $key => $value) {
             if (substr($key, 0, 4) == "vnp_") {
-                $inputData[$key] =$value;
+                $inputData[$key] = $value;
             }
         }
         
-        $vnp_SecureHash =$inputData['vnp_SecureHash'];
+        $vnp_SecureHash = $inputData['vnp_SecureHash'];
         unset($inputData['vnp_SecureHash']);
         unset($inputData['vnp_SecureHashType']);
-        ksort($inputData);$i = 0;
+        ksort($inputData);
+        
+        $i = 0;
         $hashData = "";
-        foreach ($inputData as $key =>$value) {
+        foreach ($inputData as $key => $value) {
             if ($i == 1) {
-                $hashData =$hashData . '&' . urlencode($key) . "=" . urlencode($value);
+                $hashData = $hashData . '&' . urlencode($key) . "=" . urlencode($value);
             } else {
-                $hashData = $hashData . urlencode($key) . "=" . urlencode($value);$i = 1;
+                $hashData = $hashData . urlencode($key) . "=" . urlencode($value);
+                $i = 1;
             }
         }
 
-        $secureHash = hash_hmac('sha512', $hashData,$vnp_HashSecret);
+        $secureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
         
         // Kiểm tra chữ ký bảo mật
-        if ($secureHash ==$vnp_SecureHash) {
+        if ($secureHash == $vnp_SecureHash) {
             if ($request->vnp_ResponseCode == '00') {
+                // Mã 00 là thanh toán thành công
+                // Tách lấy mã hóa đơn từ vnp_TxnRef (lúc tạo link ta truyền dạng maHoaDon_timestamp)
+                $maHoaDon = explode('_', $request->vnp_TxnRef)[0];
+                
+                // Cập nhật trạng thái hóa đơn
+                DB::table('hoa_don')->where('ma_hoa_don', $maHoaDon)->update([
+                    'trang_thai' => 'DaThanhToan',
+                    'updated_at' => now()
+                ]);
+
+                return response()->json([
+                    'message' => 'Xác nhận thanh toán thành công', 
+                    'RspCode' => '00'
+                ], 200);
+            } else {
+                return response()->json([
+                    'message' => 'Giao dịch bị lỗi hoặc bị hủy', 
+                    'RspCode' => $request->vnp_ResponseCode
+                ], 400);
+            }
+        } else {
+            return response()->json([
+                'message' => 'Chữ ký không hợp lệ (Dữ liệu bị giả mạo)', 
+                'RspCode' => '97'
+            ], 400);
+        }
+    }
+}
