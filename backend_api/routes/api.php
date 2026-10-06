@@ -44,8 +44,9 @@ Route::prefix('patient-profiles')->group(function () {
     Route::get('/search-by-info', [PatientProfileController::class, 'findByInfo']);
 });
 
-// Phân hệ Thanh toán
-Route::get('/thanh-toan/vnpay/{id}', [PaymentController::class, 'taoLinkVNPay']); // Gọi API sinh link VNPay
+// Phân hệ Thanh toán VNPay
+Route::get('/thanh-toan/vnpay/{id}', [PaymentController::class, 'taoLinkVNPay']);
+Route::get('/thanh-toan/vnpay-return', [PaymentController::class, 'vnpayReturn']); // API Webhook VNPay (đã bổ sung lại)
 
 // Phân hệ Thanh toán MoMo
 Route::get('/thanh-toan/momo/{id}', [PaymentController::class, 'taoLinkMoMo']);
