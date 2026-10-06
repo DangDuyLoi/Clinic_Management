@@ -9,6 +9,7 @@ use App\Http\Controllers\DichVuController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\LuotKhamController;
 use App\Http\Controllers\Api\PatientProfileController;
+use App\Http\Controllers\VNPayController;
 
 // Quản lý Chuyên Khoa
 Route::prefix('chuyen-khoa')->group(function () {
@@ -42,3 +43,5 @@ Route::prefix('patient-profiles')->group(function () {
     Route::get('/search-by-code', [PatientProfileController::class, 'findByCode']);
     Route::get('/search-by-info', [PatientProfileController::class, 'findByInfo']);
 });
+
+Route::get('/vnpay/payment-url', [VNPayController::class, 'createPaymentUrl']);

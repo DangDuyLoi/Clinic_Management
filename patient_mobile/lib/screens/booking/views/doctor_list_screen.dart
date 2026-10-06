@@ -14,13 +14,13 @@ class DoctorListScreen extends StatelessWidget {
     // Mock Data
     final doctors = [
       {
-        'id': 'D1',
+        'id': '1',
         'name': 'BSCKII. Lê Tường Viễn',
         'room': 'Phòng 66 - Lầu 1 Khu B',
         'avatarUrl': 'https://i.pravatar.cc/150?img=11',
       },
       {
-        'id': 'D2',
+        'id': '2',
         'name': 'BSCKII. Nguyễn Thành Nhân',
         'room': 'Phòng 66 - Lầu 1 Khu B',
         'avatarUrl': 'https://i.pravatar.cc/150?img=12',

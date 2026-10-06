@@ -3,6 +3,9 @@ import '../views/specialty_screen.dart';
 import '../views/date_selection_screen.dart';
 import '../views/doctor_list_screen.dart';
 import '../views/time_slot_screen.dart';
+import '../../../services/booking_api_service.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 
 enum BookingMethod { bySpecialty, byDoctor, byDate }
 
@@ -16,6 +19,11 @@ class BookingController extends GetxController {
   final selectedDoctor = Rxn<Map<String, dynamic>>();
   final selectedDate = Rxn<DateTime>();
   final selectedTimeSlot = Rxn<Map<String, dynamic>>();
+  
+  final availableTimeSlots = <String>[].obs;
+  final isLoadingSlots = false.obs;
+  
+  var isLoading = false.obs;
   
   // Thông tin Bảo hiểm
   final hasHealthInsurance = false.obs; // BHYT
@@ -54,6 +62,7 @@ class BookingController extends GetxController {
     if (bookingMethod.value == BookingMethod.byDoctor) {
       Get.to(() => DateSelectionScreen());
     } else {
+      fetchAvailableTimeSlots();
       Get.to(() => TimeSlotScreen());
     }
   }
@@ -64,6 +73,7 @@ class BookingController extends GetxController {
     if (bookingMethod.value == BookingMethod.byDate) {
       Get.to(() => DoctorListScreen());
     } else {
+      fetchAvailableTimeSlots();
       Get.to(() => TimeSlotScreen());
     }
   }
@@ -90,11 +100,49 @@ class BookingController extends GetxController {
   }
 
   // ================= SUBMIT BƯỚC CUỐI =================
-  Future<void> submitBooking() async {
+  Future<bool> submitBooking() async {
     if (paymentMethod.value == null) {
       Get.snackbar('Lỗi', 'Vui lòng chọn phương thức thanh toán');
-      return;
+      return false;
     }
-    // Gọi API...
+
+    try {
+      isLoading.value = true;
+
+      final thoiGian = '${DateFormat('yyyy-MM-dd').format(selectedDate.value!)} ${selectedTimeSlot.value!['time']}';
+      
+      final maHoSoStr = (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id']).toString();
+      final maBacSiStr = (selectedDoctor.value!['ma_bac_si'] ?? selectedDoctor.value!['id']).toString();
+      
+      final result = await BookingApiService.createBooking(
+        maHoSo: int.parse(maHoSoStr),
+        maBacSi: int.parse(maBacSiStr),
+        thoiGianDenKham: thoiGian,
+      );
+
+      isLoading.value = false;
+      return true;
+    } catch (e) {
+      isLoading.value = false;
+      Get.snackbar('Lỗi Đặt Khám', e.toString(), backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5), snackPosition: SnackPosition.TOP);
+      return false;
+    }
+  }
+
+  Future<void> fetchAvailableTimeSlots() async {
+    if (selectedDoctor.value == null || selectedDate.value == null) return;
+    
+    isLoadingSlots.value = true;
+    try {
+      final doctorId = int.parse(selectedDoctor.value!['id'].toString());
+      final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate.value!);
+      
+      final slots = await BookingApiService.getAvailableTimeSlots(doctorId, dateStr);
+      availableTimeSlots.value = slots;
+    } catch (e) {
+      Get.snackbar('Lỗi', 'Không thể tải giờ trống: $e');
+    } finally {
+      isLoadingSlots.value = false;
+    }
   }
 }

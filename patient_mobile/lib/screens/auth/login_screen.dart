@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'register_phone_screen.dart';
 import '../home/home_screen.dart';
 
@@ -130,7 +131,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
               },
               child: const Text('Chưa có tài khoản? Đăng ký tại đây'),
-            )
+            ),
+            const SizedBox(height: 24),
+            // Hiển thị FCM Token để test gửi thông báo
+            FutureBuilder<String?>(
+              future: FirebaseMessaging.instance.getToken(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null) {
+                  return Column(
+                    children: [
+                      const Text('FCM Token (để test Firebase):', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        snapshot.data!,
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
           ],
         ),
       ),
