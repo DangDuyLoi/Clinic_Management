@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientProfileService {
   // Replace with actual API base URL
-  static const String baseUrl = 'http://127.0.0.1:8000/api'; 
+  static const String baseUrl = 'http://localhost:8000/api'; 
 
   // In-memory cache for demo purposes
   static final List<Map<String, dynamic>> cachedProfiles = [];
