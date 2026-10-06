@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\LuotKhamController;
 use App\Http\Controllers\Api\PatientProfileController;
 use App\Http\Controllers\VNPayController;
+use App\Http\Controllers\PaymentController; // Thêm dòng này để gọi PaymentController
 
 // Quản lý Chuyên Khoa
 Route::prefix('chuyen-khoa')->group(function () {
@@ -45,3 +46,10 @@ Route::prefix('patient-profiles')->group(function () {
 });
 
 Route::get('/vnpay/payment-url', [VNPayController::class, 'createPaymentUrl']);
+// Phân hệ Thanh toán VNPay
+Route::get('/thanh-toan/vnpay/{id}', [PaymentController::class, 'taoLinkVNPay']);
+Route::get('/thanh-toan/vnpay-return', [PaymentController::class, 'vnpayReturn']); // API Webhook VNPay (đã bổ sung lại)
+
+// Phân hệ Thanh toán MoMo
+Route::get('/thanh-toan/momo/{id}', [PaymentController::class, 'taoLinkMoMo']);
+Route::post('/thanh-toan/momo-notify', [PaymentController::class, 'momoNotify']); // MoMo dùng POST cho Webhook
