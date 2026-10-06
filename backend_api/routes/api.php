@@ -46,3 +46,7 @@ Route::prefix('patient-profiles')->group(function () {
 
 // Phân hệ Thanh toán
 Route::get('/thanh-toan/vnpay/{id}', [PaymentController::class, 'taoLinkVNPay']); // Gọi API sinh link VNPay
+
+// Phân hệ Thanh toán MoMo
+Route::get('/thanh-toan/momo/{id}', [PaymentController::class, 'taoLinkMoMo']);
+Route::post('/thanh-toan/momo-notify', [PaymentController::class, 'momoNotify']); // MoMo dùng POST cho Webhook
