@@ -5,6 +5,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'screens/auth/login_screen.dart';
 import 'firebase_options.dart';
 import 'services/patient_profile_service.dart';
+import 'services/fcm_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+// Hàm xử lý thông báo khi app chạy ngầm (Background / Terminated)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Handling a background message: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +21,8 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await FCMService.init();
   } catch (e) {
     print("Firebase initialization error: $e");
   }
