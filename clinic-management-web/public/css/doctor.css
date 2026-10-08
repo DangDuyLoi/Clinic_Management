@@ -25,3 +25,51 @@
 @media (max-width: 768px) {
   .medicine-row { grid-template-columns: 1fr; }
 }
+/* ============================================================
+   TABS UI
+   ============================================================ */
+.tabs-nav {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+    border-radius: 6px 6px 0 0;
+}
+
+.tab-btn:hover {
+    background: #f8f9fa;
+    color: #212529;
+}
+
+.tab-btn.active {
+    color: #198754;
+    border-bottom-color: #198754;
+    background: rgba(25, 135, 84, 0.05);
+}
+
+.tab-content {
+    animation: fadeIn 0.3s;
+}
+
+.tab-content.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

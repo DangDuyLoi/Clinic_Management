@@ -167,4 +167,101 @@ class BenhNhanController extends Controller
             'message' => 'Đã xóa bệnh nhân',
         ]);
     }
+        /**
+     * GET /api/benh-nhan/{id}/lich-su-kham
+     * Lịch sử khám của bệnh nhân (tất cả phiên khám đã hoàn thành)
+     */
+    public function lichSuKham($id)
+    {
+        $benhNhan = BenhNhan::find($id);
+        if (!$benhNhan) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy bệnh nhân',
+            ], 404);
+        }
+
+        // Lấy tất cả phiên khám của bệnh nhân
+        $lichSu = \App\Models\PhienKham::with([
+                'lichKham.bacSi.chuyenKhoa',
+                'chiDinh.dichVu',
+                'donThuoc.chiTiet.thuoc',
+                'hoaDon',
+            ])
+            ->whereHas('lichKham', function ($q) use ($id) {
+                $q->where('ma_bn', $id);
+            })
+            ->orderBy('ma_phien_kham', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'benh_nhan' => [
+                    'ma_bn'         => $benhNhan->ma_bn,
+                    'ho_ten'        => $benhNhan->ho_ten,
+                    'ngay_sinh'     => $benhNhan->ngay_sinh,
+                    'gioi_tinh'     => $benhNhan->gioi_tinh,
+                    'so_dien_thoai' => $benhNhan->so_dien_thoai,
+                    'cccd'          => $benhNhan->cccd,
+                    'dia_chi'       => $benhNhan->dia_chi,
+                    'nhom_mau'      => $benhNhan->nhom_mau,
+                    'di_ung'        => $benhNhan->di_ung,
+                    'tien_su_benh'  => $benhNhan->tien_su_benh,
+                ],
+                'tong_lan_kham' => $lichSu->count(),
+                'lich_su'       => $lichSu,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/benh-nhan/{id}/thong-ke
+     * Thống kê nhanh về bệnh nhân
+     */
+    public function thongKe($id)
+    {
+        $benhNhan = BenhNhan::find($id);
+        if (!$benhNhan) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy bệnh nhân',
+            ], 404);
+        }
+
+        $lichKham = \App\Models\LichKham::where('ma_bn', $id);
+
+        $tongLanKham      = (clone $lichKham)->where('trang_thai', 'HoanThanh')->count();
+        $tongLanHuy       = (clone $lichKham)->where('trang_thai', 'DaHuy')->count();
+        $lanKhamGanNhat   = (clone $lichKham)->where('trang_thai', 'HoanThanh')
+                                ->orderBy('ngay_kham', 'desc')->first();
+        $lanKhamSapToi    = (clone $lichKham)->whereIn('trang_thai', ['ChoXacNhan', 'ChoKham'])
+                                ->where('ngay_kham', '>=', now()->toDateString())
+                                ->orderBy('ngay_kham')->first();
+
+        // Tổng tiền đã thanh toán
+        $tongTien = \App\Models\HoaDon::whereHas('phienKham.lichKham', function ($q) use ($id) {
+                $q->where('ma_bn', $id);
+            })
+            ->where('trang_thai', 'DaThanhToan')
+            ->sum('tong_cong');
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'tong_lan_kham'    => $tongLanKham,
+                'tong_lan_huy'     => $tongLanHuy,
+                'tong_tien'        => (float) $tongTien,
+                'lan_kham_gan_nhat'=> $lanKhamGanNhat ? [
+                    'ngay_kham' => $lanKhamGanNhat->ngay_kham,
+                    'chan_doan' => $lanKhamGanNhat->phienKham?->chan_doan_cuoi_cung,
+                ] : null,
+                'lan_kham_sap_toi' => $lanKhamSapToi ? [
+                    'ma_lich_dat' => $lanKhamSapToi->ma_lich_dat,
+                    'ngay_kham'   => $lanKhamSapToi->ngay_kham,
+                    'trang_thai'  => $lanKhamSapToi->trang_thai,
+                ] : null,
+            ],
+        ]);
+    }
 }   

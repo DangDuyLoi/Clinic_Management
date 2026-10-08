@@ -16,6 +16,7 @@ use App\Http\Controllers\NhatKyHeThongController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CaLamViecController;
 use App\Http\Controllers\KhungGioController;
+use App\Http\Controllers\ThongBaoController;
 /* ============================================================
    PUBLIC ROUTES — Không cần đăng nhập
    ============================================================ */
@@ -28,13 +29,6 @@ Route::prefix('auth')->group(function () {
    PROTECTED ROUTES — Yêu cầu JWT
    ============================================================ */
 Route::middleware('auth:api')->group(function () {
-        /* ============================================================
-       DASHBOARD (Admin)
-       ============================================================ */
-    Route::middleware('role:QuanTri')->group(function () {
-        Route::get('dashboard/admin', [DashboardController::class, 'admin']);
-    });
-
     /* ============================================================
        NHẬT KÝ HỆ THỐNG (chỉ Admin)
        ============================================================ */
@@ -111,8 +105,11 @@ Route::middleware('auth:api')->group(function () {
        - Lễ tân/Admin: full CRUD
        - Bác sĩ: chỉ xem
        ============================================================ */
+    Route::get('benh-nhan/{id}/lich-su-kham', [BenhNhanController::class, 'lichSuKham']);
+    Route::get('benh-nhan/{id}/thong-ke',     [BenhNhanController::class, 'thongKe']);       
     Route::get('benh-nhan',      [BenhNhanController::class, 'index']);
     Route::get('benh-nhan/{id}', [BenhNhanController::class, 'show']);
+    
 
     Route::middleware('role:LeTan,QuanTri')->group(function () {
         Route::post('benh-nhan',        [BenhNhanController::class, 'store']);
@@ -184,6 +181,30 @@ Route::middleware('auth:api')->group(function () {
         Route::put('khung-gio/{id}', [KhungGioController::class, 'update']);
         Route::delete('khung-gio/{id}', [KhungGioController::class, 'destroy']);
     });
+        /* ---------- QR CODE CHECK-IN ---------- */
+    Route::post('lich-kham/scan-qr', [LichKhamController::class, 'scanQR']);
+    Route::get('lich-kham/{id}/qr',  [LichKhamController::class, 'getQR']);
+    Route::post('lich-kham/{id}/checkin-by-qr', [LichKhamController::class, 'checkInByQR'])
+        ->middleware('role:LeTan,QuanTri');
+            /* ============================================================
+       DASHBOARD (Admin)
+       ============================================================ */
+    Route::middleware('role:QuanTri')->prefix('dashboard')->group(function () {
+        Route::get('admin',              [DashboardController::class, 'admin']);
+        Route::get('revenue',            [DashboardController::class, 'revenue']);
+        Route::get('doctor-performance', [DashboardController::class, 'doctorPerformance']);
+        Route::get('specialty-stats',    [DashboardController::class, 'specialtyStats']);
+        Route::get('overview',           [DashboardController::class, 'overview']);
+        Route::get('export-excel',       [DashboardController::class, 'exportExcel']);
+    });
+        /* ============================================================
+       THÔNG BÁO
+       ============================================================ */
+    Route::get('thong-bao',              [ThongBaoController::class, 'index']);
+    Route::get('thong-bao/count',        [ThongBaoController::class, 'count']);
+    Route::put('thong-bao/read-all',     [ThongBaoController::class, 'markAllAsRead']);
+    Route::put('thong-bao/{id}/read',    [ThongBaoController::class, 'markAsRead']);
+    Route::delete('thong-bao/{id}',      [ThongBaoController::class, 'destroy']);
     /* ============================================================
        ============================================================ */
     Route::prefix('auth')->group(function () {

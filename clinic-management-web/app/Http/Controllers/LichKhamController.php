@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\LichKham;
 use App\Models\BacSi;
 use App\Models\KhungGio;
+use App\Models\LichKham;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -35,12 +35,12 @@ class LichKhamController extends Controller
         $perPage = max(1, min($perPage, 100));
 
         $data = $query->orderBy('ngay_kham', 'desc')
-                      ->orderBy('ma_khung_gio')
-                      ->paginate($perPage);
+            ->orderBy('ma_khung_gio')
+            ->paginate($perPage);
 
         return response()->json([
             'status' => 'success',
-            'data'   => $data,
+            'data' => $data,
         ]);
     }
 
@@ -58,24 +58,24 @@ class LichKhamController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ma_bn'          => 'required|integer|exists:BenhNhan,ma_bn',
+            'ma_bn' => 'required|integer|exists:BenhNhan,ma_bn',
             'ma_chuyen_khoa' => 'required|integer|exists:ChuyenKhoa,ma_chuyen_khoa',
-            'ngay_kham'      => 'required|date|after_or_equal:today',
-            'ma_khung_gio'   => 'nullable|integer|exists:KhungGio,ma_khung_gio',
-            'diem_uu_tien'   => 'nullable|integer|min:0|max:10',
+            'ngay_kham' => 'required|date|after_or_equal:today',
+            'ma_khung_gio' => 'nullable|integer|exists:KhungGio,ma_khung_gio',
+            'diem_uu_tien' => 'nullable|integer|min:0|max:10',
         ], [
-            'ma_bn.required'          => 'Vui lòng chọn bệnh nhân',
-            'ma_bn.exists'            => 'Bệnh nhân không tồn tại',
+            'ma_bn.required' => 'Vui lòng chọn bệnh nhân',
+            'ma_bn.exists' => 'Bệnh nhân không tồn tại',
             'ma_chuyen_khoa.required' => 'Vui lòng chọn chuyên khoa',
-            'ma_chuyen_khoa.exists'   => 'Chuyên khoa không tồn tại',
-            'ngay_kham.required'      => 'Vui lòng chọn ngày khám',
-            'ngay_kham.after_or_equal'=> 'Ngày khám không được trong quá khứ',
+            'ma_chuyen_khoa.exists' => 'Chuyên khoa không tồn tại',
+            'ngay_kham.required' => 'Vui lòng chọn ngày khám',
+            'ngay_kham.after_or_equal' => 'Ngày khám không được trong quá khứ',
         ]);
 
         try {
             $result = DB::transaction(function () use ($data) {
                 // B1. Xác định khung giờ
-                if (!empty($data['ma_khung_gio'])) {
+                if (! empty($data['ma_khung_gio'])) {
                     $khungGio = KhungGio::findOrFail($data['ma_khung_gio']);
                 } else {
                     $khungGio = $this->findFirstAvailableKhungGio(
@@ -84,7 +84,7 @@ class LichKhamController extends Controller
                     );
                 }
 
-                if (!$khungGio) {
+                if (! $khungGio) {
                     throw new \Exception('Không còn khung giờ trống trong ngày này');
                 }
 
@@ -95,30 +95,50 @@ class LichKhamController extends Controller
                     $khungGio->ma_khung_gio
                 );
 
-                if (!$bacSi) {
+                if (! $bacSi) {
                     throw new \Exception('Không có bác sĩ trống cho khung giờ này. Vui lòng chọn giờ khác.');
                 }
 
                 // B3. Tạo lịch khám
-                return LichKham::create([
-                    'ma_bn'          => $data['ma_bn'],
-                    'ma_bs'          => $bacSi->ma_bs,
-                    'ngay_kham'      => $data['ngay_kham'],
-                    'ma_khung_gio'   => $khungGio->ma_khung_gio,
-                    'diem_uu_tien'   => $data['diem_uu_tien'] ?? 0,
-                    'trang_thai'     => 'ChoXacNhan',
+                $qrToken = 'LK' . strtoupper(bin2hex(random_bytes(16)));
+                return LichKham::create([   
+                    'ma_bn' => $data['ma_bn'],
+                    'ma_bs' => $bacSi->ma_bs,
+                    'ngay_kham' => $data['ngay_kham'],
+                    'ma_khung_gio' => $khungGio->ma_khung_gio,
+                    'diem_uu_tien' => $data['diem_uu_tien'] ?? 0,
+                    'trang_thai' => 'ChoXacNhan',
                     'khach_vang_lai' => false,
+                    'qr_token' => $qrToken,
                 ]);
+                try {
+                    $lich->load('benhNhan', 'khungGio');
+                    if ($bacSi->ma_tk) {
+                        \App\Models\ThongBao::gui(
+                            $bacSi->ma_tk,
+                            "📅 Có lịch khám mới",
+                            "Bệnh nhân " . ($lich->benhNhan->ho_ten ?? '') 
+                            . " đặt lịch ngày " . \Carbon\Carbon::parse($data['ngay_kham'])->format('d/m/Y')
+                            . " lúc " . ($lich->khungGio->gio_bat_dau ?? ''),
+                            'dat_lich',
+                            '/views/doctor/dashboard.html'
+                        );
+                    }
+                } catch (\Exception $notiErr) {
+                    \Log::warning('[ThongBao] Sự kiện dat_lich: ' . $notiErr->getMessage());
+                }
+
+                return $lich;
             });
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Đặt lịch thành công',
-                'data'    => $result->load(['benhNhan', 'bacSi.chuyenKhoa', 'khungGio']),
+                'data' => $result->load(['benhNhan', 'bacSi.chuyenKhoa', 'khungGio']),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $e->getMessage(),
             ], 400);
         }
@@ -130,19 +150,19 @@ class LichKhamController extends Controller
     public function show($id)
     {
         $lich = LichKham::with([
-            'benhNhan', 'bacSi.chuyenKhoa', 'khungGio', 'phienKham'
+            'benhNhan', 'bacSi.chuyenKhoa', 'khungGio', 'phienKham',
         ])->find($id);
 
-        if (!$lich) {
+        if (! $lich) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy lịch khám',
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => $lich,
+            'data' => $lich,
         ]);
     }
 
@@ -154,16 +174,16 @@ class LichKhamController extends Controller
     {
         $lich = LichKham::find($id);
 
-        if (!$lich) {
+        if (! $lich) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy lịch khám',
             ], 404);
         }
 
-        if (!in_array($lich->trang_thai, ['ChoXacNhan', 'ChoDenKham'], true)) {
+        if (! in_array($lich->trang_thai, ['ChoXacNhan', 'ChoDenKham'], true)) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Không thể check-in ở trạng thái {$lich->trang_thai}",
             ], 400);
         }
@@ -171,11 +191,27 @@ class LichKhamController extends Controller
         $lich->trang_thai = 'ChoKham';
         $lich->thoi_gian_den_quay = now()->format('H:i:s');
         $lich->save();
+        // ⭐ SỰ KIỆN 4A: Thông báo cho BÁC SĨ
+        try {
+            $lich->load('bacSi', 'benhNhan');
+            if ($lich->bacSi && $lich->bacSi->ma_tk) {
+                \App\Models\ThongBao::gui(
+                    $lich->bacSi->ma_tk,
+                    "🔔 Bệnh nhân đã check-in",
+                    "Bệnh nhân " . ($lich->benhNhan->ho_ten ?? '') 
+                    . " đã vào hàng đợi. Vui lòng chuẩn bị khám.",
+                    'check_in',
+                    '/views/doctor/dashboard.html'
+                );
+            }
+        } catch (\Exception $notiErr) {
+            \Log::warning('[ThongBao] Sự kiện check_in: ' . $notiErr->getMessage());
+        }
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Check-in thành công',
-            'data'    => $lich,
+            'data' => $lich,
         ]);
     }
 
@@ -191,23 +227,23 @@ class LichKhamController extends Controller
 
         $lich = LichKham::find($id);
 
-        if (!$lich) {
+        if (! $lich) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy lịch khám',
             ], 404);
         }
 
         if ($lich->trang_thai === 'HoanThanh') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không thể hủy lịch đã hoàn thành',
             ], 400);
         }
 
         if ($lich->trang_thai === 'DaHuy') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Lịch đã bị hủy trước đó',
             ], 400);
         }
@@ -217,9 +253,9 @@ class LichKhamController extends Controller
         $lich->save();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Đã hủy lịch khám',
-            'data'    => $lich,
+            'data' => $lich,
         ]);
     }
 
@@ -231,7 +267,7 @@ class LichKhamController extends Controller
     public function availableSlots(Request $request)
     {
         $request->validate([
-            'ngay'           => 'required|date|after_or_equal:today',
+            'ngay' => 'required|date|after_or_equal:today',
             'ma_chuyen_khoa' => 'required|integer|exists:ChuyenKhoa,ma_chuyen_khoa',
         ]);
 
@@ -243,8 +279,8 @@ class LichKhamController extends Controller
 
         if ($dsBacSi->isEmpty()) {
             return response()->json([
-                'status'  => 'success',
-                'data'    => [],
+                'status' => 'success',
+                'data' => [],
                 'message' => 'Chưa có bác sĩ nào thuộc chuyên khoa này',
             ]);
         }
@@ -271,11 +307,11 @@ class LichKhamController extends Controller
 
             if ($soBacSiConTrong > 0) {
                 $ketQua[] = [
-                    'ma_khung_gio'   => $kg->ma_khung_gio,
-                    'gio_bat_dau'    => $kg->gio_bat_dau,
-                    'gio_ket_thuc'   => $kg->gio_ket_thuc,
-                    'ten_ca'         => $kg->caLamViec->ten_ca ?? null,
-                    'luot_toi_da'    => $kg->luot_kham_toi_da,
+                    'ma_khung_gio' => $kg->ma_khung_gio,
+                    'gio_bat_dau' => $kg->gio_bat_dau,
+                    'gio_ket_thuc' => $kg->gio_ket_thuc,
+                    'ten_ca' => $kg->caLamViec->ten_ca ?? null,
+                    'luot_toi_da' => $kg->luot_kham_toi_da,
                     'so_bac_si_trong' => $soBacSiConTrong,
                 ];
             }
@@ -283,7 +319,7 @@ class LichKhamController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $ketQua,
+            'data' => $ketQua,
         ]);
     }
 
@@ -332,7 +368,7 @@ class LichKhamController extends Controller
             }
 
             $ungVien[] = [
-                'bs'    => $bs,
+                'bs' => $bs,
                 'demCa' => $demCa,
                 'demKg' => $demKhungGio,
             ];
@@ -348,6 +384,7 @@ class LichKhamController extends Controller
             if ($a['demCa'] !== $b['demCa']) {
                 return $a['demCa'] <=> $b['demCa'];
             }
+
             return $a['demKg'] <=> $b['demKg'];
         });
 
@@ -358,7 +395,7 @@ class LichKhamController extends Controller
      * Tìm khung giờ trống đầu tiên trong ngày
      * Áp dụng khi bệnh nhân không chỉ định giờ cụ thể
      */
-        private function findFirstAvailableKhungGio(string $ngay, int $maChuyenKhoa): ?KhungGio
+    private function findFirstAvailableKhungGio(string $ngay, int $maChuyenKhoa): ?KhungGio
     {
         // Lấy bác sĩ thuộc chuyên khoa
         $dsBacSi = BacSi::where('ma_chuyen_khoa', $maChuyenKhoa)->get();
@@ -385,5 +422,168 @@ class LichKhamController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * GET /api/lich-kham/{id}/qr
+     * Trả về QR content + ảnh QR (data URI)
+     */
+    public function getQR($id)
+    {
+        $lich = LichKham::find($id);
+        if (! $lich) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy lịch khám',
+            ], 404);
+        }
+
+        // Nếu chưa có qr_token → sinh mới
+        if (! $lich->qr_token) {
+            $lich->qr_token = 'LK'.strtoupper(bin2hex(random_bytes(16)));
+            $lich->save();
+        }
+
+        // QR content = "LICHKHAM:TOKEN"
+        $qrContent = 'LICHKHAM:'.$lich->qr_token;
+
+        // Dùng API public để tạo QR (không cần cài thư viện)
+        $qrImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='.urlencode($qrContent);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'ma_lich_dat' => $lich->ma_lich_dat,
+                'qr_token' => $lich->qr_token,
+                'qr_content' => $qrContent,
+                'qr_url' => $qrImageUrl,
+                'trang_thai' => $lich->trang_thai,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/lich-kham/scan-qr
+     * Nhận QR content → verify → trả về thông tin lịch
+     * Body: { qr_content: "LICHKHAM:XXX" }
+     */
+    public function scanQR(Request $request)
+    {
+        $request->validate([
+            'qr_content' => 'required|string',
+        ], [
+            'qr_content.required' => 'Vui lòng cung cấp nội dung QR',
+        ]);
+
+        $content = $request->qr_content;
+
+        // Parse QR content
+        if (strpos($content, 'LICHKHAM:') !== 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mã QR không hợp lệ',
+            ], 400);
+        }
+
+        $token = substr($content, 9); // Bỏ "LICHKHAM:"
+
+        // Tìm lịch khám
+        $lich = LichKham::with(['benhNhan', 'bacSi', 'khungGio'])
+            ->where('qr_token', $token)
+            ->first();
+
+        if (! $lich) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy lịch khám với mã QR này',
+            ], 404);
+        }
+
+        // Kiểm tra trạng thái
+        if (! in_array($lich->trang_thai, ['ChoXacNhan', 'ChoDenKham'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Không thể check-in. Lịch đang ở trạng thái: {$lich->trang_thai}",
+            ], 400);
+        }
+
+        // Kiểm tra ngày khám (phải là hôm nay)
+        if ($lich->ngay_kham != now()->toDateString()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Lịch khám ngày {$lich->ngay_kham}. Chỉ check-in được lịch hôm nay.",
+            ], 400);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'ma_lich_dat' => $lich->ma_lich_dat,
+                'benh_nhan' => [
+                    'ma_bn' => $lich->benhNhan->ma_bn,
+                    'ho_ten' => $lich->benhNhan->ho_ten,
+                    'ngay_sinh' => $lich->benhNhan->ngay_sinh,
+                    'gioi_tinh' => $lich->benhNhan->gioi_tinh,
+                    'so_dien_thoai' => $lich->benhNhan->so_dien_thoai,
+                ],
+                'bac_si' => [
+                    'ho_ten' => $lich->bacSi->ho_ten,
+                ],
+                'khung_gio' => [
+                    'gio_bat_dau' => $lich->khungGio->gio_bat_dau,
+                    'gio_ket_thuc' => $lich->khungGio->gio_ket_thuc,
+                ],
+                'ngay_kham' => $lich->ngay_kham,
+                'trang_thai' => $lich->trang_thai,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/lich-kham/{id}/checkin-by-qr
+     * Check-in sau khi scan QR thành công
+     */
+    public function checkInByQR($id)
+    {
+        $lich = LichKham::find($id);
+        if (! $lich) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy lịch khám',
+            ], 404);
+        }
+
+        if (! in_array($lich->trang_thai, ['ChoXacNhan', 'ChoDenKham'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Không thể check-in ở trạng thái: {$lich->trang_thai}",
+            ], 400);
+        }
+
+        $lich->trang_thai = 'ChoKham';
+        $lich->thoi_gian_den_quay = now()->format('H:i:s');
+        $lich->save();
+        // ⭐ SỰ KIỆN 4B: Thông báo cho BÁC SĨ
+        try {
+            $lich->load('bacSi', 'benhNhan');
+            if ($lich->bacSi && $lich->bacSi->ma_tk) {
+                \App\Models\ThongBao::gui(
+                    $lich->bacSi->ma_tk,
+                    "📱 Bệnh nhân check-in qua QR",
+                    "Bệnh nhân " . ($lich->benhNhan->ho_ten ?? '') 
+                    . " đã quét mã QR và vào hàng đợi.",
+                    'check_in',
+                    '/views/doctor/dashboard.html'
+                );
+            }
+        } catch (\Exception $notiErr) {
+            \Log::warning('[ThongBao] Sự kiện check_in_qr: ' . $notiErr->getMessage());
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Check-in thành công! Bệnh nhân đã vào hàng đợi.',
+            'data' => $lich->load(['benhNhan', 'bacSi']),
+        ]);
     }
 }

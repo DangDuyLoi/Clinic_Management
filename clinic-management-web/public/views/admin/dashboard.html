@@ -2,12 +2,17 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Admin — Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin — Phòng khám</title>
   <link rel="stylesheet" href="/css/common.css">
   <link rel="stylesheet" href="/css/admin.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="layout">
+
   <aside class="sidebar">
     <h2>Quản trị</h2>
     <nav>
@@ -24,80 +29,103 @@
 
   <main class="main">
     <div class="header-bar">
-      <h1>Dashboard Quản trị viên</h1>
+      <h1>📊 Dashboard Quản trị viên</h1>
       <div class="user-info"></div>
     </div>
 
-    <!-- 4 thẻ tổng quan -->
+    <!-- BỘ LỌC THỜI GIAN -->
+    <div class="card">
+      <div class="d-flex gap-2 align-center flex-wrap">
+        <label style="font-weight:600">Khoảng thời gian:</label>
+        <select id="filterRange" class="form-control" style="width:180px;padding:8px 12px;border:1px solid #dee2e6;border-radius:6px"
+                onchange="applyRange()">
+          <option value="7">7 ngày gần đây</option>
+          <option value="30" selected>30 ngày gần đây</option>
+          <option value="90">90 ngày gần đây</option>
+          <option value="custom">Tùy chỉnh...</option>
+        </select>
+
+        <div id="customRange" style="display:none" class="d-flex gap-1 align-center">
+          <input type="date" id="fromDate" style="padding:8px;border:1px solid #dee2e6;border-radius:6px">
+          <span>→</span>
+          <input type="date" id="toDate" style="padding:8px;border:1px solid #dee2e6;border-radius:6px">
+          <button class="btn btn-primary btn-sm" onclick="loadAll()">Áp dụng</button>
+        </div>
+
+        <button class="btn btn-outline btn-sm" onclick="loadAll()">🔄 Làm mới</button>
+        <button class="btn btn-success btn-sm" onclick="exportReport()">📥 Xuất Excel</button>
+      </div>
+    </div>
+
+    <!-- 4 THẺ TỔNG QUAN -->
     <div class="grid grid-4 mb-2">
       <div class="card stat-card">
-        <div class="value" id="totalUsers">—</div>
-        <div class="label">Tổng tài khoản</div>
+        <div class="value" id="tongDoanhThu">—</div>
+        <div class="label">Tổng doanh thu</div>
       </div>
       <div class="card stat-card success">
-        <div class="value" id="totalDoctors">—</div>
-        <div class="label">Bác sĩ</div>
+        <div class="value" id="tongHoaDon">—</div>
+        <div class="label">Số hóa đơn</div>
       </div>
       <div class="card stat-card warning">
-        <div class="value" id="totalPatients">—</div>
-        <div class="label">Bệnh nhân</div>
+        <div class="value" id="tongLich">—</div>
+        <div class="label">Tổng lịch khám</div>
       </div>
       <div class="card stat-card info">
-        <div class="value" id="totalSpecs">—</div>
-        <div class="label">Chuyên khoa</div>
+        <div class="value" id="tyLeHoanThanh">—</div>
+        <div class="label">Tỷ lệ hoàn thành</div>
       </div>
     </div>
 
-    <!-- Hôm nay -->
+    <!-- BIỂU ĐỒ DOANH THU -->
     <div class="card">
-      <h3>Hôm nay</h3>
-      <div class="grid grid-4">
-        <div class="stat-card" style="border-left:4px solid #0d6efd">
-          <div class="value" id="apptToday">—</div>
-          <div class="label">Lịch khám</div>
-        </div>
-        <div class="stat-card" style="border-left:4px solid #ffc107">
-          <div class="value" id="apptPending">—</div>
-          <div class="label">Chờ khám</div>
-        </div>
-        <div class="stat-card" style="border-left:4px solid #198754">
-          <div class="value" id="apptDone">—</div>
-          <div class="label">Hoàn thành</div>
-        </div>
-        <div class="stat-card" style="border-left:4px solid #dc3545">
-          <div class="value" id="revenueToday">—</div>
-          <div class="label">Doanh thu</div>
-        </div>
+      <div class="card-header">
+        <h3>💰 Doanh thu theo ngày</h3>
+        <select id="revenueGroupBy" style="padding:6px 12px;border:1px solid #dee2e6;border-radius:6px"
+                onchange="loadRevenue()">
+          <option value="day" selected>Theo ngày</option>
+          <option value="month">Theo tháng</option>
+        </select>
+      </div>
+      <div style="height:320px">
+        <canvas id="revenueChart"></canvas>
       </div>
     </div>
 
-    <!-- Top bác sĩ -->
+    <!-- 2 BIỂU ĐỒ NGANG NHAU -->
     <div class="grid grid-2">
       <div class="card">
-        <h3>Top bác sĩ (số lịch khám)</h3>
-        <table>
-          <thead><tr><th>#</th><th>Bác sĩ</th><th>Số lịch</th></tr></thead>
-          <tbody id="topDoctors"></tbody>
-        </table>
+        <h3>👨‍⚕️ Hiệu suất bác sĩ (Top 8)</h3>
+        <div style="height:300px">
+          <canvas id="doctorChart"></canvas>
+        </div>
       </div>
 
       <div class="card">
-        <h3>Chuyên khoa & số bác sĩ</h3>
-        <table>
-          <thead><tr><th>Chuyên khoa</th><th>Số BS</th></tr></thead>
-          <tbody id="topSpecialties"></tbody>
-        </table>
+        <h3>🏥 Doanh thu theo chuyên khoa</h3>
+        <div style="height:300px">
+          <canvas id="specialtyChart"></canvas>
+        </div>
       </div>
     </div>
 
-    <!-- Doanh thu 7 ngày -->
+    <!-- BẢNG XẾP HẠNG BÁC SĨ -->
     <div class="card">
-      <h3>Doanh thu 7 ngày gần nhất</h3>
+      <h3>🏆 Xếp hạng bác sĩ theo hiệu suất</h3>
       <table>
         <thead>
-          <tr><th>Ngày</th><th>Số hóa đơn</th><th>Doanh thu</th></tr>
+          <tr>
+            <th>Hạng</th>
+            <th>Bác sĩ</th>
+            <th>Chuyên khoa</th>
+            <th>Lịch hoàn thành</th>
+            <th>Bệnh nhân</th>
+            <th>Doanh thu</th>
+          </tr>
         </thead>
-        <tbody id="revenueTable"></tbody>
+        <tbody id="rankingTable">
+          <tr><td colspan="6" class="text-center text-muted">Đang tải...</td></tr>
+        </tbody>
       </table>
     </div>
 
@@ -108,5 +136,7 @@
 <script src="/js/api.js"></script>
 <script src="/js/auth.js"></script>
 <script src="/js/admin.js"></script>
+<script src="/js/admin-dashboard.js"></script>
+  <script src="/js/notification.js"></script>
 </body>
 </html>

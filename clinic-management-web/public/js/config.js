@@ -4,7 +4,7 @@
 
 const CONFIG = {
   /* ---------- URL Backend ---------- */
-  API_BASE: 'http://localhost:8000/api',
+  API_BASE: window.location.origin + '/api',
 
   /* ---------- Local Storage Keys ---------- */
   TOKEN_KEY: 'clinic_token',

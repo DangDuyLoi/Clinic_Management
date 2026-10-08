@@ -1,18 +1,18 @@
 /* ============================================================
-   PATIENT RECORD — Phiên khám bệnh
+   PATIENT RECORD — Phiên khám bệnh (nâng cao)
    ============================================================ */
 
 let maLich = null;
 let maPhienKham = null;
+let maBenhNhan = null;
 let dsThuoc = [];
 let dsDichVu = [];
-let dsChiTietDonThuoc = [];  // Danh sách thuốc đang kê
+let dsChiTietDonThuoc = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!auth.requireAuth(['BacSi', 'QuanTri'])) return;
   auth.renderUserInfo();
 
-  // Lấy ma_lich từ URL
   const urlParams = new URLSearchParams(window.location.search);
   maLich = urlParams.get('lich');
 
@@ -22,11 +22,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  await loadCategories();    // Load thuốc + dịch vụ
-  await loadRecord();        // Load chi tiết phiên khám
+  await loadCategories();
+  await loadRecord();
 });
 
-/* ---------- LOAD DANH MỤC ---------- */
+/* ============================================================
+   TABS
+   ============================================================ */
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.toggle('hidden', el.id !== `tab-${tabName}`);
+  });
+}
+
+/* ============================================================
+   LOAD DANH MỤC
+   ============================================================ */
 async function loadCategories() {
   const [thuocRes, dvRes] = await Promise.all([
     api.get('/thuoc'),
@@ -48,7 +62,9 @@ async function loadCategories() {
   }
 }
 
-/* ---------- LOAD PHIÊN KHÁM ---------- */
+/* ============================================================
+   LOAD PHIÊN KHÁM
+   ============================================================ */
 async function loadRecord() {
   const res = await api.get(`/phien-kham/by-lich/${maLich}`);
 
@@ -59,8 +75,8 @@ async function loadRecord() {
 
   const { lich_kham, phien_kham } = res.data;
   maPhienKham = phien_kham.ma_phien_kham;
+  maBenhNhan  = lich_kham.ma_bn;
 
-  // Hiển thị thông tin bệnh nhân
   renderPatientInfo(lich_kham);
 
   // Điền chẩn đoán
@@ -68,11 +84,9 @@ async function loadRecord() {
   document.getElementById('chanDoanCuoiCung').value = phien_kham.chan_doan_cuoi_cung || '';
   document.getElementById('ghiChuYTe').value        = phien_kham.ghi_chu_y_te || '';
 
-  // Render chỉ định + đơn thuốc
   renderServices(phien_kham.chi_dinh || []);
   renderMedicines(phien_kham.don_thuoc?.chi_tiet || []);
 
-  // Hiện content
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('content').classList.remove('hidden');
 }
@@ -83,15 +97,121 @@ function renderPatientInfo(lich) {
     <div><b>Họ tên:</b> ${bn.ho_ten || '—'}</div>
     <div><b>SĐT:</b> ${bn.so_dien_thoai || '—'}</div>
     <div><b>Ngày sinh:</b> ${bn.ngay_sinh ? api.formatDate(bn.ngay_sinh) : '—'}</div>
-    <div><b>Giới tính:</b> ${{'Nam':'Nam','Nu':'Nữ','Khac':'Khác'}[bn.gioi_tinh] || '—'}</div>
+    <div><b>Giới tính:</b> ${bn.gioi_tinh === 'Nam' ? 'Nam' : bn.gioi_tinh === 'Nu' ? 'Nữ' : '—'}</div>
     <div><b>Nhóm máu:</b> ${bn.nhom_mau || '—'}</div>
-    <div><b>Địa chỉ:</b> ${bn.dia_chi || '—'}</div>
-    <div style="grid-column: span 3"><b>Dị ứng:</b> ${bn.di_ung || 'Không có'}</div>
-    <div style="grid-column: span 3"><b>Tiền sử bệnh:</b> ${bn.tien_su_benh || 'Không có'}</div>
+    <div><b>CCCD:</b> ${bn.cccd || '—'}</div>
+    <div style="grid-column: span 2"><b>Địa chỉ:</b> ${bn.dia_chi || '—'}</div>
+    <div style="grid-column: span 4;background:#fff3cd;padding:10px;border-radius:6px;margin-top:8px">
+      <b>⚠️ Dị ứng:</b> ${bn.di_ung || 'Không có'}
+    </div>
+    <div style="grid-column: span 4;background:#e7f1ff;padding:10px;border-radius:6px">
+      <b>📋 Tiền sử bệnh:</b> ${bn.tien_su_benh || 'Không có'}
+    </div>
   `;
 }
 
-/* ---------- CHỈ ĐỊNH DỊCH VỤ ---------- */
+/* ============================================================
+   LỊCH SỬ KHÁM
+   ============================================================ */
+async function showPatientHistory() {
+  const modal = document.getElementById('historyModal');
+  const content = document.getElementById('historyContent');
+
+  modal.classList.remove('hidden');
+  content.innerHTML = '<div class="text-center" style="padding:40px"><span class="spinner spinner-dark spinner-lg"></span><p class="mt-2 text-muted">Đang tải lịch sử...</p></div>';
+
+  const res = await api.get(`/benh-nhan/${maBenhNhan}/lich-su-kham`);
+
+  if (res.status !== 'success') {
+    content.innerHTML = `<p class="text-danger">Lỗi: ${res.message}</p>`;
+    return;
+  }
+
+  const d = res.data;
+  const bn = d.benh_nhan;
+  const lichSu = d.lich_su || [];
+
+  let html = `
+    <div style="background:#f8f9fa;padding:14px;border-radius:8px;margin-bottom:16px">
+      <div class="grid grid-2" style="gap:8px;font-size:14px">
+        <div><b>Họ tên:</b> ${bn.ho_ten}</div>
+        <div><b>SĐT:</b> ${bn.so_dien_thoai || '—'}</div>
+        <div><b>Ngày sinh:</b> ${bn.ngay_sinh ? api.formatDate(bn.ngay_sinh) : '—'}</div>
+        <div><b>Nhóm máu:</b> ${bn.nhom_mau || '—'}</div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #dee2e6">
+        <div><b>⚠️ Dị ứng:</b> ${bn.di_ung || 'Không'}</div>
+        <div><b>📋 Tiền sử:</b> ${bn.tien_su_benh || 'Không'}</div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #dee2e6">
+        <b>📊 Tổng số lần khám:</b> <span class="badge badge-info">${d.tong_lan_kham} lần</span>
+      </div>
+    </div>
+
+    <h4 style="margin-bottom:12px">📅 Lịch sử các lần khám:</h4>
+  `;
+
+  if (!lichSu.length) {
+    html += '<p class="text-muted text-center" style="padding:20px">Chưa có lần khám nào</p>';
+  } else {
+    lichSu.forEach((pk, idx) => {
+      const lk = pk.lich_kham || {};
+      const bs = lk.bac_si || {};
+      const ck = bs.chuyen_khoa || {};
+      const donThuoc = pk.don_thuoc;
+
+      html += `
+        <div style="border:1px solid #dee2e6;border-radius:8px;padding:14px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+            <div>
+              <b style="font-size:15px;color:#0d6efd">Lần khám #${lichSu.length - idx}</b>
+              <div style="font-size:13px;color:#6c757d;margin-top:4px">
+                📅 ${lk.ngay_kham ? api.formatDate(lk.ngay_kham) : '—'} 
+                · 👨‍⚕️ ${bs.ho_ten || '—'} 
+                · 🏥 ${ck.ten_chuyen_khoa || '—'}
+              </div>
+            </div>
+            <span class="badge badge-done">${pk.trang_thai}</span>
+          </div>
+
+          <div style="margin-top:10px">
+            <div><b>Chẩn đoán:</b> ${pk.chan_doan_cuoi_cung || pk.chan_doan_so_bo || '—'}</div>
+            ${pk.ghi_chu_y_te ? `<div style="margin-top:4px"><b>Ghi chú:</b> ${pk.ghi_chu_y_te}</div>` : ''}
+          </div>
+
+          ${pk.chi_dinh && pk.chi_dinh.length > 0 ? `
+            <div style="margin-top:8px">
+              <b>Chỉ định (${pk.chi_dinh.length}):</b>
+              <ul style="margin-left:20px;font-size:13px">
+                ${pk.chi_dinh.map(cd => `<li>${cd.dich_vu?.ten_dich_vu || '—'} ${cd.ket_qua_chi_tiet ? `<i>— ${cd.ket_qua_chi_tiet}</i>` : ''}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          ${donThuoc && donThuoc.chi_tiet && donThuoc.chi_tiet.length > 0 ? `
+            <div style="margin-top:8px">
+              <b>Đơn thuốc (${donThuoc.chi_tiet.length} loại):</b>
+              <ul style="margin-left:20px;font-size:13px">
+                ${donThuoc.chi_tiet.map(ct => `<li>${ct.thuoc?.ten_thuoc || '—'} — SL: ${ct.so_luong} — ${ct.lieu_luong}</li>`).join('')}
+              </ul>
+              <div style="text-align:right;margin-top:6px"><b>Tổng: ${api.formatMoney(donThuoc.tong_tien)}</b></div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    });
+  }
+
+  content.innerHTML = html;
+}
+
+function closeHistoryModal() {
+  document.getElementById('historyModal').classList.add('hidden');
+}
+
+/* ============================================================
+   CHỈ ĐỊNH DỊCH VỤ
+   ============================================================ */
 function renderServices(list) {
   const tbody = document.getElementById('serviceList');
   if (!list.length) {
@@ -119,7 +239,7 @@ async function addService() {
   });
 
   if (res.status === 'success') {
-    api.toast('Đã thêm chỉ định', 'success');
+    api.toast('✅ Đã thêm chỉ định', 'success');
     document.getElementById('chonDichVu').value = '';
     await loadRecord();
   } else {
@@ -136,7 +256,9 @@ async function removeService(id) {
   }
 }
 
-/* ---------- KÊ ĐƠN THUỐC ---------- */
+/* ============================================================
+   KÊ ĐƠN THUỐC
+   ============================================================ */
 function renderMedicines(chiTiet) {
   dsChiTietDonThuoc = chiTiet.map(ct => ({
     ma_thuoc: ct.ma_thuoc,
@@ -176,39 +298,12 @@ function addMedicine() {
   const thuoc = dsThuoc.find(t => t.ma_thuoc == maThuoc);
   if (!thuoc) return;
 
-  // ⭐ Cảnh báo nếu thuốc sắp hết
-  const soLuongDaKe = dsChiTietDonThuoc
-    .filter(ct => ct.ma_thuoc == maThuoc)
-    .reduce((s, ct) => s + ct.so_luong, 0);
-
-  const conLai = thuoc.so_luong_ton - soLuongDaKe;
-
-  if (thuoc.so_luong_ton <= 0) {
-    return api.toast(`Thuốc "${thuoc.ten_thuoc}" đã hết hàng`, 'error');
-  }
-
-  const soLuong = parseInt(prompt(
-    `Số lượng (tồn kho còn: ${conLai}):`,
-    '10'
-  ));
-
+  const soLuong = parseInt(prompt('Số lượng:', '10'));
   if (!soLuong || soLuong < 1) return;
 
-  // ⭐ Chặn nếu vượt tồn kho
-  if (soLuongDaKe + soLuong > thuoc.so_luong_ton) {
-    return api.toast(
-      `Không đủ tồn kho. Chỉ còn ${conLai} ${thuoc.don_vi_tinh || 'đơn vị'}`,
-      'error'
-    );
-  }
-
-  const lieuLuong = prompt(
-    'Liều lượng (VD: Ngày uống 2 lần, mỗi lần 1 viên):',
-    'Ngày uống 1 viên sau ăn'
-  );
+  const lieuLuong = prompt('Liều lượng (VD: Ngày uống 2 lần, mỗi lần 1 viên):', 'Ngày uống 1 viên sau ăn');
   if (!lieuLuong) return;
 
-  // Nếu thuốc đã có trong đơn → cộng số lượng
   const existing = dsChiTietDonThuoc.find(ct => ct.ma_thuoc == maThuoc);
   if (existing) {
     existing.so_luong += soLuong;
@@ -218,7 +313,6 @@ function addMedicine() {
     dsChiTietDonThuoc.push({
       ma_thuoc: thuoc.ma_thuoc,
       ten_thuoc: thuoc.ten_thuoc,
-      don_vi_tinh: thuoc.don_vi_tinh,
       so_luong: soLuong,
       lieu_luong: lieuLuong,
       thanh_tien: soLuong * parseFloat(thuoc.don_gia),
@@ -234,7 +328,9 @@ function removeMedicine(index) {
   renderMedicineTable();
 }
 
-/* ---------- LƯU CHẨN ĐOÁN ---------- */
+/* ============================================================
+   LƯU CHẨN ĐOÁN
+   ============================================================ */
 async function saveDiagnosis() {
   const data = {
     chan_doan_so_bo: document.getElementById('chanDoanSoBo').value.trim(),
@@ -251,7 +347,9 @@ async function saveDiagnosis() {
   }
 }
 
-/* ---------- LƯU ĐƠN THUỐC ---------- */
+/* ============================================================
+   LƯU ĐƠN THUỐC
+   ============================================================ */
 async function savePrescription() {
   if (!dsChiTietDonThuoc.length) {
     return api.toast('Chưa có thuốc nào', 'error');
@@ -269,37 +367,118 @@ async function savePrescription() {
   const res = await api.post('/don-thuoc', payload);
 
   if (res.status === 'success') {
-    api.toast('💊 Đã lưu đơn thuốc và trừ kho', 'success');
-
-    // ⭐ RELOAD danh mục thuốc (để cập nhật tồn kho mới)
-    const thuocRes = await api.get('/thuoc');
-    if (thuocRes.status === 'success') {
-      dsThuoc = thuocRes.data;
-      document.getElementById('chonThuoc').innerHTML =
-        '<option value="">-- Chọn thuốc --</option>' +
-        dsThuoc.map(t => {
-          const disabled = t.so_luong_ton <= 0 ? 'disabled' : '';
-          const stockText = t.so_luong_ton <= 0
-            ? ' [HẾT HÀNG]'
-            : t.so_luong_ton <= 10
-              ? ` [còn ${t.so_luong_ton}]`
-              : '';
-          return `<option value="${t.ma_thuoc}" ${disabled}>${t.ten_thuoc} — ${api.formatMoney(t.don_gia)}/${t.don_vi_tinh || 'đv'}${stockText}</option>`;
-        }).join('');
-    }
-
+    api.toast('💊 Đã lưu đơn thuốc', 'success');
     await loadRecord();
   } else {
     api.toast(res.message, 'error');
   }
 }
 
-/* ---------- HOÀN THÀNH PHIÊN KHÁM ---------- */
+/* ============================================================
+   IN ĐƠN THUỐC
+   ============================================================ */
+function printPrescription() {
+  if (!dsChiTietDonThuoc.length) {
+    return api.toast('Chưa có thuốc để in', 'error');
+  }
+
+  const bn = document.querySelector('#patientInfo').textContent;
+  const chanDoan = document.getElementById('chanDoanCuoiCung').value;
+
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  printWindow.document.write(`
+    <html>
+    <head>
+      <title>Đơn thuốc</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 30px; line-height: 1.6; }
+        h1 { text-align: center; color: #198754; margin-bottom: 5px; }
+        h2 { text-align: center; font-size: 16px; margin-bottom: 30px; color: #666; }
+        .info { margin-bottom: 20px; }
+        .info div { margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        .footer { margin-top: 50px; text-align: right; }
+        .signature { margin-top: 80px; display: flex; justify-content: space-around; }
+      </style>
+    </head>
+    <body>
+      <h1>PHÒNG KHÁM ĐA KHOA</h1>
+      <h2>ĐƠN THUỐC</h2>
+
+      <div class="info">
+        <div><b>Chẩn đoán:</b> ${chanDoan || '—'}</div>
+        <div><b>Ngày kê đơn:</b> ${new Date().toLocaleString('vi-VN')}</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Tên thuốc</th>
+            <th>Số lượng</th>
+            <th>Liều lượng</th>
+            <th>Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dsChiTietDonThuoc.map((ct, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${ct.ten_thuoc}</td>
+              <td>${ct.so_luong}</td>
+              <td>${ct.lieu_luong}</td>
+              <td>${api.formatMoney(ct.thanh_tien)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right"><b>TỔNG CỘNG:</b></td>
+            <td><b>${api.formatMoney(dsChiTietDonThuoc.reduce((s, ct) => s + parseFloat(ct.thanh_tien || 0), 0))}</b></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="signature">
+        <div style="text-align:center">
+          <b>Bệnh nhân</b>
+          <div style="height:60px"></div>
+          <i>(Ký, ghi rõ họ tên)</i>
+        </div>
+        <div style="text-align:center">
+          <b>Bác sĩ điều trị</b>
+          <div style="height:60px"></div>
+          <i>(Ký, ghi rõ họ tên)</i>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => printWindow.print(), 500);
+}
+
+/* ============================================================
+   HOÀN THÀNH PHIÊN KHÁM
+   ============================================================ */
+async function saveDraft() {
+  await saveDiagnosis();
+  api.toast('💾 Đã lưu nháp', 'success');
+}
+
 async function finishExam() {
   if (!confirm('Xác nhận hoàn thành phiên khám? Sau khi hoàn thành không thể sửa.')) return;
 
   // Lưu chẩn đoán trước
   await saveDiagnosis();
+
+  // Lưu đơn thuốc nếu có
+  if (dsChiTietDonThuoc.length > 0) {
+    await savePrescription();
+  }
 
   const res = await api.post(`/phien-kham/${maPhienKham}/finish`);
 
