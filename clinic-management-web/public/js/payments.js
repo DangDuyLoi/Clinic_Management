@@ -160,6 +160,7 @@ function closePayModal() {
   stopQRCountdown();
   qrRefreshCount = 0;
   currentPaymentMethod = null;
+  currentVnpayTxnRef = null;
 
   document.getElementById('payModal').classList.add('hidden');
 
@@ -486,3 +487,131 @@ document.addEventListener('visibilitychange', () => {
     }
   }
 });
+/* ============================================================
+   VNPAY MOCK — Tạo QR giả lập và xử lý callback
+   ============================================================ */
+
+let currentVnpayTxnRef = null;
+
+/**
+ * Tạo QR VNPay giả lập — gọi khi lễ tân chọn "VNPay"
+ */
+async function createVnpayMockQR() {
+  const maHoaDon = window.currentInvoice?.id;
+  if (!maHoaDon) return;
+
+  console.log('🎭 Tạo QR VNPay MOCK cho hóa đơn #' + maHoaDon);
+
+  const res = await api.post(`/vnpay/mock-payment/${maHoaDon}`);
+
+  if (res.status !== 'success') {
+    api.toast('Không tạo được QR VNPay: ' + res.message, 'error');
+    return;
+  }
+
+  const d = res.data;
+  currentVnpayTxnRef = d.txn_ref;
+
+  // Hiển thị thông tin
+  document.getElementById('vnpayQRImage').src = d.qr_url;
+  document.getElementById('vnpayInvoiceCode').textContent = 'HD' + String(d.ma_hoa_don).padStart(6, '0');
+  document.getElementById('vnpayTxnRef').textContent = d.txn_ref;
+  document.getElementById('vnpayAmount').textContent = api.formatMoney(d.amount);
+  document.getElementById('vnpayExpired').textContent = d.expired_at;
+
+  console.log('✅ QR VNPay MOCK hiển thị:', d);
+}
+
+/**
+ * Giả lập thanh toán thành công
+ */
+async function simulatePaymentSuccess() {
+  if (!currentVnpayTxnRef) {
+    api.toast('Chưa có giao dịch để giả lập', 'error');
+    return;
+  }
+
+  if (!confirm('Giả lập VNPay callback THÀNH CÔNG?\n\nHóa đơn sẽ được đánh dấu ĐÃ THANH TOÁN.')) {
+    return;
+  }
+
+  const res = await api.post('/vnpay/simulate-callback', {
+    txn_ref: currentVnpayTxnRef,
+    response_code: '00',
+  });
+
+  if (res.status === 'success') {
+    api.toast('✅ Thanh toán VNPay giả lập thành công!', 'success', 3000);
+
+    // Đóng modal
+    closePayModal();
+
+    // Reload danh sách
+    loadInvoices();
+    loadStats();
+
+    // Reset biến
+    currentVnpayTxnRef = null;
+  } else {
+    api.toast(res.message || 'Lỗi giả lập', 'error');
+  }
+}
+
+/**
+ * Giả lập thanh toán thất bại
+ */
+async function simulatePaymentFailed() {
+  if (!currentVnpayTxnRef) {
+    api.toast('Chưa có giao dịch để giả lập', 'error');
+    return;
+  }
+
+  if (!confirm('Giả lập VNPay callback THẤT BẠI?')) {
+    return;
+  }
+
+  const res = await api.post('/vnpay/simulate-callback', {
+    txn_ref: currentVnpayTxnRef,
+    response_code: '24',   // Mã lỗi VNPay (giao dịch bị hủy)
+  });
+
+  api.toast('❌ Giao dịch bị hủy (giả lập)', 'warning', 3000);
+
+  // Không đóng modal — user có thể thử lại
+  currentVnpayTxnRef = null;
+}
+
+/**
+ * Override hàm onPaymentMethodChange để dùng mock VNPay
+ */
+const originalOnPaymentMethodChange = window.onPaymentMethodChange;
+
+window.onPaymentMethodChange = function() {
+  const method = document.getElementById('pay_phuong_thuc').value;
+
+  // Ẩn cả 2 QR
+  document.getElementById('vnpayQRSection').style.display = 'none';
+  document.getElementById('momoQRSection').style.display = 'none';
+
+  stopQRCountdown();
+
+  if (method === 'VNPay') {
+    currentPaymentMethod = 'VNPay';
+    document.getElementById('vnpayQRSection').style.display = 'block';
+
+    // ⭐ Tạo QR VNPay MOCK từ backend
+    createVnpayMockQR();
+
+  } else if (method === 'Momo') {
+    currentPaymentMethod = 'Momo';
+    document.getElementById('momoQRSection').style.display = 'block';
+    refreshPaymentQR(false);
+    startQRCountdown();
+
+  } else {
+    currentPaymentMethod = null;
+    currentVnpayTxnRef = null;
+  }
+};
+
+console.log('✅ VNPay MOCK handlers đã đăng ký');
