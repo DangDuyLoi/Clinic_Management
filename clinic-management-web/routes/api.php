@@ -17,6 +17,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CaLamViecController;
 use App\Http\Controllers\KhungGioController;
 use App\Http\Controllers\ThongBaoController;
+use App\Http\Controllers\VNPayController;
 /* ============================================================
    PUBLIC ROUTES — Không cần đăng nhập
    ============================================================ */
@@ -24,7 +25,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/login',    [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
 });
-
+Route::post('vnpay/ipn', [VNPayController::class, 'ipn']);
 /* ============================================================
    PROTECTED ROUTES — Yêu cầu JWT
    ============================================================ */
@@ -213,5 +214,7 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/refresh',         [AuthController::class, 'refresh']);
         Route::post('/change-password', [AuthController::class, 'changePassword']);
     });
-
+Route::post('vnpay/create-payment/{hoaDonId}', [VNPayController::class, 'createPayment']);
+Route::post('vnpay/mock-payment/{hoaDonId}', [VNPayController::class, 'createMockPayment']);
+Route::post('vnpay/simulate-callback',        [VNPayController::class, 'simulateCallback']);
 });

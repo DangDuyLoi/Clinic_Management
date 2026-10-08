@@ -232,14 +232,8 @@ class DashboardController extends Controller
             ->groupBy('trang_thai')
             ->pluck('so_luong', 'trang_thai');
 
-        // Bệnh nhân mới trong khoảng thời gian
-        $benhNhanMoi = BenhNhan::whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-            ->count();
-
-        // Nếu cột created_at không tồn tại, dùng ma_bn tăng dần
-        if ($benhNhanMoi === 0) {
-            $benhNhanMoi = BenhNhan::count(); // Fallback
-        }
+        // Bệnh nhân mới — đếm tổng (bảng không có created_at)
+        $benhNhanMoi = BenhNhan::count();
 
         // Tỷ lệ hoàn thành
         $tongLich = $lichByStatus->sum();
