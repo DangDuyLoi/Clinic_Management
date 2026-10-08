@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use Carbon\Carbon;
-use App\Jobs\SendBookingEmailJob; // Thư viện để chạy Queue gửi Email (Bước 4)
+use App\Jobs\SendBookingEmailJob;
 
 class LuotKhamController extends Controller
 {
@@ -17,46 +17,84 @@ class LuotKhamController extends Controller
     {
         $luotKham = LuotKham::find($id);
         if (!$luotKham) {
-            return $this->errorResponse('Không tìm thấy lượt khám', 404);
+            return response()->json(['message' => 'Không tìm thấy lượt khám'], 404);
         }
 
         $luotKham->update(['trang_thai' => 'cho_kham']);
 
-        return $this->successResponse($luotKham, 'Đã tiếp nhận bệnh nhân, chuyển vào hàng đợi chờ khám.');
+        return response()->json([
+            'message' => 'Đã tiếp nhận bệnh nhân, chuyển vào hàng đợi chờ khám.',
+            'data' => $luotKham
+        ], 200);
     }
 
-    // 2. API Bác sĩ: Cập nhật chẩn đoán và hoàn thành khám
+    // 2. API Bác sĩ: Cập nhật chẩn đoán, lời khuyên và kê đơn thuốc (MỚI)
     public function capNhatKetQua(Request $request, $id)
     {
         $luotKham = LuotKham::find($id);
+        
         if (!$luotKham) {
-            return $this->errorResponse('Không tìm thấy lượt khám', 404);
+            return response()->json(['message' => 'Không tìm thấy lượt khám'], 404);
         }
 
+        if ($luotKham->trang_thai === 'hoan_thanh') {
+            return response()->json(['message' => 'Lượt khám này đã được xử lý xong'], 400);
+        }
+
+        // Validate cơ bản
         $validator = Validator::make($request->all(), [
             'chan_doan' => 'required|string',
         ]);
 
         if ($validator->fails()) {
-            return $this->errorResponse('Dữ liệu không hợp lệ', 422, $validator->errors());
+            return response()->json(['message' => 'Dữ liệu không hợp lệ', 'errors' => $validator->errors()], 422);
         }
 
+        // Cập nhật thông tin chẩn đoán
         $luotKham->update([
-            'chan_doan' => $request->chan_doan,
+            'chan_doan' => $request->input('chan_doan'),
+            'loi_khuyen' => $request->input('loi_khuyen'), // Thêm lời khuyên
             'trang_thai' => 'hoan_thanh'
         ]);
 
-        return $this->successResponse($luotKham, 'Cập nhật kết quả khám thành công!');
+        // Xử lý kê đơn thuốc (nếu bác sĩ có gửi mảng don_thuoc lên)
+        $danhSachThuoc = $request->input('don_thuoc');
+        
+        if (is_array($danhSachThuoc) && count($danhSachThuoc) > 0) {
+            // Tạo 1 record đơn thuốc chung
+            $donThuocId = DB::table('don_thuoc')->insertGetId([
+                'luot_kham_id' => $id,
+                'ghi_chu' => 'Đơn thuốc cho lượt khám ' . $id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Thêm từng loại thuốc vào chi tiết đơn thuốc
+            foreach ($danhSachThuoc as $thuoc) {
+                DB::table('chi_tiet_don_thuoc')->insert([
+                    'don_thuoc_id' => $donThuocId,
+                    'ten_thuoc' => $thuoc['ten_thuoc'] ?? 'Chưa rõ',
+                    'so_luong' => $thuoc['so_luong'] ?? 1,
+                    'cach_dung' => $thuoc['cach_dung'] ?? '',
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Lưu kết quả khám và đơn thuốc thành công!',
+            'luot_kham_id' => $id
+        ], 200);
     }
 
     // 3. API Bệnh nhân: Đặt lịch khám (Có xử lý Race Condition & Validation nâng cao)
     public function datLich(Request $request)
     {
-        // BƯỚC 1: Validation nâng cao - Chặn đặt lịch trong quá khứ
         $validator = Validator::make($request->all(), [
             'ma_ho_so' => 'required|integer',
             'ma_bac_si' => 'required|integer',
-            'thoi_gian_den_kham' => 'required|date_format:Y-m-d H:i:s|after:now', // after:now chặn giờ quá khứ
+            'thoi_gian_den_kham' => 'required|date_format:Y-m-d H:i:s|after:now', 
         ], [
             'thoi_gian_den_kham.after' => 'Thời gian khám phải lớn hơn thời gian hiện tại.',
             'thoi_gian_den_kham.date_format' => 'Định dạng thời gian không hợp lệ (Chuẩn: YYYY-MM-DD HH:MM:SS).'
@@ -71,8 +109,6 @@ class LuotKhamController extends Controller
 
         try {
             $result = DB::transaction(function () use ($request) {
-                
-                // XỬ LÝ RACE CONDITION
                 $soNguoiDaDat = LuotKham::where('ma_bac_si', $request->ma_bac_si)
                                         ->where('thoi_gian_den_kham', $request->thoi_gian_den_kham)
                                         ->lockForUpdate()
@@ -84,7 +120,6 @@ class LuotKhamController extends Controller
                     throw new Exception('Khung giờ này của bác sĩ đã có người đặt hoặc đã đầy. Vui lòng chọn giờ khác.');
                 }
 
-                // Lưu vào database
                 $luotKhamMoi = LuotKham::create([
                     'ma_ho_so' => $request->ma_ho_so,
                     'ma_bac_si' => $request->ma_bac_si,
@@ -93,7 +128,6 @@ class LuotKhamController extends Controller
                     'chan_doan' => null
                 ]);
 
-                // BƯỚC 4: Đẩy tác vụ gửi Email vào Queue để chạy ngầm, không làm lag API
                 SendBookingEmailJob::dispatch($luotKhamMoi);
 
                 return $luotKhamMoi;
@@ -167,7 +201,7 @@ class LuotKhamController extends Controller
         $danhSach = DB::table('luot_kham')
             ->whereIn('luot_kham.ma_ho_so', $request->danh_sach_ma_ho_so)
             ->leftJoin('ho_so_benh_an', 'luot_kham.ma_ho_so', '=', 'ho_so_benh_an.ma_ho_so')
-            ->leftJoin('users as bac_si', 'luot_kham.ma_bac_si', '=', 'bac_si.id') // Giả định bác sĩ lưu ở users
+            ->leftJoin('users as bac_si', 'luot_kham.ma_bac_si', '=', 'bac_si.id') 
             ->select(
                 'luot_kham.ma_luot_kham',
                 'luot_kham.thoi_gian_den_kham',
@@ -175,7 +209,7 @@ class LuotKhamController extends Controller
                 'luot_kham.ma_bac_si',
                 DB::raw("CONCAT(ho_so_benh_an.ho_chu_lot, ' ', ho_so_benh_an.ten) as ten_benh_nhan"),
                 'bac_si.name as ten_bac_si',
-                DB::raw("'DaThanhToan' as trang_thai_thanh_toan") // Giả lập đã thanh toán do chưa có bảng hoa_don
+                DB::raw("'DaThanhToan' as trang_thai_thanh_toan") 
             )
             ->orderBy('luot_kham.thoi_gian_den_kham', 'desc')
             ->get();
