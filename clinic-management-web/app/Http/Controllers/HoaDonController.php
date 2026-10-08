@@ -165,6 +165,23 @@ public function pay(Request $request, $id)
                 }
             }
         });
+        // ⭐ SỰ KIỆN 3: Thông báo cho ADMIN
+            try {
+                $hd->load('phienKham.lichKham.benhNhan', 'phienKham.lichKham.bacSi');
+                $tenBn = $hd->phienKham->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';
+                $tenBs = $hd->phienKham->lichKham->bacSi->ho_ten ?? 'bác sĩ';
+                $soTien = number_format($hd->tong_cong, 0, ',', '.') . 'đ';
+
+                \App\Models\ThongBao::guiTheoVaiTro(
+                    'QuanTri',
+                    "💰 Có hóa đơn mới đã thanh toán",
+                    "HĐ #{$hd->ma_hoa_don} — {$tenBn} (BS {$tenBs}) — {$soTien}",
+                    'thanh_toan',
+                    '/views/admin/dashboard.html'
+                );
+            } catch (\Exception $notiErr) {
+                \Log::warning('[ThongBao] Sự kiện thanh_toan: ' . $notiErr->getMessage());
+            }
 
         return response()->json([
             'status'  => 'success',

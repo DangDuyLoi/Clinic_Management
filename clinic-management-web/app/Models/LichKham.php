@@ -13,7 +13,7 @@ class LichKham extends Model
     protected $fillable = [
         'ma_bn', 'ma_bs', 'ngay_kham', 'ma_khung_gio',
         'thoi_gian_den_quay', 'khach_vang_lai', 'diem_uu_tien',
-        'trang_thai', 'ghi_chu', 'thoi_diem_dat',
+        'trang_thai', 'ghi_chu', 'thoi_diem_dat','qr_token',
     ];
 
     protected $casts = [

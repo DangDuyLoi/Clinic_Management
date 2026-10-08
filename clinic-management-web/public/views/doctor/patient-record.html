@@ -2,12 +2,14 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Phiên khám — Bác sĩ</title>
   <link rel="stylesheet" href="/css/common.css">
   <link rel="stylesheet" href="/css/doctor.css">
 </head>
 <body>
 <div class="layout">
+
   <aside class="sidebar">
     <h2>Bác sĩ</h2>
     <nav>
@@ -20,87 +22,129 @@
 
   <main class="main">
     <div class="header-bar">
-      <h1>Phiên khám bệnh</h1>
+      <h1>📝 Phiên khám bệnh</h1>
       <div class="user-info"></div>
     </div>
 
     <div id="loading" class="card text-center" style="padding:60px">
       <span class="spinner spinner-dark spinner-lg"></span>
-      <p class="mt-2 text-muted">Đang tải thông tin...</p>
+      <p class="mt-2 text-muted">Đang tải thông tin phiên khám...</p>
     </div>
 
     <div id="content" class="hidden">
 
-      <!-- Thông tin bệnh nhân -->
+      <!-- ============ THÔNG TIN BỆNH NHÂN ============ -->
       <div class="card">
-        <h3>Thông tin bệnh nhân</h3>
-        <div class="grid grid-3" id="patientInfo"></div>
+        <div class="card-header">
+          <h3>👤 Thông tin bệnh nhân</h3>
+          <button class="btn btn-outline btn-sm" onclick="showPatientHistory()">
+            📜 Xem lịch sử khám
+          </button>
+        </div>
+        <div class="grid grid-4" id="patientInfo"></div>
       </div>
 
-      <!-- Chẩn đoán -->
+      <!-- ============ TABS ============ -->
       <div class="card">
-        <h3>Chẩn đoán</h3>
-        <div class="form-group">
-          <label>Chẩn đoán sơ bộ</label>
-          <textarea id="chanDoanSoBo" rows="2" placeholder="Nhập chẩn đoán sơ bộ..."></textarea>
+        <div class="tabs-nav">
+          <button class="tab-btn active" onclick="switchTab('chandoan')" data-tab="chandoan">
+            🩺 Chẩn đoán
+          </button>
+          <button class="tab-btn" onclick="switchTab('chidinh')" data-tab="chidinh">
+            🧪 Chỉ định dịch vụ
+          </button>
+          <button class="tab-btn" onclick="switchTab('donthuoc')" data-tab="donthuoc">
+            💊 Đơn thuốc
+          </button>
         </div>
-        <div class="form-group">
-          <label>Chẩn đoán cuối cùng</label>
-          <textarea id="chanDoanCuoiCung" rows="3" placeholder="Nhập chẩn đoán cuối cùng..."></textarea>
+
+        <!-- TAB 1: CHẨN ĐOÁN -->
+        <div class="tab-content active" id="tab-chandoan">
+          <div class="form-group">
+            <label>Chẩn đoán sơ bộ</label>
+            <textarea id="chanDoanSoBo" rows="2" placeholder="VD: Đau tức ngực, khó thở khi vận động..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Chẩn đoán cuối cùng</label>
+            <textarea id="chanDoanCuoiCung" rows="3" placeholder="VD: Tăng huyết áp độ 2, theo dõi thiếu máu cơ tim..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Ghi chú y tế (dặn dò bệnh nhân)</label>
+            <textarea id="ghiChuYTe" rows="2" placeholder="VD: Hạn chế muối, tái khám sau 2 tuần..."></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="saveDiagnosis()">
+            💾 Lưu chẩn đoán
+          </button>
         </div>
-        <div class="form-group">
-          <label>Ghi chú y tế</label>
-          <textarea id="ghiChuYTe" rows="2" placeholder="Ghi chú thêm..."></textarea>
+
+        <!-- TAB 2: CHỈ ĐỊNH DỊCH VỤ -->
+        <div class="tab-content hidden" id="tab-chidinh">
+          <div class="form-inline mb-2">
+            <select id="chonDichVu" style="flex:1;padding:10px;border:1px solid #dee2e6;border-radius:6px">
+              <option value="">-- Chọn dịch vụ cận lâm sàng --</option>
+            </select>
+            <button class="btn btn-primary" onclick="addService()">+ Thêm chỉ định</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>Tên dịch vụ</th><th>Đơn giá</th><th>Trạng thái</th><th></th></tr>
+            </thead>
+            <tbody id="serviceList"></tbody>
+          </table>
         </div>
-        <button class="btn btn-primary" onclick="saveDiagnosis()">Lưu chẩn đoán</button>
+
+        <!-- TAB 3: ĐƠN THUỐC -->
+        <div class="tab-content hidden" id="tab-donthuoc">
+          <div class="form-inline mb-2">
+            <select id="chonThuoc" style="flex:1;padding:10px;border:1px solid #dee2e6;border-radius:6px">
+              <option value="">-- Chọn thuốc --</option>
+            </select>
+            <button class="btn btn-primary" onclick="addMedicine()">+ Thêm thuốc</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>Thuốc</th><th>SL</th><th>Liều lượng</th><th>Thành tiền</th><th></th></tr>
+            </thead>
+            <tbody id="medicineList"></tbody>
+          </table>
+
+          <p class="text-right mt-2" style="text-align:right">
+            <b>Tổng tiền thuốc: <span id="tongTienThuoc" style="color:#0d6efd;font-size:18px">0đ</span></b>
+          </p>
+
+          <button class="btn btn-primary" onclick="savePrescription()">💾 Lưu đơn thuốc</button>
+          <button class="btn btn-outline" onclick="printPrescription()">🖨️ In đơn thuốc</button>
+        </div>
       </div>
 
-      <!-- Chỉ định dịch vụ -->
-      <div class="card">
-        <h3>Chỉ định dịch vụ cận lâm sàng</h3>
-        <div class="form-inline mb-2">
-          <select id="chonDichVu" style="flex:1;padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
-            <option value="">-- Chọn dịch vụ --</option>
-          </select>
-          <button class="btn btn-primary" onclick="addService()">+ Thêm chỉ định</button>
-        </div>
-        <table>
-          <thead>
-            <tr><th>Tên dịch vụ</th><th>Đơn giá</th><th>Trạng thái</th><th></th></tr>
-          </thead>
-          <tbody id="serviceList"></tbody>
-        </table>
-      </div>
-
-      <!-- Kê đơn thuốc -->
-      <div class="card">
-        <h3>Đơn thuốc</h3>
-        <div class="form-inline mb-2">
-          <select id="chonThuoc" style="flex:1;padding:8px 12px;border:1px solid #dee2e6;border-radius:6px">
-            <option value="">-- Chọn thuốc --</option>
-          </select>
-          <button class="btn btn-primary" onclick="addMedicine()">+ Thêm thuốc</button>
-        </div>
-        <table>
-          <thead>
-            <tr><th>Thuốc</th><th>Số lượng</th><th>Liều lượng</th><th>Thành tiền</th><th></th></tr>
-          </thead>
-          <tbody id="medicineList"></tbody>
-        </table>
-        <p class="text-right mt-2" style="text-align:right">
-          <b>Tổng tiền thuốc: <span id="tongTienThuoc" style="color:#0d6efd;font-size:18px">0đ</span></b>
-        </p>
-        <button class="btn btn-primary" onclick="savePrescription()">Lưu</button>
-      </div>
-
-      <!-- Hành động cuối -->
-      <div class="card d-flex flex-between align-center">
+      <!-- ============ HÀNH ĐỘNG CUỐI ============ -->
+      <div class="card d-flex flex-between align-center flex-wrap gap-1">
         <a href="dashboard.html" class="btn btn-outline">← Về Dashboard</a>
-        <button class="btn btn-success btn-lg" onclick="finishExam()">Hoàn thành phiên khám</button>
+        <div class="d-flex gap-1">
+          <button class="btn btn-warning" onclick="saveDraft()">💾 Lưu nháp</button>
+          <button class="btn btn-success btn-lg" onclick="finishExam()">
+            ✅ Hoàn thành phiên khám
+          </button>
+        </div>
       </div>
 
     </div>
   </main>
+</div>
+
+<!-- ============ MODAL LỊCH SỬ KHÁM ============ -->
+<div id="historyModal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3>📜 Lịch sử khám bệnh</h3>
+      <button class="modal-close" onclick="closeHistoryModal()">×</button>
+    </div>
+    <div class="modal-body" id="historyContent">
+      Đang tải...
+    </div>
+  </div>
 </div>
 
 <script src="/js/config.js"></script>
@@ -108,5 +152,6 @@
 <script src="/js/auth.js"></script>
 <script src="/js/doctor.js"></script>
 <script src="/js/patient-record.js"></script>
+  <script src="/js/notification.js"></script>
 </body>
 </html>

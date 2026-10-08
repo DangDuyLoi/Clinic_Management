@@ -208,7 +208,23 @@ class PhienKhamController extends Controller
 
                 return $hoaDon;
             });
+            // ⭐ SỰ KIỆN 2: Thông báo cho LỄ TÂN
+            try {
+                $pk->load('lichKham.benhNhan', 'lichKham.bacSi');
+                $tenBn = $pk->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';
+                $tenBs = $pk->lichKham->bacSi->ho_ten ?? 'bác sĩ';
 
+                \App\Models\ThongBao::guiTheoVaiTro(
+                    'LeTan',
+                    "✅ Phiên khám đã hoàn thành",
+                    "BS {$tenBs} đã khám xong cho {$tenBn}. Vui lòng thu tiền.",
+                    'hoan_thanh',
+                    '/views/receptionist/payments.html'
+                );
+            } catch (\Exception $notiErr) {
+                \Log::warning('[ThongBao] Sự kiện hoan_thanh: ' . $notiErr->getMessage());
+            }
+            
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Đã hoàn thành khám. Vui lòng chờ lễ tân thanh toán.',
