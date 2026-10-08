@@ -100,16 +100,33 @@ class BookingController extends GetxController {
   }
 
   // ================= SUBMIT BƯỚC CUỐI =================
-  Future<bool> submitBooking() async {
+  Future<Map<String, dynamic>?> submitBooking() async {
     if (paymentMethod.value == null) {
       Get.snackbar('Lỗi', 'Vui lòng chọn phương thức thanh toán');
-      return false;
+      return null;
     }
 
     try {
       isLoading.value = true;
 
-      final thoiGian = '${DateFormat('yyyy-MM-dd').format(selectedDate.value!)} ${selectedTimeSlot.value!['time']}';
+      // Ensure we have data
+      if (selectedDate.value == null || selectedTimeSlot.value == null || selectedDoctor.value == null || selectedProfile.value == null) {
+        throw Exception("Vui lòng hoàn tất việc chọn Lịch khám và Bác sĩ trước khi thanh toán.");
+      }
+
+      String timeStr = selectedTimeSlot.value!['time'];
+      
+      // If it's a range like '06:30 - 07:30', take the start time
+      if (timeStr.contains(' - ')) {
+        timeStr = timeStr.split(' - ')[0].trim();
+      }
+      
+      // Ensure time string has seconds for Laravel 'H:i:s' validation
+      if (timeStr.length == 5) {
+        timeStr += ':00';
+      }
+
+      final thoiGian = '${DateFormat('yyyy-MM-dd').format(selectedDate.value!)} $timeStr';
       
       final maHoSoStr = (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id']).toString();
       final maBacSiStr = (selectedDoctor.value!['ma_bac_si'] ?? selectedDoctor.value!['id']).toString();
@@ -121,11 +138,11 @@ class BookingController extends GetxController {
       );
 
       isLoading.value = false;
-      return true;
+      return result;
     } catch (e) {
       isLoading.value = false;
       Get.snackbar('Lỗi Đặt Khám', e.toString(), backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5), snackPosition: SnackPosition.TOP);
-      return false;
+      return null;
     }
   }
 

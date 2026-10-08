@@ -4,6 +4,7 @@ import '../controllers/booking_controller.dart';
 import 'package:intl/intl.dart';
 import '../../home/home_screen.dart';
 import '../../../services/vnpay_service.dart';
+import 'booking_success_screen.dart';
 
 class SummaryScreen extends StatelessWidget {
   const SummaryScreen({super.key});
@@ -307,10 +308,10 @@ class SummaryScreen extends StatelessWidget {
                                     Get.back(); // Đóng bottom sheet
                                     await Future.delayed(const Duration(milliseconds: 300)); // Đợi bottom sheet đóng hẳn
                                     controller.paymentMethod.value = 'cash';
-                                    bool success = await controller.submitBooking();
-                                    if (success) {
+                                    var result = await controller.submitBooking();
+                                    if (result != null) {
                                       Get.snackbar('Thành công', 'Đặt khám thành công. Vui lòng thanh toán tại quầy.', backgroundColor: Colors.green, colorText: Colors.white);
-                                      Get.offAll(() => const HomeScreen()); // Trở về trang chủ
+                                      Get.offAll(() => BookingSuccessScreen(bookingData: result));
                                     }
                                   },
                                 ),
@@ -324,8 +325,8 @@ class SummaryScreen extends StatelessWidget {
                                     await Future.delayed(const Duration(milliseconds: 300)); // Đợi bottom sheet đóng hẳn
                                     controller.paymentMethod.value = 'vnpay';
                                     
-                                    bool success = await controller.submitBooking();
-                                    if (!success) return; // Stop if booking failed
+                                    var result = await controller.submitBooking();
+                                    if (result == null) return; // Stop if booking failed
 
                                     // Parse price string to double (ví dụ: '150.000đ' -> 150000)
                                     double amount = 150000;
@@ -343,6 +344,7 @@ class SummaryScreen extends StatelessWidget {
                                     try {
                                       await VNPayService.openPayment(amount, 'Thanh toan vien phi');
                                       if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
+                                      Get.offAll(() => BookingSuccessScreen(bookingData: result));
                                     } catch (e) {
                                       if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
                                       Get.snackbar('Lỗi Thanh Toán', 'Không thể mở VNPay: $e', backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5));

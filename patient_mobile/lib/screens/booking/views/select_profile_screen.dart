@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/booking_controller.dart';
 import '../../profile/create_profile_screen.dart';
 import '../../../services/patient_profile_service.dart';
+import '../../main/main_screen.dart';
 
 class SelectProfileScreen extends StatelessWidget {
   final BookingController controller = Get.put(BookingController());
@@ -24,7 +25,7 @@ class SelectProfileScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.home, color: Colors.blue, size: 28),
-            onPressed: () => Get.offAllNamed('/home'),
+            onPressed: () => Get.offAll(() => const MainScreen()),
           ),
         ],
       ),

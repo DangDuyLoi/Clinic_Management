@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../../core/app_colors.dart';
+import 'visit_detail_screen.dart';
 
 class VisitTimelineItem extends StatelessWidget {
   final String date;
@@ -7,6 +9,9 @@ class VisitTimelineItem extends StatelessWidget {
   final String diagnosis;
   final List<Map<String, String>> medications;
   final bool isLast;
+  
+  // Thêm mock note 
+  final String? note;
 
   const VisitTimelineItem({
     Key? key,
@@ -14,6 +19,7 @@ class VisitTimelineItem extends StatelessWidget {
     required this.department,
     required this.diagnosis,
     required this.medications,
+    this.note,
     this.isLast = false,
   }) : super(key: key);
 
@@ -29,12 +35,13 @@ class VisitTimelineItem extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
-                  margin: const EdgeInsets.only(top: 20),
-                  decoration: const BoxDecoration(
+                  width: 14,
+                  height: 14,
+                  margin: const EdgeInsets.only(top: 24),
+                  decoration: BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 3),
                   ),
                 ),
                 if (!isLast)
@@ -50,70 +57,92 @@ class VisitTimelineItem extends StatelessWidget {
           // Cột phải: Nội dung thẻ (Card)
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
+              padding: const EdgeInsets.only(bottom: 20.0),
               child: Card(
-                elevation: 1,
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                ),
                 margin: const EdgeInsets.only(left: 8),
-                child: Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    title: Column(
+                child: InkWell(
+                  onTap: () {
+                    Get.to(() => VisitDetailScreen(
+                      visitData: {
+                        'date': date,
+                        'department': department,
+                        'diagnosis': diagnosis,
+                        'medications': medications,
+                        'note': note,
+                      },
+                    ));
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          date,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          department,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        ),
-                      ],
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'CĐ: $diagnosis',
-                        style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87),
-                      ),
-                    ),
-                    children: [
-                      const Divider(height: 1, color: Colors.black12),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.grey[50],
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Đơn thuốc',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                            Text(
+                              date,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             ),
-                            const SizedBox(height: 8),
-                            ...medications.map((med) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.medication, size: 16, color: Colors.grey),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(med['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        Text('${med['dosage']} - SL: ${med['quantity']}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            )).toList(),
+                              child: Text(
+                                department,
+                                style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                           ],
                         ),
-                      )
-                    ],
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.medical_information, size: 18, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'CĐ: $diagnosis',
+                                style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (medications.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.medication, size: 18, color: Colors.green),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Đơn thuốc: ${medications.length} loại',
+                                style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        const Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'Xem chi tiết',
+                            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 ),
               ),

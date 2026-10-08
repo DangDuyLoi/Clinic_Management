@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'register_phone_screen.dart';
-import '../home/home_screen.dart';
+import '../main/main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,7 +35,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.login(phone, password);
+      // Lấy FCM Token để gửi kèm khi login
+      String? fcmToken;
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (_) {}
+      
+      await _authService.login(phone, password, fcmToken: fcmToken);
       
       if (mounted) {
         showDialog(
@@ -47,9 +53,9 @@ class _LoginScreenState extends State<LoginScreen> {
             actions: [
               TextButton(
                 onPressed: () {
-                  // Navigate to Home screen and remove auth screens
+                  // Navigate to Main screen and remove auth screens
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    MaterialPageRoute(builder: (context) => const MainScreen()),
                     (route) => false
                   );
                 },
@@ -132,27 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
               },
               child: const Text('Chưa có tài khoản? Đăng ký tại đây'),
             ),
-            const SizedBox(height: 24),
-            // Hiển thị FCM Token để test gửi thông báo
-            FutureBuilder<String?>(
-              future: FirebaseMessaging.instance.getToken(),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data != null) {
-                  return Column(
-                    children: [
-                      const Text('FCM Token (để test Firebase):', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                      const SizedBox(height: 4),
-                      SelectableText(
-                        snapshot.data!,
-                        style: const TextStyle(fontSize: 10, color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  );
-                }
-                return const SizedBox();
-              },
-            ),
+
           ],
         ),
       ),

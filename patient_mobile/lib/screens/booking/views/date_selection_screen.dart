@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/booking_controller.dart';
 import 'package:intl/intl.dart';
-import '../../home/home_screen.dart';
+import '../../main/main_screen.dart';
 
 class DateSelectionScreen extends StatefulWidget {
   const DateSelectionScreen({super.key});
@@ -50,7 +50,7 @@ class _DateSelectionScreenState extends State<DateSelectionScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.home, color: Colors.blue, size: 28),
-            onPressed: () => Get.offAll(() => const HomeScreen()),
+            onPressed: () => Get.offAll(() => const MainScreen()),
           ),
         ],
       ),
