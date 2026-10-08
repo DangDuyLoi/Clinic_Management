@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/app_colors.dart';
+import '../../booking/views/appointment_list_screen.dart';
 
 class FeatureGrid extends StatelessWidget {
   final VoidCallback onBookAppointment;
@@ -20,7 +21,12 @@ class FeatureGrid extends StatelessWidget {
       {'icon': Icons.person_add_alt_1, 'label': 'Tạo hồ sơ', 'onTap': onProfile ?? () {}},
       {'icon': Icons.folder_shared, 'label': 'HS Sức khoẻ', 'onTap': onEmr},
       {'icon': Icons.payment, 'label': 'Thanh toán', 'onTap': () {}},
-      {'icon': Icons.history, 'label': 'Lịch sử', 'onTap': () {}},
+      {'icon': Icons.history, 'label': 'Lịch sử', 'onTap': () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AppointmentListScreen()),
+        );
+      }},
       {'icon': Icons.support_agent, 'label': 'Hỗ trợ', 'onTap': () {}},
     ];
 

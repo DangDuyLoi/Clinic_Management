@@ -54,12 +54,17 @@ class AuthService {
     }
   }
 
-  Future<void> login(String phoneNumber, String password) async {
+  Future<void> login(String phoneNumber, String password, {String? fcmToken}) async {
     try {
-      final response = await _dio.post('/login', data: {
+      final Map<String, dynamic> data = {
         'phone_number': phoneNumber,
         'password': password,
-      });
+      };
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        data['fcm_token'] = fcmToken;
+      }
+
+      final response = await _dio.post('/login', data: data);
       
       final token = response.data['token'];
       if (token != null) {

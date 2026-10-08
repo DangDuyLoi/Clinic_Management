@@ -6,6 +6,8 @@ class UpcomingAppointmentCard extends StatelessWidget {
   final String time;
   final String doctorName;
   final String specialty;
+  final String patientName;
+  final VoidCallback onTap;
 
   const UpcomingAppointmentCard({
     Key? key,
@@ -13,6 +15,8 @@ class UpcomingAppointmentCard extends StatelessWidget {
     required this.time,
     required this.doctorName,
     required this.specialty,
+    required this.patientName,
+    required this.onTap,
   }) : super(key: key);
 
   @override
@@ -82,11 +86,25 @@ class UpcomingAppointmentCard extends StatelessWidget {
               ),
               subtitle: Text(specialty),
             ),
-            const SizedBox(height: 8),
+            const Divider(color: Colors.white54, height: 16),
+            Row(
+              children: [
+                const Icon(Icons.person_pin, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Bệnh nhân: $patientName',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: onTap,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: AppColors.primary,

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'widgets/custom_header.dart';
 import 'widgets/patient_id_card.dart';
 import 'widgets/upcoming_appointment_card.dart';
 import 'widgets/feature_grid.dart';
+import 'controllers/home_controller.dart';
 import '../booking/views/select_profile_screen.dart';
 import '../emr/emr_screen.dart';
 import '../profile/profile_empty_screen.dart';
 import '../../services/patient_profile_service.dart';
+import '../booking/views/e_ticket_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -73,13 +76,39 @@ class HomeScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        const UpcomingAppointmentCard(
-                          date: 'Ngày mai',
-                          time: '08:30',
-                          doctorName: 'ThS.BS Nguyễn Văn A',
-                          specialty: 'Chuyên khoa Tim mạch',
-                        ),
-                        const SizedBox(height: 24),
+                        Obx(() {
+                          final homeController = Get.put(HomeController());
+                          if (homeController.isLoading.value) {
+                            return const Padding(
+                              padding: EdgeInsets.only(bottom: 24.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final upcoming = homeController.upcomingAppointment.value;
+                          if (upcoming == null) {
+                            return const SizedBox.shrink(); // Hide card if no upcoming appointment
+                          }
+
+                          // Parse time
+                          final aptDate = DateTime.parse(upcoming['thoi_gian_den_kham']);
+                          final dateStr = "${aptDate.day.toString().padLeft(2, '0')}/${aptDate.month.toString().padLeft(2, '0')}/${aptDate.year}";
+                          final timeStr = "${aptDate.hour.toString().padLeft(2, '0')}:${aptDate.minute.toString().padLeft(2, '0')}";
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 24.0),
+                            child: UpcomingAppointmentCard(
+                              date: dateStr,
+                              time: timeStr,
+                              doctorName: upcoming['ten_bac_si'] ?? 'Bác sĩ',
+                              specialty: upcoming['khoa'] ?? 'Khoa Khám Bệnh', // Thêm khoa nếu backend có trả về
+                              patientName: upcoming['ten_benh_nhan'] ?? 'Bệnh nhân',
+                              onTap: () {
+                                Get.to(() => ETicketScreen(appointmentData: upcoming));
+                              },
+                            ),
+                          );
+                        }),
                         FeatureGrid(
                           onBookAppointment: () {
                             // LOGIC KIỂM TRA HỒ SƠ

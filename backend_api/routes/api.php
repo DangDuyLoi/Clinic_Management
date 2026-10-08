@@ -31,12 +31,14 @@ Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/update-fcm-token', [AuthController::class, 'updateFcmToken']);
 
 // Phân hệ Lượt Khám (Lễ tân, Bác sĩ, Bệnh nhân)
 Route::put('luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân
 Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']); // Bác sĩ
 Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // Bệnh nhân đặt lịch
 Route::get('luot-kham/gio-trong', [LuotKhamController::class, 'layGioTrong']); // API lấy giờ trống của Bác sĩ
+Route::post('luot-kham/danh-sach', [LuotKhamController::class, 'danhSachTheoHoSo']); // Lấy danh sách khám theo hồ sơ
 
 // Quản lý hồ sơ bệnh nhân
 Route::prefix('patient-profiles')->group(function () {

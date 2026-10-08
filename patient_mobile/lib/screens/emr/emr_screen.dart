@@ -11,14 +11,20 @@ class EmrScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
-          title: const Text('Hồ Sơ Bệnh Án'),
-          bottom: const TabBar(
-            indicatorColor: Colors.white,
-            indicatorWeight: 3,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
-            tabs: [
+          title: const Text('Hồ Sơ Bệnh Án', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          bottom: TabBar(
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 4,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: Colors.grey[600],
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 15),
+            tabs: const [
               Tab(text: 'Lịch sử khám'),
               Tab(text: 'Kết quả CLS'),
             ],

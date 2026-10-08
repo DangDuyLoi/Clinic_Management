@@ -85,6 +85,11 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Lưu FCM Token nếu client gửi kèm
+        if ($request->has('fcm_token') && !empty($request->fcm_token)) {
+            $user->update(['fcm_token' => $request->fcm_token]);
+        }
+
         // Generate token
         $token = $user->createToken('mobile_app_token')->plainTextToken;
 
@@ -92,6 +97,29 @@ class AuthController extends Controller
             'message' => 'Logged in successfully',
             'user' => $user,
             'token' => $token
+        ], 200);
+    }
+
+    /**
+     * API cập nhật FCM Token (gọi khi token thay đổi hoặc khi login lại)
+     */
+    public function updateFcmToken(Request $request)
+    {
+        $request->validate([
+            'phone_number' => 'required|string',
+            'fcm_token' => 'required|string',
+        ]);
+
+        $user = User::where('phone_number', $request->phone_number)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $user->update(['fcm_token' => $request->fcm_token]);
+
+        return response()->json([
+            'message' => 'FCM Token updated successfully',
         ], 200);
     }
 }

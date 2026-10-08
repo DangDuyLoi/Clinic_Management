@@ -89,7 +89,7 @@ class LuotKhamController extends Controller
                     'ma_ho_so' => $request->ma_ho_so,
                     'ma_bac_si' => $request->ma_bac_si,
                     'thoi_gian_den_kham' => $request->thoi_gian_den_kham,
-                    'trang_thai' => 'cho_xac_nhan', 
+                    'trang_thai' => 'cho_kham', 
                     'chan_doan' => null
                 ]);
 
@@ -149,6 +149,40 @@ class LuotKhamController extends Controller
             'ma_bac_si' => $maBacSi,
             'ngay_kham' => $ngayKham,
             'danh_sach_gio_trong' => $gioTrong
+        ], 200);
+    }
+
+    // 5. API Bệnh nhân: Lấy danh sách lượt khám theo mã hồ sơ
+    public function danhSachTheoHoSo(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'danh_sach_ma_ho_so' => 'required|array',
+            'danh_sach_ma_ho_so.*' => 'integer'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Dữ liệu không hợp lệ', 'errors' => $validator->errors()], 422);
+        }
+
+        $danhSach = DB::table('luot_kham')
+            ->whereIn('luot_kham.ma_ho_so', $request->danh_sach_ma_ho_so)
+            ->leftJoin('ho_so_benh_an', 'luot_kham.ma_ho_so', '=', 'ho_so_benh_an.ma_ho_so')
+            ->leftJoin('users as bac_si', 'luot_kham.ma_bac_si', '=', 'bac_si.id') // Giả định bác sĩ lưu ở users
+            ->select(
+                'luot_kham.ma_luot_kham',
+                'luot_kham.thoi_gian_den_kham',
+                'luot_kham.trang_thai as trang_thai_kham',
+                'luot_kham.ma_bac_si',
+                DB::raw("CONCAT(ho_so_benh_an.ho_chu_lot, ' ', ho_so_benh_an.ten) as ten_benh_nhan"),
+                'bac_si.name as ten_bac_si',
+                DB::raw("'DaThanhToan' as trang_thai_thanh_toan") // Giả lập đã thanh toán do chưa có bảng hoa_don
+            )
+            ->orderBy('luot_kham.thoi_gian_den_kham', 'desc')
+            ->get();
+
+        return response()->json([
+            'message' => 'Thành công',
+            'data' => $danhSach
         ], 200);
     }
 }

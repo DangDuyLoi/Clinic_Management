@@ -3,12 +3,26 @@ import 'package:get/get.dart';
 import '../controllers/booking_controller.dart';
 import 'package:intl/intl.dart';
 import 'insurance_screen.dart';
-import '../../home/home_screen.dart';
+import '../../main/main_screen.dart';
 
-class TimeSlotScreen extends StatelessWidget {
+class TimeSlotScreen extends StatefulWidget {
+  const TimeSlotScreen({super.key});
+
+  @override
+  State<TimeSlotScreen> createState() => _TimeSlotScreenState();
+}
+
+class _TimeSlotScreenState extends State<TimeSlotScreen> {
   final BookingController controller = Get.find<BookingController>();
 
-  TimeSlotScreen({super.key});
+  @override
+  void initState() {
+    super.initState();
+    // Fetch latest time slots every time this screen is opened/returned to
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchAvailableTimeSlots();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +46,7 @@ class TimeSlotScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.home, color: Colors.blue, size: 28),
-            onPressed: () => Get.offAll(() => const HomeScreen()),
+            onPressed: () => Get.offAll(() => const MainScreen()),
           ),
         ],
       ),
