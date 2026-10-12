@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel; // Thêm thư viện Excel
+use App\Exports\DoanhThuExport; // Thêm gọi file Export
 
 class ThongKeController extends Controller
 {
@@ -50,5 +52,16 @@ class ThongKeController extends Controller
                 'hieu_suat_bac_si' => $hieuSuatBacSi
             ]
         ], 200);
+    }
+
+    // API Xuất báo cáo Doanh thu ra file Excel
+    public function xuatExcel(Request $request)
+    {
+        $tuNgay = $request->input('tu_ngay', Carbon::now()->startOfMonth()->toDateString());
+        $denNgay = $request->input('den_ngay', Carbon::now()->endOfMonth()->toDateString());
+        
+        $tenFile = 'Bao_Cao_Doanh_Thu_' . $tuNgay . '_den_' . $denNgay . '.xlsx';
+
+        return Excel::download(new DoanhThuExport($tuNgay, $denNgay), $tenFile);
     }
 }
