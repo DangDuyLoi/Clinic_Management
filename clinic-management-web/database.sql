@@ -107,6 +107,7 @@ CREATE TABLE PhienKham (
     ma_lich_dat INT UNIQUE NOT NULL, -- 1 Lịch khám sinh ra 1 Phiên khám
     chan_doan_so_bo TEXT,
     chan_doan_cuoi_cung TEXT,
+    loi_khuyen TEXT NULL, -- [MỚI THÊM] Lời khuyên của bác sĩ
     ghi_chu_y_te TEXT,
     trang_thai ENUM('ChoCanLamSang', 'ChoKetLuan', 'ChoThanhToan', 'HoanThanh') DEFAULT 'HoanThanh',
     ngay_tao DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -238,8 +239,8 @@ INSERT INTO LichKham (ma_bn, ma_bs, ngay_kham, ma_khung_gio, khach_vang_lai, tra
 (2, 1, '2026-09-18', 2, TRUE, 'ChoKham');
 
 -- 8. Thêm Phiên khám 
-INSERT INTO PhienKham (ma_lich_dat, chan_doan_so_bo, chan_doan_cuoi_cung, trang_thai) VALUES 
-(1, 'Đau tức ngực, huyết áp cao', 'Tăng huyết áp vô căn, theo dõi nhồi máu cơ tim', 'HoanThanh');
+INSERT INTO PhienKham (ma_lich_dat, chan_doan_so_bo, chan_doan_cuoi_cung, loi_khuyen, trang_thai) VALUES 
+(1, 'Đau tức ngực, huyết áp cao', 'Tăng huyết áp vô căn, theo dõi nhồi máu cơ tim', 'Cần nghỉ ngơi, hạn chế ăn mặn, tập thể dục nhẹ nhàng', 'HoanThanh');
 
 -- 9. Thêm Danh mục Dịch vụ và Chỉ định
 INSERT INTO DichVu (ten_dich_vu, don_gia, mo_ta) VALUES 
