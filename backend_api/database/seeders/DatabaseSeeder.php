@@ -2,24 +2,23 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
-    public function run(): void
+    public function run()
     {
-        // User::factory(10)->create();
+        // Đường dẫn tới file SQL bạn vừa tạo
+        $sqlPath = database_path('data_mau.sql');
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Yêu cầu Laravel tự động đọc và chạy file SQL đó
+        if (File::exists($sqlPath)) {
+            DB::unprepared(file_get_contents($sqlPath));
+            $this->command->info('Thành công: Đã đồng bộ toàn bộ Dữ liệu mẫu từ file SQL!');
+        } else {
+            $this->command->error('Lỗi: Không tìm thấy file data_mau.sql');
+        }
     }
 }
