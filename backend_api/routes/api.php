@@ -9,8 +9,8 @@ use App\Http\Controllers\DichVuController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\LuotKhamController;
 use App\Http\Controllers\Api\PatientProfileController;
-use App\Http\Controllers\PaymentController; 
-use App\Http\Controllers\ThongKeController; // Đã thêm ThongKeController
+use App\Http\Controllers\VNPayController;
+use App\Http\Controllers\PaymentController; // Thêm dòng này để gọi PaymentController
 
 // Quản lý Chuyên Khoa
 Route::prefix('chuyen-khoa')->group(function () {
@@ -31,12 +31,15 @@ Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/update-fcm-token', [AuthController::class, 'updateFcmToken']);
 
 // Phân hệ Lượt Khám (Lễ tân, Bác sĩ, Bệnh nhân)
-Route::put('luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân
+Route::match(['put', 'post', 'get'], 'luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân (hỗ trợ PUT, POST, GET để scan QR dễ dàng)
 Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']); // Bác sĩ
 Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // Bệnh nhân đặt lịch
 Route::get('luot-kham/gio-trong', [LuotKhamController::class, 'layGioTrong']); // API lấy giờ trống của Bác sĩ
+Route::post('luot-kham/danh-sach', [LuotKhamController::class, 'danhSachTheoHoSo']); // Lấy danh sách khám theo hồ sơ
+Route::get('luot-kham/{id}/check-status', [LuotKhamController::class, 'checkStatus']); // Kiểm tra trạng thái lượt khám & thanh toán
 
 // Quản lý hồ sơ bệnh nhân
 Route::prefix('patient-profiles')->group(function () {
@@ -45,13 +48,15 @@ Route::prefix('patient-profiles')->group(function () {
     Route::get('/search-by-info', [PatientProfileController::class, 'findByInfo']);
 });
 
-// Phân hệ Thanh toán VNPay
+// Phân hệ Thanh toán VNPay (Cho ứng dụng di động)
+Route::get('/vnpay/payment-url', [VNPayController::class, 'createPaymentUrl']);
+Route::get('/vnpay/create-payment/{ma_luot_kham?}', [VNPayController::class, 'createPaymentUrl']);
+Route::match(['get', 'post'], '/vnpay/return', [VNPayController::class, 'vnpayReturn']); // Callback VNPay
+
+// Phân hệ Thanh toán VNPay (Hóa đơn web cũ)
 Route::get('/thanh-toan/vnpay/{id}', [PaymentController::class, 'taoLinkVNPay']);
-Route::get('/thanh-toan/vnpay-return', [PaymentController::class, 'vnpayReturn']); 
+Route::get('/thanh-toan/vnpay-return', [PaymentController::class, 'vnpayReturn']); // API Webhook VNPay (đã bổ sung lại)
 
 // Phân hệ Thanh toán MoMo
 Route::get('/thanh-toan/momo/{id}', [PaymentController::class, 'taoLinkMoMo']);
-Route::post('/thanh-toan/momo-notify', [PaymentController::class, 'momoNotify']); 
-
-// Phân hệ Thống kê & Báo cáo
-Route::get('/thong-ke/tong-quan', [ThongKeController::class, 'tongQuan']); // Đã thêm Route thống kê
+Route::post('/thanh-toan/momo-notify', [PaymentController::class, 'momoNotify']); // MoMo dùng POST cho Webhook

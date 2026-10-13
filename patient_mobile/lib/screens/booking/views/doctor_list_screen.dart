@@ -66,7 +66,52 @@ class DoctorListScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+
+          // Banner ngày khám đã chọn (khi đi từ nhánh Đặt lịch theo ngày)
+          Obx(() {
+            final picked = controller.selectedDate.value;
+            if (picked == null) return const SizedBox.shrink();
+            final dateStr = DateFormat('dd/MM/yyyy').format(picked);
+            final dayOfWeek = picked.weekday == 7 ? 'Chủ nhật' : 'Thứ ${picked.weekday + 1}';
+            return Container(
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.event_available, color: Color(0xFF0056D2), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Ngày khám đã chọn: $dayOfWeek, $dateStr',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E40AF), fontSize: 13),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Get.back(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF93C5FD)),
+                      ),
+                      child: const Text(
+                        'Đổi ngày',
+                        style: TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          const SizedBox(height: 8),
           
           // Doctor List
           Expanded(
@@ -99,14 +144,56 @@ class DoctorBookingCard extends StatefulWidget {
 
 class _DoctorBookingCardState extends State<DoctorBookingCard> {
   DateTime? selectedDate;
-
-  // Mock dates: today and next few days
-  final List<DateTime> dates = List.generate(5, (index) => DateTime.now().add(Duration(days: index)));
+  late List<DateTime> dates;
 
   // Mock time slots
   final List<String> timeSlots = [
     '06:30 - 07:30', '07:30 - 08:30', '08:30 - 09:30', '09:30 - 10:30', '10:30 - 11:30'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initDates();
+  }
+
+  void _initDates() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final chosen = widget.controller.selectedDate.value;
+
+    DateTime start;
+    if (chosen != null) {
+      selectedDate = chosen;
+      // Nếu ngày được chọn sau hôm nay, lùi 1 ngày để người dùng nhìn thấy ngày trước đó (nhưng không trước hôm nay)
+      if (chosen.isAfter(today)) {
+        final prev = chosen.subtract(const Duration(days: 1));
+        start = prev.isBefore(today) ? today : prev;
+      } else {
+        start = today;
+      }
+    } else {
+      start = today;
+    }
+
+    dates = List.generate(7, (index) => start.add(Duration(days: index)));
+  }
+
+  Future<void> _pickAnotherDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (picked != null) {
+      widget.controller.selectedDate.value = picked;
+      setState(() {
+        _initDates();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +203,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -194,15 +281,50 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
               height: 90,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: dates.length,
+                itemCount: dates.length + 1,
                 itemBuilder: (context, index) {
+                  // Nút "Chọn ngày khác 📅" ở cuối danh sách
+                  if (index == dates.length) {
+                    return GestureDetector(
+                      onTap: _pickAnotherDate,
+                      child: Container(
+                        width: 76,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.calendar_month_outlined, color: Color(0xFF0056D2), size: 24),
+                            SizedBox(height: 4),
+                            Text(
+                              'Chọn\nngày khác',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0056D2),
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
                   final date = dates[index];
                   final isSelected = selectedDate != null && 
                       date.year == selectedDate!.year && 
                       date.month == selectedDate!.month && 
                       date.day == selectedDate!.day;
                   
-                  final isToday = index == 0;
+                  final isToday = date.year == DateTime.now().year &&
+                      date.month == DateTime.now().month &&
+                      date.day == DateTime.now().day;
                   final dayName = isToday ? 'Hôm nay' : 'Thứ ${date.weekday == 7 ? 'CN' : date.weekday + 1}';
                   final dateStr = DateFormat('dd/MM\nyyyy').format(date);
 
@@ -213,6 +335,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                           selectedDate = null;
                         } else {
                           selectedDate = date;
+                          widget.controller.selectedDate.value = date;
                         }
                       });
                     },
@@ -350,7 +473,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                   Container(height: 1, width: 30, color: Colors.grey.shade300),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('Vui lòng chọn buổi khám khác hoặc ngày khác', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+                    child: Text('Vui lòng chọn ngày để xem các khung giờ khám', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
                   ),
                   Container(height: 1, width: 30, color: Colors.grey.shade300),
                 ],

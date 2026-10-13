@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'widgets/custom_header.dart';
-import 'widgets/patient_id_card.dart';
 import 'widgets/upcoming_appointment_card.dart';
 import 'widgets/feature_grid.dart';
 import 'controllers/home_controller.dart';
@@ -10,6 +9,7 @@ import '../emr/emr_screen.dart';
 import '../profile/profile_empty_screen.dart';
 import '../../services/patient_profile_service.dart';
 import '../booking/views/e_ticket_screen.dart';
+import '../../core/app_colors.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -156,6 +156,19 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Get.toNamed('/chatbot'),
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+        label: const Text(
+          'Trợ lý AI',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
       ),
     );
   }

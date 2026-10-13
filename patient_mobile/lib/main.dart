@@ -8,6 +8,11 @@ import 'services/patient_profile_service.dart';
 import 'services/fcm_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import 'screens/chatbot/chatbot_screen.dart';
+import 'screens/booking/views/select_profile_screen.dart';
+import 'screens/profile/profile_empty_screen.dart';
+import 'screens/main/main_screen.dart';
+
 // Hàm xử lý thông báo khi app chạy ngầm (Background / Terminated)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -42,6 +47,17 @@ class UMCCareCloneApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const LoginScreen(), // Trả về màn hình chính của app
+      getPages: [
+        GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(name: '/main', page: () => const MainScreen()),
+        GetPage(name: '/chatbot', page: () => const ChatbotScreen()),
+        GetPage(
+          name: '/booking',
+          page: () => PatientProfileService.cachedProfiles.isEmpty
+              ? const ProfileEmptyScreen()
+              : SelectProfileScreen(),
+        ),
+      ],
     );
   }
 }

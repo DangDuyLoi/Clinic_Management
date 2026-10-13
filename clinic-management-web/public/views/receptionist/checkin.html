@@ -29,9 +29,13 @@
     <div class="card">
       <div class="card-header">
         <h3>🔍 Tìm bệnh nhân chờ đến khám</h3>
-        <div class="d-flex gap-1">
+        <div class="d-flex gap-1" style="align-items: center; flex-wrap: wrap;">
+          <input type="text" id="qrInput" placeholder="📷 Quét / Nhập mã QR..."
+                 style="padding:8px 12px;border:2px solid #0056D2;border-radius:6px;width:200px;font-weight:600"
+                 onkeydown="if(event.key==='Enter') quickCheckInByQr()">
+          <button class="btn btn-success btn-sm" onclick="quickCheckInByQr()" style="font-weight:600">⚡ Check-in QR</button>
           <input type="text" id="searchInput" placeholder="🔍 Tên hoặc SĐT..."
-                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:250px">
+                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:180px">
           <button class="btn btn-primary btn-sm" onclick="loadPendingList()">🔄 Làm mới</button>
         </div>
       </div>
@@ -125,6 +129,40 @@
   function debounce(fn, wait) {
     let t;
     return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+  }
+
+  async function quickCheckInByQr() {
+    let val = document.getElementById('qrInput')?.value?.trim();
+    if (!val) {
+      alert('Vui lòng quét hoặc nhập mã QR');
+      return;
+    }
+    // Hỗ trợ nếu mã QR là URL http://192.168.1.58:8000/api/luot-kham/123/tiep-nhan hoặc JSON hoặc số nguyên
+    let id = val;
+    let match = val.match(/luot-kham\/(\d+)\/tiep-nhan/);
+    if (match) {
+      id = match[1];
+    } else {
+      let numMatch = val.match(/\d+/);
+      if (numMatch) id = numMatch[0];
+    }
+
+    try {
+      const res = await fetch(`http://192.168.1.58:8000/api/luot-kham/${id}/tiep-nhan`, {
+        method: 'PUT',
+        headers: { 'Accept': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Check-in thành công cho lượt khám #${id}!\nĐã đẩy thông báo tới điện thoại của bệnh nhân.`);
+        document.getElementById('qrInput').value = '';
+        loadPendingList();
+      } else {
+        alert(`❌ Lỗi: ${data.message || 'Không thể check-in'}`);
+      }
+    } catch (e) {
+      alert(`❌ Lỗi kết nối API check-in: ${e.message}`);
+    }
   }
 </script>
   <script src="/js/notification.js"></script>

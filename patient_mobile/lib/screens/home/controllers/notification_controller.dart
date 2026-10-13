@@ -72,6 +72,26 @@ class NotificationController extends GetxController {
     saveNotifications();
   }
 
+  void addNotificationItem({
+    required String title,
+    required String body,
+    String? id,
+  }) {
+    final newNotif = AppNotification(
+      id: id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      body: body,
+      timestamp: DateTime.now(),
+      isRead: false,
+    );
+    // Tránh trùng lặp nếu trùng ID
+    final exists = notifications.any((n) => n.id == newNotif.id);
+    if (!exists) {
+      notifications.insert(0, newNotif);
+      saveNotifications();
+    }
+  }
+
   void markAsRead(String id) {
     final index = notifications.indexWhere((n) => n.id == id);
     if (index != -1) {

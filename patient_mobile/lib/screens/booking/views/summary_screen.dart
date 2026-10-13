@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/booking_controller.dart';
 import 'package:intl/intl.dart';
-import '../../home/home_screen.dart';
 import '../../../services/vnpay_service.dart';
 import 'booking_success_screen.dart';
+import 'payment_pending_screen.dart';
 
 class SummaryScreen extends StatelessWidget {
   const SummaryScreen({super.key});
@@ -328,6 +328,21 @@ class SummaryScreen extends StatelessWidget {
                                     var result = await controller.submitBooking();
                                     if (result == null) return; // Stop if booking failed
 
+                                    // Lấy mã lượt khám vừa tạo
+                                    int? maLuotKham;
+                                    if (result['data'] is Map && result['data']['ma_luot_kham'] != null) {
+                                      maLuotKham = int.tryParse(result['data']['ma_luot_kham'].toString());
+                                    } else if (result['ma_luot_kham'] != null) {
+                                      maLuotKham = int.tryParse(result['ma_luot_kham'].toString());
+                                    } else if (result['id'] != null) {
+                                      maLuotKham = int.tryParse(result['id'].toString());
+                                    }
+
+                                    if (maLuotKham == null) {
+                                      Get.snackbar('Lỗi', 'Không lấy được mã lượt khám từ phản hồi của máy chủ.');
+                                      return;
+                                    }
+
                                     // Parse price string to double (ví dụ: '150.000đ' -> 150000)
                                     double amount = 150000;
                                     try {
@@ -337,17 +352,28 @@ class SummaryScreen extends StatelessWidget {
 
                                     Get.defaultDialog(
                                       title: 'Đang xử lý',
-                                      middleText: 'Đang tạo liên kết thanh toán VNPay...',
+                                      middleText: 'Đang chuyển đến cổng thanh toán VNPay...',
                                       barrierDismissible: false,
                                     );
                                     
                                     try {
-                                      await VNPayService.openPayment(amount, 'Thanh toan vien phi');
+                                      await VNPayService.openPayment(
+                                        maLuotKham: maLuotKham,
+                                        amount: amount,
+                                        orderInfo: 'Thanh toan phi kham luot #$maLuotKham',
+                                      );
                                       if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
-                                      Get.offAll(() => BookingSuccessScreen(bookingData: result));
+
+                                      // Chuyển sang màn hình chờ thanh toán (chưa xuất QR)
+                                      Get.to(() => PaymentPendingScreen(
+                                        maLuotKham: maLuotKham!,
+                                        bookingData: result,
+                                        amount: amount,
+                                      ));
                                     } catch (e) {
                                       if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
-                                      Get.snackbar('Lỗi Thanh Toán', 'Không thể mở VNPay: $e', backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5));
+                                      Get.snackbar('Lỗi Thanh Toán', 'Không thể mở VNPay: $e',
+                                          backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5));
                                     }
                                   },
                                 ),

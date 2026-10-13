@@ -1,41 +1,63 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../core/constants/api_constants.dart';
 
 class VNPayService {
-  static const String apiUrl = "http://192.168.1.84:8000/api/vnpay/payment-url";
+  static const String apiUrl = ApiConstants.vnpayPaymentUrl;
 
-  static Future<void> openPayment(double amount, String orderInfo) async {
+  /// Mở giao diện thanh toán VNPay trên trình duyệt
+  static Future<String> openPayment({
+    required int maLuotKham,
+    double amount = 150000,
+    String? orderInfo,
+  }) async {
     try {
-      final uri = Uri.parse('$apiUrl?amount=$amount');
-      final response = await http.get(uri);
+      final queryParams = {
+        'amount': amount.toString(),
+        'ma_luot_kham': maLuotKham.toString(),
+      };
+      if (orderInfo != null && orderInfo.isNotEmpty) {
+        queryParams['order_info'] = orderInfo;
+      }
+
+      final uri = Uri.parse(apiUrl).replace(queryParameters: queryParams);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['status'] == 'success') {
           final paymentUrl = data['payment_url'];
           final paymentUri = Uri.parse(paymentUrl);
-          
+
           try {
-            bool launched = await launchUrl(paymentUri, mode: LaunchMode.externalApplication);
+            bool launched = await launchUrl(
+              paymentUri,
+              mode: LaunchMode.externalApplication,
+            );
             if (!launched) {
-              // Thử mở bằng inAppWebView nếu external thất bại
-              launched = await launchUrl(paymentUri, mode: LaunchMode.inAppBrowserView);
+              // Thử mở bằng inAppBrowserView nếu external thất bại
+              launched = await launchUrl(
+                paymentUri,
+                mode: LaunchMode.inAppBrowserView,
+              );
               if (!launched) {
-                throw 'Trình duyệt từ chối mở URL này';
+                throw 'Trình duyệt từ chối mở liên kết VNPay';
               }
             }
           } catch (e) {
-            throw 'Lỗi khi gọi launchUrl: $e';
+            throw 'Lỗi khi mở trình duyệt: $e';
           }
+
+          return paymentUrl;
         } else {
-          throw 'Lỗi từ server: ${data['message']}';
+          throw 'Lỗi từ máy chủ: ${data['message']}';
         }
       } else {
-        throw 'Lỗi kết nối server: ${response.statusCode}';
+        throw 'Lỗi kết nối máy chủ (${response.statusCode})';
       }
     } catch (e) {
-      throw 'Đã xảy ra lỗi: $e';
+      throw 'Không thể khởi tạo thanh toán VNPay: $e';
     }
   }
 }

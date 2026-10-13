@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../../core/app_colors.dart';
 import '../../booking/views/appointment_list_screen.dart';
 
@@ -27,7 +28,11 @@ class FeatureGrid extends StatelessWidget {
           MaterialPageRoute(builder: (context) => const AppointmentListScreen()),
         );
       }},
-      {'icon': Icons.support_agent, 'label': 'Hỗ trợ', 'onTap': () {}},
+      {
+        'icon': Icons.smart_toy_outlined,
+        'label': 'Trợ lý AI',
+        'onTap': () => Get.toNamed('/chatbot'),
+      },
     ];
 
     return Padding(

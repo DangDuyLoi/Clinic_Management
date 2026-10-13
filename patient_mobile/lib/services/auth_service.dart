@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../core/constants/api_constants.dart';
 
 class AuthService {
   final Dio _dio = Dio(BaseOptions(
-    // NOTE: Use 10.0.2.2 for Android emulator or localhost for iOS/Web.
-    baseUrl: 'http://192.168.1.84:8000/api', 
+    baseUrl: ApiConstants.baseUrl, 
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
     headers: {
@@ -70,6 +70,7 @@ class AuthService {
       if (token != null) {
         await _storage.write(key: tokenKey, value: token);
       }
+      await _storage.write(key: 'user_phone', value: phoneNumber);
     } on DioException catch (e) {
       if (e.response == null) {
         throw Exception('Không thể kết nối đến máy chủ. Vui lòng kiểm tra Server Backend.');
@@ -78,11 +79,27 @@ class AuthService {
     }
   }
 
+  Future<void> updateFcmToken(String phoneNumber, String fcmToken) async {
+    try {
+      await _dio.post('/update-fcm-token', data: {
+        'phone_number': phoneNumber,
+        'fcm_token': fcmToken,
+      });
+    } catch (e) {
+      print('Update FCM token error: $e');
+    }
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: tokenKey);
+    await _storage.delete(key: 'user_phone');
   }
 
   Future<String?> getToken() async {
     return await _storage.read(key: tokenKey);
+  }
+
+  Future<String?> getUserPhone() async {
+    return await _storage.read(key: 'user_phone');
   }
 }
