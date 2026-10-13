@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants/api_constants.dart';
+
 class PatientProfileService {
-  // Replace with actual API base URL
-  static const String baseUrl = 'http://192.168.1.84:8000/api'; 
+  static const String baseUrl = ApiConstants.baseUrl; 
 
   // In-memory cache for demo purposes
   static final List<Map<String, dynamic>> cachedProfiles = [];

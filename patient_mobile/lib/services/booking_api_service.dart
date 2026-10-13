@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/constants/api_constants.dart';
 
 class BookingApiService {
-  static const String baseUrl = 'http://192.168.1.84:8000/api';
+  static const String baseUrl = ApiConstants.baseUrl;
 
   // Lấy giờ trống của bác sĩ
   static Future<List<String>> getAvailableTimeSlots(int doctorId, String dateStr) async {
@@ -27,6 +28,7 @@ class BookingApiService {
       Uri.parse('$baseUrl/luot-kham/dat-lich'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
       },
       body: jsonEncode(<String, dynamic>{
         'ma_ho_so': maHoSo,
@@ -53,6 +55,7 @@ class BookingApiService {
       Uri.parse('$baseUrl/luot-kham/danh-sach'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
       },
       body: jsonEncode(<String, dynamic>{
         'danh_sach_ma_ho_so': maHoSoList,
@@ -64,6 +67,38 @@ class BookingApiService {
       return List<Map<String, dynamic>>.from(data['data']);
     } else {
       throw Exception('Failed to load appointments');
+    }
+  }
+
+  // Kiểm tra trạng thái lượt khám (dùng cho polling thanh toán và check-in)
+  static Future<Map<String, dynamic>> checkStatus(int maLuotKham) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/luot-kham/$maLuotKham/check-status'),
+      headers: <String, String>{
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Không thể kiểm tra trạng thái lượt khám #$maLuotKham');
+    }
+  }
+
+  // Check-in lượt khám (tiếp nhận)
+  static Future<Map<String, dynamic>> checkIn(int maLuotKham) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/luot-kham/$maLuotKham/tiep-nhan'),
+      headers: <String, String>{
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Check-in thất bại');
     }
   }
 }

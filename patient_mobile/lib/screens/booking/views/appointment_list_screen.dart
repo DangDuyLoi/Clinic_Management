@@ -44,14 +44,15 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
       }
 
       final data = await BookingApiService.fetchAppointments(profileIds);
-      
+
       setState(() {
         _appointments = data;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Không thể tải danh sách lịch khám. Vui lòng thử lại sau.\nLỗi: $e';
+        _errorMessage =
+            'Không thể tải danh sách lịch khám. Vui lòng thử lại sau.\nLỗi: $e';
         _isLoading = false;
       });
     }
@@ -80,7 +81,10 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Lịch khám của tôi', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Lịch khám của tôi',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -112,7 +116,7 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
               ElevatedButton(
                 onPressed: _fetchData,
                 child: const Text('Thử lại'),
-              )
+              ),
             ],
           ),
         ),
@@ -144,15 +148,23 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
           final apt = _appointments[index];
           final isPaid = apt['trang_thai_thanh_toan'] == 'DaThanhToan';
           final statusText = isPaid ? 'Đã thanh toán' : 'Chưa thanh toán';
-          
+
           // Chuyển đổi dữ liệu để truyền vào ETicketScreen
           final formattedApt = {
+            ...apt,
             'ma_luot_kham': apt['ma_luot_kham']?.toString() ?? '',
             'date': _formatDate(apt['thoi_gian_den_kham'] ?? ''),
             'time': _formatTime(apt['thoi_gian_den_kham'] ?? ''),
             'doctor': apt['ten_bac_si'] ?? 'Đang cập nhật',
             'specialty': 'Khám Bệnh', // Backend chưa trả về chuyên khoa
-            'room': 'Đang sắp xếp', 
+            'room': 'Đang sắp xếp',
+            'is_paid': isPaid,
+            'trang_thai_thanh_toan':
+                apt['trang_thai_thanh_toan'] ??
+                (isPaid ? 'DaThanhToan' : 'ChuaThanhToan'),
+            'trang_thai_kham':
+                apt['trang_thai_kham'] ??
+                (isPaid ? 'da_thanh_toan' : 'cho_thanh_toan'),
           };
 
           return Container(
@@ -161,7 +173,11 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
               ],
             ),
             child: Column(
@@ -169,22 +185,38 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
               children: [
                 // Header
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: isPaid ? const Color(0xFF0056D2).withOpacity(0.05) : Colors.orange.withOpacity(0.05),
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                    color: isPaid
+                        ? const Color(0xFF0056D2).withOpacity(0.05)
+                        : Colors.orange.withOpacity(0.05),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         formattedApt['date']!,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: isPaid ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                          color: isPaid
+                              ? Colors.green.withOpacity(0.1)
+                              : Colors.orange.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -213,29 +245,53 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                               color: const Color(0xFF0056D2).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.access_time, color: Color(0xFF0056D2), size: 20),
+                            child: const Icon(
+                              Icons.access_time,
+                              color: Color(0xFF0056D2),
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             formattedApt['time']!,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          const Icon(Icons.person, color: Colors.black54, size: 20),
+                          const Icon(
+                            Icons.person,
+                            color: Colors.black54,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text(formattedApt['doctor']!, style: const TextStyle(fontSize: 15)),
+                          Text(
+                            formattedApt['doctor']!,
+                            style: const TextStyle(fontSize: 15),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+                          const Icon(
+                            Icons.person_outline,
+                            color: Colors.black54,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text('Bệnh nhân: ${apt['ten_benh_nhan'] ?? ''}', style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                          Text(
+                            'Bệnh nhân: ${apt['ten_benh_nhan'] ?? ''}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -246,7 +302,11 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              Get.to(() => ETicketScreen(appointmentData: formattedApt));
+                              Get.to(
+                                () => ETicketScreen(
+                                  appointmentData: formattedApt,
+                                ),
+                              );
                             },
                             icon: const Icon(Icons.qr_code),
                             label: const Text('Xem mã QR Check-in'),
@@ -254,7 +314,9 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                               backgroundColor: const Color(0xFF0056D2),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
@@ -271,12 +333,14 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                               foregroundColor: Colors.orange,
                               side: const BorderSide(color: Colors.orange),
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             child: const Text('Thanh toán ngay'),
                           ),
                         ),
-                      ]
+                      ],
                     ],
                   ),
                 ),
