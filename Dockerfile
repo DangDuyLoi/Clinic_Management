@@ -1,4 +1,4 @@
-FROM php:8.2-cli
+FROM php:8.3-cli
 
 # Cài đặt các thư viện cần thiết
 RUN apt-get update -y && apt-get install -y libpq-dev unzip curl
