@@ -1,6 +1,4 @@
-USE QuanLyKhamChuaBenh;
 
-SET FOREIGN_KEY_CHECKS = 0;
 
 TRUNCATE TABLE NhatKyHeThong;
 TRUNCATE TABLE HoaDon;
