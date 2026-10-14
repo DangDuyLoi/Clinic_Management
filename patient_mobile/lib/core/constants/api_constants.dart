@@ -1,6 +1,6 @@
 class ApiConstants {
-  // Thay đổi IP này khi mạng LAN/WiFi của máy phát triển thay đổi
-  static const String serverHost = '192.168.1.58:8000';
-  static const String baseUrl = 'http://$serverHost/api';
+  // Đã chuyển lên Render cloud server
+  static const String serverHost = 'clinic-management-9x6x.onrender.com';
+  static const String baseUrl = 'https://$serverHost/api';
   static const String vnpayPaymentUrl = '$baseUrl/vnpay/payment-url';
 }
