@@ -20,4 +20,4 @@ WORKDIR /app/backend_api
 RUN composer install --no-dev --optimize-autoloader
 
 # 4. Lệnh khởi động Server
-CMD php artisan migrate:fresh --seed --force && php artisan serve --host=0.0.0.0 --port=$PORT
+CMD php artisan config:clear && php artisan migrate:fresh --seed --force && php artisan serve --host=0.0.0.0 --port=$PORT
