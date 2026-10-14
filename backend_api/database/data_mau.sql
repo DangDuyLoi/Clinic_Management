@@ -1,4 +1,18 @@
-
+CREATE TABLE IF NOT EXISTS TaiKhoan (ma_tk INT PRIMARY KEY, ten_dang_nhap VARCHAR(255), mat_khau VARCHAR(255), vai_tro VARCHAR(50), trang_thai BOOLEAN);
+CREATE TABLE IF NOT EXISTS ChuyenKhoa (ma_chuyen_khoa INT PRIMARY KEY, ten_chuyen_khoa VARCHAR(255), mo_ta TEXT);
+CREATE TABLE IF NOT EXISTS BacSi (ma_bs INT PRIMARY KEY, ma_tk INT, ma_chuyen_khoa INT, ho_ten VARCHAR(255), trinh_do VARCHAR(255), luot_kham_toi_da_moi_ca INT);
+CREATE TABLE IF NOT EXISTS BenhNhan (ma_bn INT PRIMARY KEY, ma_tk INT, ho_ten VARCHAR(255), ngay_sinh DATE, gioi_tinh VARCHAR(20), so_dien_thoai VARCHAR(20), email VARCHAR(255), cccd VARCHAR(20), dia_chi TEXT, nguoi_lien_he_khan_cap VARCHAR(255), tien_su_benh TEXT, di_ung TEXT, nhom_mau VARCHAR(10));
+CREATE TABLE IF NOT EXISTS CaLamViec (ma_ca INT PRIMARY KEY, ten_ca VARCHAR(100), gio_bat_dau TIME, gio_ket_thuc TIME, luot_kham_toi_da INT);
+CREATE TABLE IF NOT EXISTS KhungGio (ma_khung_gio INT PRIMARY KEY, ma_ca INT, gio_bat_dau TIME, gio_ket_thuc TIME, luot_kham_toi_da INT);
+CREATE TABLE IF NOT EXISTS Thuoc (ma_thuoc INT PRIMARY KEY, ten_thuoc VARCHAR(255), don_vi_tinh VARCHAR(50), don_gia DECIMAL(10,2), so_luong_ton INT);
+CREATE TABLE IF NOT EXISTS DichVu (ma_dich_vu INT PRIMARY KEY, ten_dich_vu VARCHAR(255), don_gia DECIMAL(10,2), mo_ta TEXT);
+CREATE TABLE IF NOT EXISTS LichKham (ma_lich_dat INT PRIMARY KEY, ma_bn INT, ma_bs INT, ngay_kham DATE, ma_khung_gio INT, thoi_gian_den_quay TIME NULL, khach_vang_lai BOOLEAN, diem_uu_tien INT, trang_thai VARCHAR(50), ghi_chu TEXT NULL);
+CREATE TABLE IF NOT EXISTS PhienKham (ma_phien_kham INT PRIMARY KEY, ma_lich_dat INT, chan_doan_so_bo TEXT, chan_doan_cuoi_cung TEXT, ghi_chu_y_te TEXT, trang_thai VARCHAR(50), ngay_tao DATETIME);
+CREATE TABLE IF NOT EXISTS ChiDinhDichVu (ma_chi_dinh INT PRIMARY KEY, ma_phien_kham INT, ma_dich_vu INT, ket_qua_chi_tiet TEXT, trang_thai VARCHAR(50));
+CREATE TABLE IF NOT EXISTS DonThuoc (ma_don_thuoc INT PRIMARY KEY, ma_phien_kham INT, tong_tien DECIMAL(10,2), ngay_ke_don DATETIME);
+CREATE TABLE IF NOT EXISTS ChiTietDonThuoc (ma_chi_tiet INT PRIMARY KEY, ma_don_thuoc INT, ma_thuoc INT, so_luong INT, lieu_luong TEXT, thanh_tien DECIMAL(10,2));
+CREATE TABLE IF NOT EXISTS HoaDon (ma_hoa_don INT PRIMARY KEY, ma_phien_kham INT, tien_kham_benh DECIMAL(10,2), tien_dich_vu DECIMAL(10,2), tien_thuoc DECIMAL(10,2), tong_cong DECIMAL(10,2), phuong_thuc VARCHAR(50), trang_thai VARCHAR(50), ngay_tao DATETIME, ngay_thanh_toan DATETIME NULL);
+CREATE TABLE IF NOT EXISTS NhatKyHeThong (ma_nhat_ky INT PRIMARY KEY, ma_tk INT, hanh_dong VARCHAR(100), bang_tac_dong VARCHAR(100), du_lieu_cu TEXT NULL, du_lieu_moi TEXT NULL, thoi_gian DATETIME);
 
 TRUNCATE TABLE NhatKyHeThong;
 TRUNCATE TABLE HoaDon;
