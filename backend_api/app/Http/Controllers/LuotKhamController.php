@@ -257,16 +257,16 @@ class LuotKhamController extends Controller
         $danhSach = DB::table('luot_kham')
             ->whereIn('luot_kham.ma_ho_so', $request->danh_sach_ma_ho_so)
             ->leftJoin('ho_so_benh_an', 'luot_kham.ma_ho_so', '=', 'ho_so_benh_an.ma_ho_so')
+            ->leftJoin('BacSi as bs_table', 'luot_kham.ma_bac_si', '=', 'bs_table.ma_bs')
             ->leftJoin('users as bac_si', 'luot_kham.ma_bac_si', '=', 'bac_si.id')
             ->select(
                 'luot_kham.ma_luot_kham',
                 'luot_kham.thoi_gian_den_kham',
                 'luot_kham.trang_thai as trang_thai_kham',
                 'luot_kham.ma_bac_si',
-                DB::raw("CONCAT(ho_so_benh_an.ho_chu_lot, ' ', ho_so_benh_an.ten) as ten_benh_nhan"),
-                'bac_si.name as ten_bac_si',
-                DB::raw("CASE WHEN luot_kham.trang_thai = 'cho_thanh_toan' THEN 'ChuaThanhToan' ELSE 'DaThanhToan' END as trang_thai_thanh_toan"),
-                DB::raw("'DaThanhToan' as trang_thai_thanh_toan")
+                DB::raw("TRIM(CONCAT(COALESCE(ho_so_benh_an.ho_chu_lot, ''), ' ', COALESCE(ho_so_benh_an.ten, ''))) as ten_benh_nhan"),
+                DB::raw("COALESCE(bs_table.ho_ten, bac_si.name, 'Bác sĩ chuyên khoa') as ten_bac_si"),
+                DB::raw("CASE WHEN luot_kham.trang_thai = 'cho_thanh_toan' THEN 'ChuaThanhToan' ELSE 'DaThanhToan' END as trang_thai_thanh_toan")
             )
             ->orderBy('luot_kham.thoi_gian_den_kham', 'desc')
             ->get();
@@ -286,7 +286,8 @@ class LuotKhamController extends Controller
         }
 
         $hoSo = DB::table('ho_so_benh_an')->where('ma_ho_so', $luotKham->ma_ho_so)->first();
-        $bacSi = DB::table('users')->where('id', $luotKham->ma_bac_si)->first();
+        $bacSi = DB::table('BacSi')->where('ma_bs', $luotKham->ma_bac_si)->first()
+            ?? DB::table('users')->where('id', $luotKham->ma_bac_si)->first();
 
         $isPaid = in_array($luotKham->trang_thai, ['da_thanh_toan', 'cho_kham', 'dang_kham', 'hoan_thanh']);
         $isCheckedIn = in_array($luotKham->trang_thai, ['cho_kham', 'dang_kham', 'hoan_thanh']);
@@ -297,8 +298,8 @@ class LuotKhamController extends Controller
                 'ma_luot_kham' => $luotKham->ma_luot_kham,
                 'trang_thai' => $luotKham->trang_thai,
                 'thoi_gian_den_kham' => $luotKham->thoi_gian_den_kham,
-                'ten_benh_nhan' => $hoSo ? ($hoSo->ho_chu_lot . ' ' . $hoSo->ten) : null,
-                'ten_bac_si' => $bacSi?->name ?? 'Bác sĩ chuyên khoa',
+                'ten_benh_nhan' => $hoSo ? trim(($hoSo->ho_chu_lot ?? '') . ' ' . ($hoSo->ten ?? '')) : null,
+                'ten_bac_si' => $bacSi?->ho_ten ?? $bacSi?->name ?? 'Bác sĩ chuyên khoa',
                 'is_paid' => $isPaid,
                 'is_checked_in' => $isCheckedIn,
                 'trang_thai_thanh_toan' => $isPaid ? 'DaThanhToan' : 'ChuaThanhToan',

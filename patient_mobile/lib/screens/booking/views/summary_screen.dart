@@ -19,10 +19,11 @@ class SummaryScreen extends StatelessWidget {
     final doctor = controller.selectedDoctor.value;
     final specialty = controller.selectedSpecialty.value;
 
-    final dateStr = date != null ? DateFormat('dd/MM/yyyy').format(date) : '30/09/2026';
-    final specialtyName = specialty?['name'] ?? 'BỆNH LÝ CỘT SỐNG';
+    final dateStr = date != null ? DateFormat('dd/MM/yyyy').format(date) : DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final specialtyName = specialty?['name'] ?? specialty?['ten_chuyen_khoa'] ?? doctor?['chuyen_khoa'] ?? 'Khám chuyên khoa';
     final priceStr = specialty?['price'] ?? '150.000đ';
-    final roomStr = doctor?['room'] ?? 'Phòng 66 - Lầu 1 Khu B';
+    final roomStr = doctor?['room'] ?? doctor?['phong_kham'] ?? 'Phòng Khám';
+    final doctorName = doctor?['name'] ?? doctor?['ho_ten'] ?? '';
     
     // Check if afternoon or morning
     String shiftStr = 'Buổi khám';
@@ -118,13 +119,25 @@ class SummaryScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Text(
-                                specialtyName,
-                                style: const TextStyle(
-                                  color: Color(0xFF0056D2),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    specialtyName,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0056D2),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  if (doctorName.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Bác sĩ: $doctorName',
+                                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             Container(

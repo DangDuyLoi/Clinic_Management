@@ -51,6 +51,17 @@ class ChatbotScreen extends StatelessWidget {
             showTime: true,
             timeTextColor: Colors.black54,
 
+            // Tự động render markdown **in đậm** thành chữ in đậm thực sự
+            messageTextBuilder: (ChatMessage message, ChatMessage? previousMessage, ChatMessage? nextMessage) {
+              final isUser = message.user.id == controller.currentUser.id;
+              final baseStyle = TextStyle(
+                color: isUser ? Colors.white : Colors.black87,
+                fontSize: 15,
+                height: 1.45,
+              );
+              return _buildFormattedMarkdownText(message.text, baseStyle);
+            },
+
             // Yêu cầu 3: Nút điều hướng thông minh nằm ngay dưới bong bóng chat
             bottom: (ChatMessage message, ChatMessage? previousMessage, ChatMessage? nextMessage) {
               return _buildSmartBookingButton(message, controller.geminiUser);
@@ -136,4 +147,44 @@ class ChatbotScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// Phân tích cú pháp Markdown để hiển thị **in đậm** thực sự thay vì in dấu sao thô
+  Widget _buildFormattedMarkdownText(String text, TextStyle baseStyle) {
+    final List<InlineSpan> spans = [];
+    final List<String> parts = text.split('**');
+
+    for (int i = 0; i < parts.length; i++) {
+      final part = parts[i];
+      if (part.isEmpty) continue;
+
+      if (i % 2 == 1) {
+        // Bên trong cặp dấu ** -> Render in đậm (màu xanh thương hiệu nếu là AI)
+        spans.add(
+          TextSpan(
+            text: part,
+            style: baseStyle.copyWith(
+              fontWeight: FontWeight.bold,
+              color: baseStyle.color == Colors.white
+                  ? Colors.white
+                  : const Color(0xFF0056D2),
+            ),
+          ),
+        );
+      } else {
+        // Văn bản bình thường
+        spans.add(
+          TextSpan(
+            text: part,
+            style: baseStyle,
+          ),
+        );
+      }
+    }
+
+    return SelectableText.rich(
+      TextSpan(children: spans),
+      style: baseStyle,
+    );
+  }
 }
+
