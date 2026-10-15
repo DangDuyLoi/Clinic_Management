@@ -30,33 +30,31 @@ class ChatbotController extends GetxController {
   /// Trạng thái đang xử lý / AI đang gõ phản hồi (.obs để cập nhật typing indicator)
   final RxBool isTyping = false.obs;
 
-  /// Đối tượng GenerativeModel của thư viện google_generative_ai
-  late final GenerativeModel _generativeModel;
+  static const String _apiKey =
+      'AQ.Ab8RN6JXlDwB07JkbaLVgGsYzmw5riQ-_xiSZ7XgKI1_5yLW4Q';
+
+  static const List<String> _modelCandidates = [
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.1-flash-lite',
+  ];
+
+  static final _systemInstruction = Content.system(
+    'Bạn là trợ lý y tế thông minh của phòng khám đa khoa HUIT Care. '
+    'Nhiệm vụ của bạn: 1. Hỏi han triệu chứng ngắn gọn, ân cần. 2. Phân tích sơ bộ nguyên nhân khả dĩ. 3. Hướng dẫn bệnh nhân đặt lịch đúng chuyên khoa. '
+    'CHÚ Ý QUAN TRỌNG: Phòng khám chỉ có các khoa: Nội, Ngoại, Sản, Mắt, Tai Mũi Họng, Răng Hàm Mặt. '
+    'TUYỆT ĐỐI KHÔNG CÓ KHOA NHI. Tuyệt đối không tự kê đơn thuốc điều trị hay chẩn đoán khẳng định bệnh.',
+  );
 
   // ===========================================================================
-  // 3. VÒNG ĐỜI CONTROLLER & KHỞI TẠO MODEL
+  // 3. VÒNG ĐỜI CONTROLLER
   // ===========================================================================
 
   @override
   void onInit() {
     super.onInit();
-    _initGenerativeModel();
     _sendInitialGreeting();
-  }
-
-  /// Khởi tạo model Gemini 1.5 Flash với System Instruction y tế chuyên biệt
-  void _initGenerativeModel() {
-    _generativeModel = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey:
-          'YOUR_API_KEY', // Giữ nguyên chuỗi này để người dùng tự điền API Key
-      systemInstruction: Content.system(
-        'Bạn là trợ lý y tế thông minh của phòng khám đa khoa HUIT Care. '
-        'Nhiệm vụ của bạn: 1. Hỏi han triệu chứng ngắn gọn. 2. Phân tích sơ bộ. 3. Hướng dẫn bệnh nhân đặt lịch đúng chuyên khoa. '
-        'CHÚ Ý QUAN TRỌNG: Phòng khám chỉ có các khoa: Nội, Ngoại, Sản, Mắt, Tai Mũi Họng, Răng Hàm Mặt. '
-        'TUYỆT ĐỐI KHÔNG CÓ KHOA NHI. Tuyệt đối không tự kê đơn hay chẩn đoán khẳng định bệnh.',
-      ),
-    );
   }
 
   /// Gửi tin nhắn chào mừng và hướng dẫn ban đầu từ phía Trợ lý AI
@@ -73,73 +71,83 @@ class ChatbotController extends GetxController {
   }
 
   // ===========================================================================
-  // 4. HÀM XỬ LÝ GỬI & NHẬN TIN NHẮN
+  // 4. HÀM XỬ LÝ GỬI & NHẬN TIN NHẮN VỚI TỰ ĐỘNG CHUYỂN MODEL KHI BỊ QUÁ TẢI (FALLBACK)
   // ===========================================================================
 
   /// Gửi tin nhắn của người dùng và gọi Gemini API để nhận phản hồi
   Future<void> sendMessage(ChatMessage m) async {
-    // Bước 1: Thêm tin nhắn của người dùng vào mảng messages (vị trí đầu mảng vì DashChat hiển thị ngược)
+    // Bước 1: Thêm tin nhắn của người dùng vào mảng messages
     messages.insert(0, m);
 
-    // Bước 2: Bật hiệu ứng đang gõ tin nhắn (isTyping = true)
+    // Bước 2: Bật hiệu ứng đang gõ tin nhắn
     isTyping.value = true;
 
-    try {
-      // Bước 3: Lọc lấy lịch sử messages hiện tại (loại bỏ tin nhắn 'm' vừa gửi),
-      // sắp xếp từ cũ nhất đến mới nhất, rồi map sang cấu trúc Content.text() và Content.model()
-      final List<ChatMessage> previousMessages = messages.reversed
-          .where((msg) => msg != m)
-          .toList();
+    // Chuẩn bị lịch sử trò chuyện
+    final List<ChatMessage> previousMessages = messages.reversed
+        .where((msg) => msg != m)
+        .toList();
 
-      // Đảm bảo lịch sử gửi lên Gemini bắt đầu bằng lượt hỏi của người dùng (role 'user')
-      final int firstUserIndex = previousMessages.indexWhere(
-        (msg) => msg.user.id == currentUser.id,
-      );
+    final int firstUserIndex = previousMessages.indexWhere(
+      (msg) => msg.user.id == currentUser.id,
+    );
 
-      final List<Content> history = [];
-      if (firstUserIndex != -1) {
-        for (int i = firstUserIndex; i < previousMessages.length; i++) {
-          final msg = previousMessages[i];
-          if (msg.text.trim().isEmpty) continue;
+    final List<Content> history = [];
+    if (firstUserIndex != -1) {
+      for (int i = firstUserIndex; i < previousMessages.length; i++) {
+        final msg = previousMessages[i];
+        if (msg.text.trim().isEmpty) continue;
 
-          if (msg.user.id == currentUser.id) {
-            history.add(Content.text(msg.text));
-          } else {
-            history.add(Content.model([TextPart(msg.text)]));
-          }
+        if (msg.user.id == currentUser.id) {
+          history.add(Content.text(msg.text));
+        } else {
+          history.add(Content.model([TextPart(msg.text)]));
         }
       }
+    }
 
-      // Khởi tạo phiên chat với context lịch sử cuộc trò chuyện
-      final chatSession = _generativeModel.startChat(history: history);
+    String? replyText;
+    dynamic lastError;
 
-      // Bước 4: Gọi chatSession.sendMessage() để gửi tin nhắn hiện tại
-      final response = await chatSession.sendMessage(Content.text(m.text));
+    // Thử lần lượt các model cho đến khi thành công
+    for (final modelName in _modelCandidates) {
+      try {
+        final model = GenerativeModel(
+          model: modelName,
+          apiKey: _apiKey,
+          systemInstruction: _systemInstruction,
+        );
 
-      final replyText =
-          response.text?.trim() ??
-          'Xin lỗi, hiện tại tôi chưa thể phân tích thông tin này. Bạn vui lòng thử lại nhé!';
+        final chatSession = model.startChat(history: history);
+        final response = await chatSession.sendMessage(Content.text(m.text));
 
-      // Tạo một ChatMessage mới của geminiUser và add vào đầu mảng messages
+        if (response.text != null && response.text!.trim().isNotEmpty) {
+          replyText = response.text!.trim();
+          break; // Thành công, thoát vòng lặp fallback
+        }
+      } catch (e) {
+        lastError = e;
+        // Tiếp tục thử model dự phòng tiếp theo
+      }
+    }
+
+    if (replyText != null) {
       final geminiMessage = ChatMessage(
         user: geminiUser,
         createdAt: DateTime.now(),
         text: replyText,
       );
       messages.insert(0, geminiMessage);
-    } catch (e) {
-      // Xử lý lỗi (lỗi mạng, API Key chưa hợp lệ,...)
+    } else {
       final errorMessage = ChatMessage(
         user: geminiUser,
         createdAt: DateTime.now(),
         text:
-            'Đã có lỗi xảy ra khi kết nối tới Trợ lý AI. '
-            'Vui lòng kiểm tra lại cấu hình API Key hoặc kết nối mạng của bạn.\n(Lỗi: $e)',
+            'Hiện tại máy chủ Trợ lý AI đang có lưu lượng truy cập cao. '
+            'Vui lòng thử lại sau giây lát.\n(Chi tiết: $lastError)',
       );
       messages.insert(0, errorMessage);
-    } finally {
-      // Bước 5: Luôn tắt hiệu ứng typing trong khối finally
-      isTyping.value = false;
     }
+
+    isTyping.value = false;
   }
 }

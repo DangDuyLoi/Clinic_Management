@@ -20,7 +20,10 @@ class PaymentController extends Controller
         $vnp_TmnCode = env('VNPAY_TMN_CODE');
         $vnp_HashSecret = env('VNPAY_HASH_SECRET');
         $vnp_Url = env('VNPAY_URL');
-        $vnp_Returnurl = env('VNPAY_RETURN_URL');
+        $vnp_Returnurl = env('VNPAY_RETURN_URL', $request->getSchemeAndHttpHost() . '/api/vnpay/return');
+        if (str_contains($vnp_Returnurl, '192.168.1.58')) {
+            $vnp_Returnurl = $request->getSchemeAndHttpHost() . '/api/vnpay/return';
+        }
 
         $vnp_TxnRef = $hoaDon->ma_hoa_don . '_' . time(); 
         $vnp_OrderInfo = "Thanh toan hoa don y te ma " . $hoaDon->ma_hoa_don;

@@ -10,7 +10,8 @@ class VisitTimelineItem extends StatelessWidget {
   final List<Map<String, String>> medications;
   final bool isLast;
   
-  // Thêm mock note 
+  final String? doctor;
+  final String? room;
   final String? note;
 
   const VisitTimelineItem({
@@ -19,6 +20,8 @@ class VisitTimelineItem extends StatelessWidget {
     required this.department,
     required this.diagnosis,
     required this.medications,
+    this.doctor,
+    this.room,
     this.note,
     this.isLast = false,
   }) : super(key: key);
@@ -72,6 +75,8 @@ class VisitTimelineItem extends StatelessWidget {
                       visitData: {
                         'date': date,
                         'department': department,
+                        'doctor': doctor,
+                        'room': room,
                         'diagnosis': diagnosis,
                         'medications': medications,
                         'note': note,

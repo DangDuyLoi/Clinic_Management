@@ -11,6 +11,18 @@ use App\Http\Controllers\LuotKhamController;
 use App\Http\Controllers\Api\PatientProfileController;
 use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\PaymentController; // Thêm dòng này để gọi PaymentController
+use App\Http\Controllers\BacSiController;
+use App\Http\Controllers\EmrController;
+
+// Phân hệ Hồ sơ bệnh án & Cận lâm sàng (EMR từ MySQL)
+Route::prefix('emr')->group(function () {
+    Route::get('lich-su-kham', [EmrController::class, 'getVisitHistory']);
+    Route::get('ket-qua-cls', [EmrController::class, 'getTestResults']);
+});
+
+// Quản lý Bác sĩ & Khung giờ khám (Từ MySQL)
+Route::get('bac-si', [BacSiController::class, 'index']);
+Route::get('khung-gio', [BacSiController::class, 'khungGio']);
 
 // Quản lý Chuyên Khoa
 Route::prefix('chuyen-khoa')->group(function () {
@@ -32,6 +44,9 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/update-fcm-token', [AuthController::class, 'updateFcmToken']);
+Route::post('/change-password', [AuthController::class, 'changePassword']);
+Route::get('/user-info', [AuthController::class, 'getUserInfo']);
+Route::post('/update-user-info', [AuthController::class, 'updateUserInfo']);
 
 // Phân hệ Lượt Khám (Lễ tân, Bác sĩ, Bệnh nhân)
 Route::match(['put', 'post', 'get'], 'luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân (hỗ trợ PUT, POST, GET để scan QR dễ dàng)

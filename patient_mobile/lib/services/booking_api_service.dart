@@ -5,6 +5,66 @@ import '../core/constants/api_constants.dart';
 class BookingApiService {
   static const String baseUrl = ApiConstants.baseUrl;
 
+  // Lấy danh sách chuyên khoa từ MySQL
+  static Future<List<Map<String, dynamic>>> fetchSpecialties() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/chuyen-khoa'),
+      headers: {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      final list = (json['data'] ?? []) as List;
+      return list.map<Map<String, dynamic>>((item) {
+        return {
+          'id': item['ma_chuyen_khoa'].toString(),
+          'ma_chuyen_khoa': item['ma_chuyen_khoa'],
+          'name': (item['ten_chuyen_khoa'] ?? '').toString().toUpperCase(),
+          'price': '150.000đ',
+          'desc': item['mo_ta'] ?? '',
+        };
+      }).toList();
+    } else {
+      throw Exception('Không thể tải danh sách chuyên khoa');
+    }
+  }
+
+  // Lấy danh sách bác sĩ từ MySQL (có thể lọc theo chuyên khoa)
+  static Future<List<Map<String, dynamic>>> fetchDoctors({int? maChuyenKhoa}) async {
+    String url = '$baseUrl/bac-si';
+    if (maChuyenKhoa != null) {
+      url += '?ma_chuyen_khoa=$maChuyenKhoa';
+    }
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      final list = (json['data'] ?? []) as List;
+      return List<Map<String, dynamic>>.from(list);
+    } else {
+      throw Exception('Không thể tải danh sách bác sĩ');
+    }
+  }
+
+  // Lấy danh sách khung giờ từ MySQL
+  static Future<List<Map<String, dynamic>>> fetchKhungGio() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/khung-gio'),
+      headers: {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      final list = (json['data'] ?? []) as List;
+      return List<Map<String, dynamic>>.from(list);
+    } else {
+      throw Exception('Không thể tải khung giờ');
+    }
+  }
+
   // Lấy giờ trống của bác sĩ
   static Future<List<String>> getAvailableTimeSlots(int doctorId, String dateStr) async {
     final response = await http.get(Uri.parse('$baseUrl/luot-kham/gio-trong?ma_bac_si=$doctorId&ngay_kham=$dateStr'));

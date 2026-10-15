@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -148,7 +148,10 @@
     }
 
     try {
-      const res = await fetch(`http://192.168.1.58:8000/api/luot-kham/${id}/tiep-nhan`, {
+      const apiHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://127.0.0.1:8000' 
+        : `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${apiHost}/api/luot-kham/${id}/tiep-nhan`, {
         method: 'PUT',
         headers: { 'Accept': 'application/json' }
       });

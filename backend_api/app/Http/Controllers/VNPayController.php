@@ -23,8 +23,15 @@ class VNPayController extends Controller
         $vnp_HashSecret = env('VNPAY_HASH_SECRET', 'DDRHKNYLVCLJGUWGLYOBANHQMQZDJZQI');
         $vnp_Url = env('VNPAY_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html');
         
-        // Return URL: ưu tiên cấu hình, fallback về dynamic host /api/vnpay/return
-        $vnp_Returnurl = env('VNPAY_RETURN_URL', $request->getSchemeAndHttpHost() . '/api/vnpay/return');
+        // Return URL: ưu tiên dynamic host theo request hoặc cấu hình IP hợp lệ
+        $envReturn = env('VNPAY_RETURN_URL');
+        $dynamicReturn = $request->getSchemeAndHttpHost() . '/api/vnpay/return';
+        
+        if (!empty($envReturn) && !str_contains($envReturn, '192.168.1.58')) {
+            $vnp_Returnurl = $envReturn;
+        } else {
+            $vnp_Returnurl = $dynamicReturn;
+        }
         
         $maLuotKham = $request->input('ma_luot_kham');
         $amount = $request->input('amount', 150000);

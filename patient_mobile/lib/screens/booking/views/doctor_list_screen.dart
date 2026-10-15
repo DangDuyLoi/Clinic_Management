@@ -3,34 +3,65 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../controllers/booking_controller.dart';
 import 'insurance_screen.dart';
+import '../../../services/booking_api_service.dart';
 
-class DoctorListScreen extends StatelessWidget {
+class DoctorListScreen extends StatefulWidget {
+  const DoctorListScreen({super.key});
+
+  @override
+  State<DoctorListScreen> createState() => _DoctorListScreenState();
+}
+
+class _DoctorListScreenState extends State<DoctorListScreen> {
   final BookingController controller = Get.find<BookingController>();
+  List<Map<String, dynamic>> _doctors = [];
+  List<Map<String, dynamic>> _timeSlots = [];
+  bool _isLoading = true;
 
-  DoctorListScreen({super.key});
+  @override
+  void initState() {
+    super.initState();
+    controller.selectedDate.value ??= DateTime.now();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final specialtyId = controller.selectedSpecialty.value?['ma_chuyen_khoa'];
+      final int? ckId = specialtyId != null ? int.tryParse(specialtyId.toString()) : null;
+
+      final results = await Future.wait([
+        BookingApiService.fetchDoctors(maChuyenKhoa: ckId),
+        BookingApiService.fetchKhungGio(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _doctors = results[0];
+          _timeSlots = results[1];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Mock Data
-    final doctors = [
-      {
-        'id': '1',
-        'name': 'BSCKII. Lê Tường Viễn',
-        'room': 'Phòng 66 - Lầu 1 Khu B',
-        'avatarUrl': 'https://i.pravatar.cc/150?img=11',
-      },
-      {
-        'id': '2',
-        'name': 'BSCKII. Nguyễn Thành Nhân',
-        'room': 'Phòng 66 - Lầu 1 Khu B',
-        'avatarUrl': 'https://i.pravatar.cc/150?img=12',
-      }
-    ];
+    final specialtyName = controller.selectedSpecialty.value?['name'] ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F5FA),
       appBar: AppBar(
-        title: const Text('Chọn buổi khám', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text(
+          specialtyName.isNotEmpty ? 'Bác sĩ: $specialtyName' : 'Chọn bác sĩ khám',
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 17),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.blue),
@@ -49,17 +80,17 @@ class DoctorListScreen extends StatelessWidget {
                   children: [
                     Container(width: 4, height: 16, color: Colors.blue),
                     const SizedBox(width: 8),
-                    const Text('CHỌN KHUNG GIỜ KHÁM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text('CHỌN BÁC SĨ & KHUNG GIỜ KHÁM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   ],
                 ),
                 const SizedBox(height: 4),
                 RichText(
                   text: const TextSpan(
-                    style: TextStyle(color: Colors.black54, fontSize: 14, fontStyle: FontStyle.italic),
+                    style: TextStyle(color: Colors.black54, fontSize: 13, fontStyle: FontStyle.italic),
                     children: [
                       TextSpan(text: 'Vui lòng bấm chọn khung giờ '),
-                      TextSpan(text: 'màu xanh dương', style: TextStyle(color: Colors.blue)),
-                      TextSpan(text: ' để đặt khám'),
+                      TextSpan(text: 'màu xanh dương', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                      TextSpan(text: ' của bác sĩ bạn muốn đặt khám'),
                     ],
                   ),
                 ),
@@ -92,17 +123,37 @@ class DoctorListScreen extends StatelessWidget {
                     ),
                   ),
                   InkWell(
-                    onTap: () => Get.back(),
+                    onTap: () async {
+                      final DateTime? newDate = await showDatePicker(
+                        context: context,
+                        initialDate: controller.selectedDate.value ?? DateTime.now(),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 60)),
+                        helpText: 'CHỌN NGÀY KHÁM',
+                        confirmText: 'CHỌN NGÀY',
+                        cancelText: 'HỦY',
+                      );
+                      if (newDate != null) {
+                        controller.selectedDate.value = newDate;
+                        setState(() {});
+                      }
+                    },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: const Color(0xFF93C5FD)),
                       ),
-                      child: const Text(
-                        'Đổi ngày',
-                        style: TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 12),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.calendar_month, size: 14, color: Color(0xFF0056D2)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Đổi ngày',
+                            style: TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -112,19 +163,36 @@ class DoctorListScreen extends StatelessWidget {
           }),
 
           const SizedBox(height: 8),
-          
+
           // Doctor List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: doctors.length,
-              itemBuilder: (context, index) {
-                return DoctorBookingCard(
-                  doctor: doctors[index],
-                  controller: controller,
-                );
-              },
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _doctors.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_off_outlined, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text('Chưa có lịch trực bác sĩ cho chuyên khoa này', style: TextStyle(color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _doctors.length,
+                          itemBuilder: (context, index) {
+                            return DoctorBookingCard(
+                              doctor: _doctors[index],
+                              controller: controller,
+                              configuredSlots: _timeSlots,
+                            );
+                          },
+                        ),
+                      ),
           ),
         ],
       ),
@@ -135,8 +203,14 @@ class DoctorListScreen extends StatelessWidget {
 class DoctorBookingCard extends StatefulWidget {
   final Map<String, dynamic> doctor;
   final BookingController controller;
+  final List<Map<String, dynamic>> configuredSlots;
 
-  const DoctorBookingCard({super.key, required this.doctor, required this.controller});
+  const DoctorBookingCard({
+    super.key,
+    required this.doctor,
+    required this.controller,
+    this.configuredSlots = const [],
+  });
 
   @override
   State<DoctorBookingCard> createState() => _DoctorBookingCardState();
@@ -146,14 +220,35 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
   DateTime? selectedDate;
   late List<DateTime> dates;
 
-  // Mock time slots
-  final List<String> timeSlots = [
-    '06:30 - 07:30', '07:30 - 08:30', '08:30 - 09:30', '09:30 - 10:30', '10:30 - 11:30'
-  ];
+  List<String> get timeSlots {
+    if (widget.configuredSlots.isNotEmpty) {
+      return widget.configuredSlots
+          .map((s) => (s['label'] ?? s['time_range'] ?? '').toString())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    // Fallback nếu chưa tải được
+    return [
+      '07:30 - 08:30',
+      '08:30 - 09:30',
+      '09:30 - 10:30',
+      '10:30 - 11:30',
+      '13:00 - 14:00',
+      '14:00 - 15:00',
+      '15:00 - 16:00',
+      '16:00 - 17:00'
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
+    _initDates();
+  }
+
+  @override
+  void didUpdateWidget(covariant DoctorBookingCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
     _initDates();
   }
 
@@ -165,7 +260,6 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
     DateTime start;
     if (chosen != null) {
       selectedDate = chosen;
-      // Nếu ngày được chọn sau hôm nay, lùi 1 ngày để người dùng nhìn thấy ngày trước đó (nhưng không trước hôm nay)
       if (chosen.isAfter(today)) {
         final prev = chosen.subtract(const Duration(days: 1));
         start = prev.isBefore(today) ? today : prev;
@@ -197,6 +291,11 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
 
   @override
   Widget build(BuildContext context) {
+    final doctorName = widget.doctor['name'] ?? widget.doctor['ho_ten'] ?? 'Bác sĩ chuyên khoa';
+    final doctorDegree = widget.doctor['trinh_do'] ?? '';
+    final doctorRoom = widget.doctor['room'] ?? widget.doctor['phong_kham'] ?? 'Phòng Khám Đa Khoa';
+    final avatarUrl = widget.doctor['avatarUrl'] ?? 'https://i.pravatar.cc/150?img=11';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -218,7 +317,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
-                    widget.doctor['avatarUrl'],
+                    avatarUrl,
                     width: 60,
                     height: 80,
                     fit: BoxFit.cover,
@@ -236,34 +335,43 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.doctor['name'],
+                        doctorName,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0056D2)),
                       ),
+                      if (doctorDegree.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          doctorDegree,
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(
-                        widget.doctor['room'],
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                        doctorRoom,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0F5FA),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Thông tin bác sĩ', style: TextStyle(color: Colors.blue, fontSize: 12)),
-                            SizedBox(width: 4),
-                            Icon(Icons.chevron_right, size: 14, color: Colors.blue),
+                            Text(
+                              widget.doctor['chuyen_khoa'] ?? widget.doctor['ten_chuyen_khoa'] ?? 'Thông tin bác sĩ',
+                              style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
               ],
             ),
           ),
@@ -405,7 +513,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${DateFormat('dd/MM/yyyy').format(selectedDate!)} - Buổi sáng (Thứ ${selectedDate!.weekday == 7 ? 'CN' : selectedDate!.weekday + 1})',
+                    '${DateFormat('dd/MM/yyyy').format(selectedDate!)} - Buổi khám (Thứ ${selectedDate!.weekday == 7 ? 'CN' : selectedDate!.weekday + 1})',
                     style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5B46), fontSize: 14),
                   ),
                   const SizedBox(height: 12),
@@ -421,38 +529,35 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                     itemCount: timeSlots.length,
                     itemBuilder: (context, index) {
                       final slot = timeSlots[index];
-                      // Mock "Hết số" for first slot
-                      final isFull = index == 0; 
-                      
                       return GestureDetector(
-                        onTap: isFull ? null : () {
-                          // Select doctor, date, and slot then move to next screen
+                        onTap: () {
+                          // Gán bác sĩ, ngày khám và khung giờ thực từ MySQL
                           widget.controller.selectedDoctor.value = widget.doctor;
                           widget.controller.selectedDate.value = selectedDate;
-                          widget.controller.selectedTimeSlot.value = {'time': slot};
+                          widget.controller.selectedTimeSlot.value = {'time': slot, 'label': slot};
                           Get.to(() => const InsuranceScreen());
                         },
                         child: Container(
                           decoration: BoxDecoration(
-                            color: isFull ? const Color(0xFFF0F0F0) : const Color(0xFFE8F1FE),
+                            color: const Color(0xFFE8F1FE),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 slot,
-                                style: TextStyle(
-                                  color: isFull ? Colors.black54 : const Color(0xFF0056D2),
+                                style: const TextStyle(
+                                  color: Color(0xFF0056D2),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
                               ),
-                              if (isFull)
-                                const Text(
-                                  'Hết số',
-                                  style: TextStyle(color: Colors.black54, fontSize: 11),
-                                ),
+                              const Text(
+                                'Còn chỗ',
+                                style: TextStyle(color: Color(0xFF059669), fontSize: 11, fontWeight: FontWeight.w500),
+                              ),
                             ],
                           ),
                         ),
