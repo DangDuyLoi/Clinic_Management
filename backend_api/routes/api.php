@@ -64,6 +64,7 @@ Route::prefix('patient-profiles')->group(function () {
 });
 
 // Phân hệ Thanh toán VNPay (Cho ứng dụng di động)
+Route::get('/payment/bills', [PaymentController::class, 'getBills']);
 Route::get('/vnpay/payment-url', [VNPayController::class, 'createPaymentUrl']);
 Route::get('/vnpay/create-payment/{ma_luot_kham?}', [VNPayController::class, 'createPaymentUrl']);
 Route::match(['get', 'post'], '/vnpay/return', [VNPayController::class, 'vnpayReturn']); // Callback VNPay

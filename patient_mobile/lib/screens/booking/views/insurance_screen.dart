@@ -135,12 +135,14 @@ class InsuranceScreen extends StatelessWidget {
                       confirmTextColor: Colors.white,
                       onConfirm: () {
                         Get.back(); // Đóng dialog
+                        controller.addCurrentBookingToItems();
                         Get.to(() => const SummaryScreen());
                       },
                     );
                   } else if (controller.hasHealthInsurance.value == true && controller.healthInsuranceType.value == null) {
                     Get.snackbar('Cảnh báo', 'Vui lòng chọn loại tuyến BHYT (Đúng tuyến / Trái tuyến).');
                   } else {
+                    controller.addCurrentBookingToItems();
                     Get.to(() => const SummaryScreen());
                   }
                 },

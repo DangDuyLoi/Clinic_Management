@@ -6,33 +6,27 @@ import '../../../services/vnpay_service.dart';
 import 'booking_success_screen.dart';
 import 'payment_pending_screen.dart';
 
-class SummaryScreen extends StatelessWidget {
+class SummaryScreen extends StatefulWidget {
   const SummaryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final BookingController controller = Get.find<BookingController>();
-    
-    // Fallbacks just in case
-    final date = controller.selectedDate.value;
-    final timeSlot = controller.selectedTimeSlot.value?['time'] ?? 'Chưa rõ';
-    final doctor = controller.selectedDoctor.value;
-    final specialty = controller.selectedSpecialty.value;
+  State<SummaryScreen> createState() => _SummaryScreenState();
+}
 
-    final dateStr = date != null ? DateFormat('dd/MM/yyyy').format(date) : DateFormat('dd/MM/yyyy').format(DateTime.now());
-    final specialtyName = specialty?['name'] ?? specialty?['ten_chuyen_khoa'] ?? doctor?['chuyen_khoa'] ?? 'Khám chuyên khoa';
-    final priceStr = specialty?['price'] ?? '150.000đ';
-    final roomStr = doctor?['room'] ?? doctor?['phong_kham'] ?? 'Phòng Khám';
-    final doctorName = doctor?['name'] ?? doctor?['ho_ten'] ?? '';
-    
-    // Check if afternoon or morning
-    String shiftStr = 'Buổi khám';
-    if (timeSlot.startsWith('1') && timeSlot.compareTo('12:00') > 0) {
-      shiftStr = 'Buổi chiều';
-    } else if (timeSlot != 'Chưa rõ') {
-      shiftStr = 'Buổi sáng';
+class _SummaryScreenState extends State<SummaryScreen> {
+  late final BookingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<BookingController>();
+    if (controller.bookedItems.isEmpty) {
+      controller.addCurrentBookingToItems();
     }
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -94,144 +88,171 @@ class SummaryScreen extends StatelessWidget {
                 
                 const SizedBox(height: 24),
                 
-                const Text(
-                  'Chuyên khoa đã chọn (1)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C3E50)),
-                ),
+                Obx(() => Text(
+                  'Chuyên khoa đã chọn (${controller.bookedItems.length})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C3E50)),
+                )),
                 
                 const SizedBox(height: 12),
                 
-                // Specialty Card
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Header
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Danh sách các chuyên khoa đã thêm
+                Obx(() {
+                  final items = controller.bookedItems;
+                  if (items.isEmpty) {
+                    return const Center(child: Text('Chưa có chuyên khoa nào được chọn.'));
+                  }
+
+                  return Column(
+                    children: List.generate(items.length, (index) {
+                      final item = items[index];
+                      final spec = item['specialty'] as Map<String, dynamic>?;
+                      final doc = item['doctor'] as Map<String, dynamic>?;
+                      final d = item['date'] as DateTime?;
+                      final tSlot = item['timeSlot']?['time'] ?? 'Chưa rõ';
+
+                      final dStr = d != null ? DateFormat('dd/MM/yyyy').format(d) : DateFormat('dd/MM/yyyy').format(DateTime.now());
+                      final sName = spec?['name'] ?? spec?['ten_chuyen_khoa'] ?? doc?['chuyen_khoa'] ?? 'Khám chuyên khoa';
+                      final pStr = spec?['price'] ?? '150.000đ';
+                      final rStr = doc?['room'] ?? doc?['phong_kham'] ?? 'Phòng Khám';
+                      final dName = doc?['name'] ?? doc?['ho_ten'] ?? '';
+
+                      String sStr = 'Buổi khám';
+                      if (tSlot.startsWith('1') && tSlot.compareTo('12:00') > 0) {
+                        sStr = 'Buổi chiều';
+                      } else if (tSlot != 'Chưa rõ') {
+                        sStr = 'Buổi sáng';
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2)),
+                          ],
+                        ),
+                        child: Column(
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            // Header
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    specialtyName,
-                                    style: const TextStyle(
-                                      color: Color(0xFF0056D2),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          sName,
+                                          style: const TextStyle(
+                                            color: Color(0xFF0056D2),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        if (dName.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Bác sĩ: $dName',
+                                            style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ),
-                                  if (doctorName.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Bác sĩ: $doctorName',
-                                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                                  // Nút xóa chuyên khoa (chỉ khi có nhiều hơn 1 chuyên khoa)
+                                  if (items.length > 1)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      onPressed: () => controller.removeBookedItem(index),
                                     ),
-                                  ],
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
+                            
+                            // Date and Time Box
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFAFAFA),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 1,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey.shade600),
+                                              const SizedBox(width: 4),
+                                              Text('Ngày khám', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            dStr,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(width: 1, height: 40, color: Colors.grey.shade300),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                                              const SizedBox(width: 4),
+                                              Text('Phòng - Giờ khám', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            '$sStr, $rStr',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              child: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                             ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Cost details
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Column(
+                                children: [
+                                  _buildCostRow('Tiền khám', pStr, isBoldValue: true, valueColor: const Color(0xFF0056D2)),
+                                  const SizedBox(height: 12),
+                                  _buildCostRow('BHYT', item['hasHealthInsurance'] == true ? (item['healthInsuranceType'] ?? 'Có') : 'Không'),
+                                ],
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 16),
                           ],
                         ),
-                      ),
-                      
-                      // Date and Time Box
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFAFAFA),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 1,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey.shade600),
-                                        const SizedBox(width: 4),
-                                        Text('Ngày khám', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      dateStr,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(width: 1, height: 40, color: Colors.grey.shade300),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
-                                        const SizedBox(width: 4),
-                                        Text('Phòng - Giờ khám', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '$shiftStr, $roomStr',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Cost details
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Column(
-                          children: [
-                            _buildCostRow('Tiền khám', priceStr, isBoldValue: true, valueColor: const Color(0xFF0056D2)),
-                            const SizedBox(height: 12),
-                            _buildCostRow('BHYT', 'Không'),
-                            const SizedBox(height: 12),
-                            _buildCostRow('Bảo hiểm tư nhân', 'Không'),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
+                      );
+                    }),
+                  );
+                }),
               ],
             ),
           ),
@@ -263,10 +284,14 @@ class SummaryScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Tổng tiền khám', style: TextStyle(color: Colors.grey, fontSize: 15)),
-                  Text(
-                    priceStr,
-                    style: const TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 20),
-                  ),
+                  Obx(() {
+                    final total = controller.totalBookingCost;
+                    final totalStr = '${NumberFormat('#,###', 'vi_VN').format(total)}đ';
+                    return Text(
+                      totalStr,
+                      style: const TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 20),
+                    );
+                  }),
                 ],
               ),
               const SizedBox(height: 16),
@@ -275,8 +300,8 @@ class SummaryScreen extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        // Go back to add another specialty
-                        Get.back(); 
+                        // Kích hoạt chức năng thêm chuyên khoa mới thực thụ
+                        controller.startAddingNewSpecialty();
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -356,12 +381,8 @@ class SummaryScreen extends StatelessWidget {
                                       return;
                                     }
 
-                                    // Parse price string to double (ví dụ: '150.000đ' -> 150000)
-                                    double amount = 150000;
-                                    try {
-                                      String numStr = priceStr.replaceAll(RegExp(r'[^0-9]'), '');
-                                      if (numStr.isNotEmpty) amount = double.parse(numStr);
-                                    } catch (e) {}
+                                    // Tổng tiền theo số lượng chuyên khoa đã đặt
+                                    final double amount = controller.totalBookingCost.toDouble();
 
                                     Get.defaultDialog(
                                       title: 'Đang xử lý',
