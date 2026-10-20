@@ -194,4 +194,168 @@ class PaymentController extends Controller
         }
         return response()->json(['message' => 'Thất bại hoặc chữ ký sai'], 400);
     }
+
+    /**
+     * API: Lấy danh sách phiếu chờ thanh toán & lịch sử thanh toán đồng bộ từ Database
+     * GET /api/payment/bills
+     */
+    public function getBills(Request $request)
+    {
+        try {
+            $phone = $request->query('phone');
+            $maHoSoList = $request->input('danh_sach_ma_ho_so');
+
+            if (is_string($maHoSoList)) {
+                $maHoSoList = explode(',', $maHoSoList);
+            }
+
+            // Nếu truyền phone, lấy các ma_ho_so liên quan
+            if (!empty($phone) && empty($maHoSoList)) {
+                $cleanPhone = preg_replace('/^\+84/', '0', $phone);
+                $intlPhone = '+84' . ltrim($cleanPhone, '0');
+                
+                $maHoSoList = DB::table('ho_so_benh_an')
+                    ->whereIn('so_dien_thoai', [$phone, $cleanPhone, $intlPhone])
+                    ->pluck('ma_ho_so')
+                    ->toArray();
+            }
+
+            // 1. LẤY TỪ BẢNG luot_kham (Lượt khám bệnh đặt qua app)
+            $queryLK = DB::table('luot_kham')
+                ->leftJoin('ho_so_benh_an', 'luot_kham.ma_ho_so', '=', 'ho_so_benh_an.ma_ho_so')
+                ->leftJoin('BacSi', 'luot_kham.ma_bac_si', '=', 'BacSi.ma_bs')
+                ->leftJoin('chuyenkhoa', 'BacSi.ma_chuyen_khoa', '=', 'chuyenkhoa.ma_chuyen_khoa')
+                ->leftJoin('users', 'luot_kham.ma_bac_si', '=', 'users.id')
+                ->select(
+                    'luot_kham.ma_luot_kham',
+                    'luot_kham.ma_ho_so',
+                    'luot_kham.thoi_gian_den_kham',
+                    'luot_kham.trang_thai',
+                    'luot_kham.created_at',
+                    'luot_kham.updated_at',
+                    DB::raw("TRIM(CONCAT(COALESCE(ho_so_benh_an.ho_chu_lot, ''), ' ', COALESCE(ho_so_benh_an.ten, ''))) as ten_benh_nhan"),
+                    'ho_so_benh_an.so_dien_thoai',
+                    DB::raw("COALESCE(BacSi.ho_ten, users.name, 'Bác sĩ chuyên khoa') as ten_bac_si"),
+                    DB::raw("COALESCE(chuyenkhoa.ten_chuyen_khoa, 'Khám chuyên khoa') as ten_chuyen_khoa")
+                )
+                ->where('luot_kham.trang_thai', '!=', 'huy');
+
+            if (!empty($maHoSoList)) {
+                $queryLK->whereIn('luot_kham.ma_ho_so', $maHoSoList);
+            }
+
+            $allVisits = $queryLK->orderBy('luot_kham.ma_luot_kham', 'desc')->get();
+
+            $pendingBills = [];
+            $paymentHistory = [];
+
+            foreach ($allVisits as $v) {
+                $dateFormatted = date('d/m/Y', strtotime($v->thoi_gian_den_kham));
+                $timeFormatted = date('H:i', strtotime($v->thoi_gian_den_kham));
+                $updatedFormatted = date('H:i - d/m/Y', strtotime($v->updated_at ?? $v->created_at));
+
+                // Phiếu chờ thanh toán
+                if ($v->trang_thai === 'cho_thanh_toan') {
+                    $pendingBills[] = [
+                        'ma_luot_kham' => (int) $v->ma_luot_kham,
+                        'ngay_kham' => $dateFormatted,
+                        'thoi_gian_kham' => $timeFormatted,
+                        'chuyen_khoa' => $v->ten_chuyen_khoa,
+                        'bac_si' => $v->ten_bac_si,
+                        'ten_benh_nhan' => $v->ten_benh_nhan,
+                        'tien_kham' => 150000,
+                        'tien_dich_vu' => 0,
+                        'tien_thuoc' => 0,
+                        'tong_tien' => 150000,
+                        'trang_thai' => 'Chờ thanh toán',
+                        'chi_tiet_dich_vu' => [
+                            ['ten' => 'Khám chuyên khoa ' . $v->ten_chuyen_khoa, 'gia' => 150000]
+                        ],
+                        'chi_tiet_thuoc' => []
+                    ];
+                } 
+                // Lịch sử đã thanh toán
+                else if (in_array($v->trang_thai, ['da_thanh_toan', 'cho_kham', 'dang_kham', 'hoan_thanh'])) {
+                    $paymentHistory[] = [
+                        'ma_giao_dich' => 'VNP_LK_' . $v->ma_luot_kham,
+                        'ma_luot_kham' => (int) $v->ma_luot_kham,
+                        'ngay_kham' => $dateFormatted,
+                        'thoi_gian_thanh_toan' => $updatedFormatted,
+                        'chuyen_khoa' => $v->ten_chuyen_khoa,
+                        'bac_si' => $v->ten_bac_si,
+                        'ten_benh_nhan' => $v->ten_benh_nhan,
+                        'tien_kham' => 150000,
+                        'tien_dich_vu' => 0,
+                        'tien_thuoc' => 0,
+                        'tong_tien' => 150000,
+                        'phuong_thuc' => 'VNPay Gateway',
+                        'trang_thai' => 'Thành công'
+                    ];
+                }
+            }
+
+            // 2. LẤY THÊM TỪ BẢNG hoadon (Viện phí tại bệnh viện nếu có)
+            $queryHD = DB::table('hoadon')
+                ->leftJoin('phienkham', 'hoadon.ma_phien_kham', '=', 'phienkham.ma_phien_kham')
+                ->select('hoadon.*', 'phienkham.chan_doan_cuoi_cung')
+                ->orderBy('hoadon.ma_hoa_don', 'desc');
+
+            $hospitalInvoices = $queryHD->limit(10)->get();
+            foreach ($hospitalInvoices as $hd) {
+                $ngayTao = date('d/m/Y', strtotime($hd->ngay_tao));
+                $ngayTT = !empty($hd->ngay_thanh_toan) ? date('H:i - d/m/Y', strtotime($hd->ngay_thanh_toan)) : $ngayTao;
+
+                if ($hd->trang_thai === 'ChuaThanhToan') {
+                    $pendingBills[] = [
+                        'ma_hoa_don' => (int) $hd->ma_hoa_don,
+                        'ma_luot_kham' => (int) ($hd->ma_phien_kham ?? $hd->ma_hoa_don),
+                        'ngay_kham' => $ngayTao,
+                        'chuyen_khoa' => 'Khám tổng quát / Cận lâm sàng',
+                        'bac_si' => 'Bác sĩ điều trị',
+                        'tien_kham' => (int) $hd->tien_kham_benh,
+                        'tien_dich_vu' => (int) $hd->tien_dich_vu,
+                        'tien_thuoc' => (int) $hd->tien_thuoc,
+                        'tong_tien' => (int) $hd->tong_cong,
+                        'trang_thai' => 'Chờ thanh toán',
+                        'chi_tiet_dich_vu' => [
+                            ['ten' => 'Chi phí khám bệnh', 'gia' => (int) $hd->tien_kham_benh],
+                            ['ten' => 'Chi phí cận lâm sàng', 'gia' => (int) $hd->tien_dich_vu],
+                        ],
+                        'chi_tiet_thuoc' => [
+                            ['ten' => 'Tiền thuốc theo đơn', 'gia' => (int) $hd->tien_thuoc],
+                        ]
+                    ];
+                } else if ($hd->trang_thai === 'DaThanhToan') {
+                    $paymentHistory[] = [
+                        'ma_giao_dich' => 'HD_' . $hd->ma_hoa_don,
+                        'ma_luot_kham' => (int) ($hd->ma_phien_kham ?? $hd->ma_hoa_don),
+                        'ngay_kham' => $ngayTao,
+                        'thoi_gian_thanh_toan' => $ngayTT,
+                        'chuyen_khoa' => 'Khám tổng quát / Cận lâm sàng',
+                        'bac_si' => 'Bác sĩ điều trị',
+                        'tien_kham' => (int) $hd->tien_kham_benh,
+                        'tien_dich_vu' => (int) $hd->tien_dich_vu,
+                        'tien_thuoc' => (int) $hd->tien_thuoc,
+                        'tong_tien' => (int) $hd->tong_cong,
+                        'phuong_thuc' => $hd->phuong_thuc ?? 'VNPay / Tiền mặt',
+                        'trang_thai' => 'Thành công'
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'pending_bills' => $pendingBills,
+                    'payment_history' => $paymentHistory,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lỗi lấy danh sách viện phí: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

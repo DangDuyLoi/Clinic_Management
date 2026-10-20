@@ -14,11 +14,14 @@ class BookingController extends GetxController {
   final selectedProfile = Rxn<Map<String, dynamic>>();
   final bookingMethod = Rxn<BookingMethod>();
   
-  // Dữ liệu đặt khám
+  // Dữ liệu đặt khám hiện tại (tạm thời)
   final selectedSpecialty = Rxn<Map<String, dynamic>>();
   final selectedDoctor = Rxn<Map<String, dynamic>>();
   final selectedDate = Rxn<DateTime>();
   final selectedTimeSlot = Rxn<Map<String, dynamic>>();
+  
+  // Danh sách các chuyên khoa đã thêm (Giỏ đặt khám đa chuyên khoa)
+  final bookedItems = <Map<String, dynamic>>[].obs;
   
   final availableTimeSlots = <String>[].obs;
   final isLoadingSlots = false.obs;
@@ -32,6 +35,81 @@ class BookingController extends GetxController {
   
   // Phương thức thanh toán
   final paymentMethod = RxnString(); // Thẻ khám bệnh, MoMo, Mobile Banking
+
+  /// Thêm chuyên khoa vừa chọn vào danh sách giỏ khám
+  void addCurrentBookingToItems() {
+    if (selectedDate.value == null || selectedTimeSlot.value == null || selectedDoctor.value == null) {
+      return;
+    }
+
+    final newItem = {
+      'specialty': selectedSpecialty.value,
+      'doctor': selectedDoctor.value,
+      'date': selectedDate.value,
+      'timeSlot': selectedTimeSlot.value,
+      'price': 150000,
+      'hasHealthInsurance': hasHealthInsurance.value,
+      'healthInsuranceType': healthInsuranceType.value,
+    };
+
+    final doc2 = selectedDoctor.value;
+    final docId2 = doc2?['id'] ?? doc2?['ma_bac_si'];
+
+    // Kiểm tra xem đã có bác sĩ / chuyên khoa này trong giỏ chưa
+    final existingIndex = bookedItems.indexWhere((item) {
+      final doc1 = item['doctor'] as Map<String, dynamic>?;
+      final docId1 = doc1?['id'] ?? doc1?['ma_bac_si'];
+      return docId1 != null && docId1 == docId2;
+    });
+
+    if (existingIndex >= 0) {
+      bookedItems[existingIndex] = newItem;
+    } else {
+      bookedItems.add(newItem);
+    }
+  }
+
+  /// Khởi tạo quá trình thêm chuyên khoa mới
+  void startAddingNewSpecialty() {
+    // Reset các biến tạm để chọn chuyên khoa tiếp theo
+    selectedSpecialty.value = null;
+    selectedDoctor.value = null;
+    selectedDate.value = null;
+    selectedTimeSlot.value = null;
+    availableTimeSlots.clear();
+
+    // Mở màn hình chọn Chuyên khoa
+    Get.to(() => const SpecialtyScreen());
+  }
+
+  /// Xóa bớt 1 chuyên khoa khỏi danh sách
+  void removeBookedItem(int index) {
+    if (bookedItems.length > 1) {
+      bookedItems.removeAt(index);
+      Get.snackbar(
+        'Đã xóa',
+        'Đã xóa chuyên khoa khỏi danh sách khám.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } else {
+      Get.snackbar(
+        'Thông báo',
+        'Cần ít nhất 1 chuyên khoa để tiếp tục đặt khám.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Tổng tiền của tất cả các chuyên khoa đã chọn
+  int get totalBookingCost {
+    if (bookedItems.isEmpty) return 150000;
+    return bookedItems.fold<int>(0, (sum, item) => sum + (item['price'] as int? ?? 150000));
+  }
 
   @override
   void onInit() {
@@ -109,36 +187,52 @@ class BookingController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Ensure we have data
-      if (selectedDate.value == null || selectedTimeSlot.value == null || selectedDoctor.value == null || selectedProfile.value == null) {
+      if (selectedProfile.value == null) {
+        throw Exception("Vui lòng chọn hồ sơ người bệnh.");
+      }
+
+      // Đảm bảo giỏ bookedItems có ít nhất thông tin hiện tại
+      if (bookedItems.isEmpty) {
+        addCurrentBookingToItems();
+      }
+
+      if (bookedItems.isEmpty) {
         throw Exception("Vui lòng hoàn tất việc chọn Lịch khám và Bác sĩ trước khi thanh toán.");
       }
 
-      String timeStr = selectedTimeSlot.value!['time'];
-      
-      // If it's a range like '06:30 - 07:30', take the start time
-      if (timeStr.contains(' - ')) {
-        timeStr = timeStr.split(' - ')[0].trim();
-      }
-      
-      // Ensure time string has seconds for Laravel 'H:i:s' validation
-      if (timeStr.length == 5) {
-        timeStr += ':00';
-      }
-
-      final thoiGian = '${DateFormat('yyyy-MM-dd').format(selectedDate.value!)} $timeStr';
-      
       final maHoSoStr = (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id']).toString();
-      final maBacSiStr = (selectedDoctor.value!['ma_bac_si'] ?? selectedDoctor.value!['id']).toString();
-      
-      final result = await BookingApiService.createBooking(
-        maHoSo: int.parse(maHoSoStr),
-        maBacSi: int.parse(maBacSiStr),
-        thoiGianDenKham: thoiGian,
-      );
+      final maHoSo = int.parse(maHoSoStr);
+
+      Map<String, dynamic>? lastResult;
+
+      // Duyệt qua tất cả chuyên khoa đã chọn để tạo lịch khám
+      for (final item in bookedItems) {
+        final doctor = item['doctor'] as Map<String, dynamic>;
+        final date = item['date'] as DateTime;
+        final timeSlot = item['timeSlot'] as Map<String, dynamic>;
+
+        String timeStr = timeSlot['time'];
+        if (timeStr.contains(' - ')) {
+          timeStr = timeStr.split(' - ')[0].trim();
+        }
+        if (timeStr.length == 5) {
+          timeStr += ':00';
+        }
+
+        final thoiGian = '${DateFormat('yyyy-MM-dd').format(date)} $timeStr';
+        final maBacSiStr = (doctor['ma_bac_si'] ?? doctor['id']).toString();
+        final maBacSi = int.parse(maBacSiStr);
+
+        final result = await BookingApiService.createBooking(
+          maHoSo: maHoSo,
+          maBacSi: maBacSi,
+          thoiGianDenKham: thoiGian,
+        );
+        lastResult = result;
+      }
 
       isLoading.value = false;
-      return result;
+      return lastResult;
     } catch (e) {
       isLoading.value = false;
       Get.snackbar('Lỗi Đặt Khám', e.toString(), backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5), snackPosition: SnackPosition.TOP);

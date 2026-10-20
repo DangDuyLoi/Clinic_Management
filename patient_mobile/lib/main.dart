@@ -12,6 +12,7 @@ import 'screens/chatbot/chatbot_screen.dart';
 import 'screens/booking/views/select_profile_screen.dart';
 import 'screens/profile/profile_empty_screen.dart';
 import 'screens/main/main_screen.dart';
+import 'screens/payment/payment_screen.dart';
 
 // Hàm xử lý thông báo khi app chạy ngầm (Background / Terminated)
 @pragma('vm:entry-point')
@@ -46,7 +47,7 @@ class UMCCareCloneApp extends StatelessWidget {
       title: 'HUIT Care',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(), // Trả về màn hình chính của app
+      home: const LoginScreen(), // Khởi động luồng chuẩn của ứng dụng
       getPages: [
         GetPage(name: '/login', page: () => const LoginScreen()),
         GetPage(name: '/main', page: () => const MainScreen()),
@@ -57,6 +58,7 @@ class UMCCareCloneApp extends StatelessWidget {
               ? const ProfileEmptyScreen()
               : SelectProfileScreen(),
         ),
+        GetPage(name: '/payment', page: () => const PaymentScreen()),
       ],
     );
   }

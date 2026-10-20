@@ -21,7 +21,6 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const HomeScreen(),
     const NotificationScreen(),
-    const Center(child: Text('Chức năng')), // Placeholder
     const UserProfileScreen(),
   ];
 
@@ -62,11 +61,6 @@ class _MainScreenState extends State<MainScreen> {
                   ? Badge(label: Text(unreadCount.toString()), child: const Icon(Icons.notifications))
                   : const Icon(Icons.notifications),
               label: 'Thông báo',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.layers_outlined),
-              activeIcon: Icon(Icons.layers),
-              label: 'Chức năng',
             ),
             const BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
