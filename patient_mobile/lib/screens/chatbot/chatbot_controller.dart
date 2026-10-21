@@ -30,21 +30,33 @@ class ChatbotController extends GetxController {
   /// Trạng thái đang xử lý / AI đang gõ phản hồi (.obs để cập nhật typing indicator)
   final RxBool isTyping = false.obs;
 
+  /// API Key của Google Gemini API (lấy từ https://aistudio.google.com/app/apikey)
+  /// Lưu ý: Cần API key hợp lệ bắt đầu bằng "AIzaSy..."
   static const String _apiKey =
       'AQ.Ab8RN6JXlDwB07JkbaLVgGsYzmw5riQ-_xiSZ7XgKI1_5yLW4Q';
 
+  /// Danh sách các model chính thức của Google Gemini có tốc độ cao nhất (Flash)
   static const List<String> _modelCandidates = [
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-flash-lite-latest',
-    'gemini-3.1-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash-8b',
   ];
 
+  /// Giới hạn lịch sử hội thoại gửi lên (tối đa 6 tin nhắn gần nhất) để tối ưu tốc độ và payload
+  static const int _maxHistoryMessages = 6;
+
+  /// System Instruction y tế chuyên biệt, yêu cầu trả lời ngắn gọn súc tích để phản hồi nhanh nhất
   static final _systemInstruction = Content.system(
     'Bạn là trợ lý y tế thông minh của phòng khám đa khoa HUIT Care. '
-    'Nhiệm vụ của bạn: 1. Hỏi han triệu chứng ngắn gọn, ân cần. 2. Phân tích sơ bộ nguyên nhân khả dĩ. 3. Hướng dẫn bệnh nhân đặt lịch đúng chuyên khoa. '
-    'CHÚ Ý QUAN TRỌNG: Phòng khám chỉ có các khoa: Nội, Ngoại, Sản, Mắt, Tai Mũi Họng, Răng Hàm Mặt. '
-    'TUYỆT ĐỐI KHÔNG CÓ KHOA NHI. Tuyệt đối không tự kê đơn thuốc điều trị hay chẩn đoán khẳng định bệnh.',
+    'Nhiệm vụ của bạn: '
+    '1. Hỏi han triệu chứng ngắn gọn, ân cần. '
+    '2. Phân tích sơ bộ nguyên nhân khả dĩ. '
+    '3. Hướng dẫn bệnh nhân đặt lịch đúng chuyên khoa. '
+    'CHÚ Ý QUAN TRỌNG: '
+    '- Phòng khám chỉ có các khoa: Khoa Nội, Khoa Ngoại, Khoa Sản, Khoa Mắt, Khoa Tai Mũi Họng, Khoa Răng Hàm Mặt. '
+    '- TUYỆT ĐỐI KHÔNG CÓ KHOA NHI. '
+    '- Tuyệt đối không tự kê đơn thuốc điều trị hay chẩn đoán khẳng định bệnh. '
+    '- YÊU CẦU ĐỘ DÀI: Trả lời ngắn gọn, súc tích (dưới 120 từ), đi thẳng vào vấn đề để phản hồi nhanh nhất cho người bệnh.',
   );
 
   // ===========================================================================
@@ -71,18 +83,18 @@ class ChatbotController extends GetxController {
   }
 
   // ===========================================================================
-  // 4. HÀM XỬ LÝ GỬI & NHẬN TIN NHẮN VỚI TỰ ĐỘNG CHUYỂN MODEL KHI BỊ QUÁ TẢI (FALLBACK)
+  // 4. HÀM XỬ LÝ GỬI & NHẬN TIN NHẮN TỐC ĐỘ CAO (STREAMING + FALLBACK)
   // ===========================================================================
 
-  /// Gửi tin nhắn của người dùng và gọi Gemini API để nhận phản hồi
+  /// Gửi tin nhắn của người dùng và gọi Gemini API với cơ chế STREAMING giúp phản hồi tức thì
   Future<void> sendMessage(ChatMessage m) async {
-    // Bước 1: Thêm tin nhắn của người dùng vào mảng messages
+    // Bước 1: Thêm tin nhắn của người dùng vào danh sách
     messages.insert(0, m);
 
-    // Bước 2: Bật hiệu ứng đang gõ tin nhắn
+    // Bước 2: Bật hiệu ứng đang gõ tin nhắn (typing indicator)
     isTyping.value = true;
 
-    // Chuẩn bị lịch sử trò chuyện
+    // Bước 3: Chuẩn bị lịch sử trò chuyện (tối ưu: chỉ lấy các tin gần nhất)
     final List<ChatMessage> previousMessages = messages.reversed
         .where((msg) => msg != m)
         .toList();
@@ -91,63 +103,121 @@ class ChatbotController extends GetxController {
       (msg) => msg.user.id == currentUser.id,
     );
 
-    final List<Content> history = [];
+    final List<Content> fullHistory = [];
     if (firstUserIndex != -1) {
       for (int i = firstUserIndex; i < previousMessages.length; i++) {
         final msg = previousMessages[i];
         if (msg.text.trim().isEmpty) continue;
 
         if (msg.user.id == currentUser.id) {
-          history.add(Content.text(msg.text));
+          fullHistory.add(Content.text(msg.text));
         } else {
-          history.add(Content.model([TextPart(msg.text)]));
+          fullHistory.add(Content.model([TextPart(msg.text)]));
         }
       }
     }
 
-    String? replyText;
+    // Cắt bớt history nếu quá dài để tăng tốc độ phản hồi
+    final List<Content> optimizedHistory = fullHistory.length > _maxHistoryMessages
+        ? fullHistory.sublist(fullHistory.length - _maxHistoryMessages)
+        : fullHistory;
+
+    // Đảm bảo history bắt đầu bằng vai trò 'user' (yêu cầu bắt buộc của Gemini API)
+    while (optimizedHistory.isNotEmpty && optimizedHistory.first.role != 'user') {
+      optimizedHistory.removeAt(0);
+    }
+
+    bool streamStarted = false;
+    final StringBuffer accumulatedText = StringBuffer();
     dynamic lastError;
 
-    // Thử lần lượt các model cho đến khi thành công
+    // Cấu hình sinh chữ tối ưu tốc độ: maxOutputTokens nhỏ + temperature vừa phải
+    final generationConfig = GenerationConfig(
+      maxOutputTokens: 400,
+      temperature: 0.5,
+      topP: 0.8,
+    );
+
+    // Thử lần lượt các model Flash tốc độ cao
     for (final modelName in _modelCandidates) {
       try {
         final model = GenerativeModel(
           model: modelName,
           apiKey: _apiKey,
           systemInstruction: _systemInstruction,
+          generationConfig: generationConfig,
         );
 
-        final chatSession = model.startChat(history: history);
-        final response = await chatSession.sendMessage(Content.text(m.text));
+        final chatSession = model.startChat(history: optimizedHistory);
+        final responseStream =
+            chatSession.sendMessageStream(Content.text(m.text));
 
-        if (response.text != null && response.text!.trim().isNotEmpty) {
-          replyText = response.text!.trim();
-          break; // Thành công, thoát vòng lặp fallback
+        await for (final chunk in responseStream) {
+          final chunkText = chunk.text;
+          if (chunkText != null && chunkText.isNotEmpty) {
+            accumulatedText.write(chunkText);
+
+            if (!streamStarted) {
+              streamStarted = true;
+              isTyping.value = false; // Tắt typing ngay khi chunk đầu tiên xuất hiện (~0.5s)
+              final initialBotMsg = ChatMessage(
+                user: geminiUser,
+                createdAt: DateTime.now(),
+                text: accumulatedText.toString(),
+              );
+              messages.insert(0, initialBotMsg);
+            } else {
+              // Cập nhật text realtime giúp hiệu ứng gõ chữ mượt mà
+              final updatedBotMsg = ChatMessage(
+                user: geminiUser,
+                createdAt: messages[0].createdAt,
+                text: accumulatedText.toString(),
+              );
+              messages[0] = updatedBotMsg;
+              messages.refresh();
+            }
+          }
+        }
+
+        // Nếu đã stream thành công câu trả lời
+        if (streamStarted && accumulatedText.isNotEmpty) {
+          break;
         }
       } catch (e) {
         lastError = e;
-        // Tiếp tục thử model dự phòng tiếp theo
+        // Nếu đã lỡ stream một phần chữ ra màn hình mà gặp ngắt mạng thì dừng, không fallback
+        if (streamStarted) {
+          break;
+        }
       }
     }
 
-    if (replyText != null) {
-      final geminiMessage = ChatMessage(
-        user: geminiUser,
-        createdAt: DateTime.now(),
-        text: replyText,
-      );
-      messages.insert(0, geminiMessage);
-    } else {
+    // Nếu không model nào thành công và chưa stream được chữ nào
+    if (!streamStarted) {
+      isTyping.value = false;
+      String errorNotice =
+          'Hiện tại máy chủ Trợ lý AI đang bận hoặc cấu hình API Key chưa chính xác. Vui lòng thử lại sau.';
+      if (lastError != null) {
+        final errStr = lastError.toString();
+        if (errStr.contains('API_KEY_INVALID') ||
+            errStr.contains('API key not valid') ||
+            errStr.contains('UNAUTHENTICATED') ||
+            errStr.contains('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+          errorNotice =
+              'Lỗi xác thực API Key: Khóa API hiện tại không hợp lệ. Vui lòng điền API Key Google Gemini chính xác từ Google AI Studio (bắt đầu bằng "AIzaSy...").';
+        } else {
+          errorNotice += '\n(Chi tiết: $lastError)';
+        }
+      }
+
       final errorMessage = ChatMessage(
         user: geminiUser,
         createdAt: DateTime.now(),
-        text:
-            'Hiện tại máy chủ Trợ lý AI đang có lưu lượng truy cập cao. '
-            'Vui lòng thử lại sau giây lát.\n(Chi tiết: $lastError)',
+        text: errorNotice,
       );
       messages.insert(0, errorMessage);
+    } else {
+      isTyping.value = false;
     }
-
-    isTyping.value = false;
   }
 }
