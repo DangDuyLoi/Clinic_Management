@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/fcm_service.dart';
+import '../../../widgets/live_queue_tracker_widget.dart';
 
 class ETicketScreen extends StatefulWidget {
   final Map<String, dynamic> appointmentData;
@@ -253,6 +254,17 @@ class _ETicketScreenState extends State<ETicketScreen> {
                 ],
               ),
             ),
+
+            // Tiến trình hàng đợi khám theo thời gian thực (Live Queue Tracker)
+            if (_maLuotKham.isNotEmpty && int.tryParse(_maLuotKham) != null) ...[
+              const SizedBox(height: 18),
+              LiveQueueTrackerWidget(
+                maLuotKham: int.parse(_maLuotKham),
+                initialDoctorName: doctor,
+                initialRoom: room,
+                autoPoll: true,
+              ),
+            ],
           ],
         ),
       ),

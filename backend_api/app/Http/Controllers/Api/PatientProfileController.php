@@ -28,13 +28,19 @@ class PatientProfileController extends Controller
         }
         
         if (!$benhNhan) {
+            $diaChi = $data['so_nha'] . ', ' . $data['phuong_xa'];
+            if (!empty($data['quan_huyen'])) {
+                $diaChi .= ', ' . $data['quan_huyen'];
+            }
+            $diaChi .= ', ' . $data['tinh_thanh'];
+
             $benhNhan = BenhNhan::firstOrCreate(
                 ['so_dien_thoai' => $data['so_dien_thoai']],
                 [
                     'ho_ten' => $data['ho_chu_lot'] . ' ' . $data['ten'],
                     'ngay_sinh' => $data['ngay_sinh'],
                     'gioi_tinh' => $data['gioi_tinh'],
-                    'dia_chi' => $data['so_nha'] . ', ' . $data['phuong_xa'] . ', ' . $data['tinh_thanh'],
+                    'dia_chi' => $diaChi,
                 ]
             );
         }

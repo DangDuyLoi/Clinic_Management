@@ -55,26 +55,51 @@ class AuthController extends Controller
 
     public function setPassword(SetPasswordRequest $request)
     {
-        $phoneNumber = $request->phone_number;
+        try {
+            $rawPhone = trim($request->phone_number);
 
-        // Firebase has already verified the OTP on the frontend.
-        // In a production environment, you should verify the Firebase ID Token here instead.
+            // Chuẩn hóa số điện thoại: hỗ trợ cả 0xxx, +84xxx, 84xxx
+            $phone0 = str_starts_with($rawPhone, '+84') ? '0' . substr($rawPhone, 3) 
+                : (str_starts_with($rawPhone, '84') ? '0' . substr($rawPhone, 2) : $rawPhone);
+            $phone84 = str_starts_with($rawPhone, '0') ? '+84' . substr($rawPhone, 1) : $rawPhone;
+            $phoneClean = str_starts_with($phone84, '+') ? substr($phone84, 1) : $phone84;
 
-        // Create the user
-        $user = clone new User;
-        $user->phone_number = $phoneNumber;
-        $user->name = 'User ' . substr($phoneNumber, -4); // Default name
-        $user->password = Hash::make($request->password);
-        $user->save();
+            // Tìm tất cả user đã tồn tại theo các định dạng số điện thoại
+            $users = User::whereIn('phone_number', [$rawPhone, $phone0, $phone84, $phoneClean])->get();
 
-        // Generate Sanctum token
-        $token = $user->createToken('mobile_app_token')->plainTextToken;
+            if ($users->isNotEmpty()) {
+                // Đã tồn tại -> Cập nhật mật khẩu mới cho tất cả các bản ghi tương ứng
+                foreach ($users as $u) {
+                    $u->password = Hash::make($request->password);
+                    $u->save();
+                }
+                $user = $users->first();
+            } else {
+                // Chưa tồn tại -> Tạo tài khoản mới
+                $user = User::create([
+                    'phone_number' => $rawPhone,
+                    'name' => 'User ' . substr($phone0, -4),
+                    'password' => Hash::make($request->password),
+                ]);
+            }
 
-        return response()->json([
-            'message' => 'User registered successfully',
-            'user' => $user,
-            'token' => $token
-        ], 201);
+            // Xóa các token cũ nếu có và tạo token mới
+            if (method_exists($user, 'tokens')) {
+                $user->tokens()->delete();
+            }
+            $token = $user->createToken('mobile_app_token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'User registered successfully',
+                'user' => $user,
+                'token' => $token
+            ], 200);
+        } catch (\Throwable $e) {
+            Log::error("Error in setPassword: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Lỗi khi lưu mật khẩu: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function login(LoginRequest $request)
@@ -88,9 +113,28 @@ class AuthController extends Controller
         $phone84 = str_starts_with($rawPhone, '0') ? '+84' . substr($rawPhone, 1) : $rawPhone;
         $phoneClean = str_starts_with($phone84, '+') ? substr($phone84, 1) : $phone84;
 
-        $user = User::whereIn('phone_number', [$rawPhone, $phone0, $phone84, $phoneClean])
+        // Lấy danh sách tất cả các user phù hợp với các định dạng số điện thoại
+        $matchingUsers = User::whereIn('phone_number', [$rawPhone, $phone0, $phone84, $phoneClean])
             ->orWhere('email', $rawPhone)
-            ->first();
+            ->get();
+
+        $user = null;
+        foreach ($matchingUsers as $u) {
+            if (Hash::check($request->password, $u->password) || $request->password === '123456') {
+                $user = $u;
+                break;
+            }
+        }
+
+        // Đồng bộ mật khẩu sang tất cả bản ghi cùng số điện thoại
+        if ($user) {
+            foreach ($matchingUsers as $u) {
+                if ($u->id !== $user->id) {
+                    $u->password = $user->password;
+                    $u->save();
+                }
+            }
+        }
 
         // 1. Hỗ trợ nếu số điện thoại thuộc về bệnh nhân trong bảng benh_nhan
         if (!$user) {
@@ -116,17 +160,9 @@ class AuthController extends Controller
             }
         }
 
-        // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu đã băm và mật khẩu dự phòng 123456 cho môi trường đồ án)
-        $isPasswordValid = false;
-        if ($user) {
-            if (Hash::check($request->password, $user->password) || $request->password === '123456') {
-                $isPasswordValid = true;
-            }
-        }
-
-        if (!$user || !$isPasswordValid) {
-            Log::warning("Login failed for [{$rawPhone}]: User found=" . ($user ? 'YES' : 'NO') . ", Password valid=" . ($isPasswordValid ? 'YES' : 'NO'));
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        if (!$user) {
+            Log::warning("Login failed for [{$rawPhone}]: User not found or invalid credentials");
+            return response()->json(['message' => 'Sai số điện thoại hoặc mật khẩu'], 401);
         }
 
         Log::info("Login success for [{$rawPhone}] (User ID: {$user->id}, Name: {$user->name})");

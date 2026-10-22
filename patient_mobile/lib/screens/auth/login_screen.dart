@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../services/auth_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'register_phone_screen.dart';
@@ -35,11 +36,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Lấy FCM Token để gửi kèm khi login
+      // Lấy FCM Token để gửi kèm khi login (chỉ trên thiết bị di động, bỏ qua trên Web để tránh treo timeout)
       String? fcmToken;
-      try {
-        fcmToken = await FirebaseMessaging.instance.getToken();
-      } catch (_) {}
+      if (!kIsWeb) {
+        try {
+          fcmToken = await FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 2));
+        } catch (_) {}
+      }
       
       await _authService.login(phone, password, fcmToken: fcmToken);
       

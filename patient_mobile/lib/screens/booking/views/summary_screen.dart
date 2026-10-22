@@ -112,7 +112,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
                       final dStr = d != null ? DateFormat('dd/MM/yyyy').format(d) : DateFormat('dd/MM/yyyy').format(DateTime.now());
                       final sName = spec?['name'] ?? spec?['ten_chuyen_khoa'] ?? doc?['chuyen_khoa'] ?? 'Khám chuyên khoa';
-                      final pStr = spec?['price'] ?? '150.000đ';
                       final rStr = doc?['room'] ?? doc?['phong_kham'] ?? 'Phòng Khám';
                       final dName = doc?['name'] ?? doc?['ho_ten'] ?? '';
 
@@ -239,9 +238,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 16.0),
                               child: Column(
                                 children: [
-                                  _buildCostRow('Tiền khám', pStr, isBoldValue: true, valueColor: const Color(0xFF0056D2)),
+                                  _buildCostRow('Tiền khám', '${NumberFormat('#,###', 'vi_VN').format(item['price'] ?? 150000)}đ', isBoldValue: true, valueColor: const Color(0xFF0056D2)),
                                   const SizedBox(height: 12),
-                                  _buildCostRow('BHYT', item['hasHealthInsurance'] == true ? (item['healthInsuranceType'] ?? 'Có') : 'Không'),
+                                  _buildCostRow('BHYT', item['hasHealthInsurance'] == true ? (item['healthInsuranceType'] ?? 'Có') : 'Không có BHYT'),
                                 ],
                               ),
                             ),
@@ -280,20 +279,58 @@ class _SummaryScreenState extends State<SummaryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Tổng tiền khám', style: TextStyle(color: Colors.grey, fontSize: 15)),
-                  Obx(() {
-                    final total = controller.totalBookingCost;
-                    final totalStr = '${NumberFormat('#,###', 'vi_VN').format(total)}đ';
-                    return Text(
-                      totalStr,
-                      style: const TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 20),
-                    );
-                  }),
-                ],
-              ),
+              // Chi tiết chi phí BHYT
+              Obx(() {
+                final formatter = NumberFormat('#,###', 'vi_VN');
+                final originalCost = controller.totalOriginalCost;
+                final discount = controller.insuranceDiscount;
+                final payable = controller.totalBookingCost;
+
+                return Column(
+                  children: [
+                    // Tiền gốc
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Tiền khám gốc', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Text('${formatter.format(originalCost)}đ', style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                    // BHYT chi trả (nếu có)
+                    if (discount > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'BHYT chi trả (${(controller.insuranceRate * 100).round()}%)',
+                            style: const TextStyle(color: Color(0xFF059669), fontSize: 13),
+                          ),
+                          Text(
+                            '- ${formatter.format(discount)}đ',
+                            style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    // Dòng phân cách
+                    Container(height: 1, color: Colors.grey.shade200),
+                    const SizedBox(height: 8),
+                    // Tổng thanh toán
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Tổng thanh toán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(
+                          '${formatter.format(payable)}đ',
+                          style: const TextStyle(color: Color(0xFF0056D2), fontWeight: FontWeight.bold, fontSize: 20),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }),
               const SizedBox(height: 16),
               Row(
                 children: [

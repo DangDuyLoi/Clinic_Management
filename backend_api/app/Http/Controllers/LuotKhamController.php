@@ -174,10 +174,17 @@ class LuotKhamController extends Controller
                     throw new Exception('Khung giờ này của bác sĩ đã có người đặt hoặc đã đầy. Vui lòng chọn giờ khác.');
                 }
 
-                // Lưu vào database với trạng thái ban đầu là "cho_thanh_toan"
+                $ngayKham = Carbon::parse($request->thoi_gian_den_kham)->toDateString();
+                $soThuTu = LuotKham::where('ma_bac_si', $request->ma_bac_si)
+                    ->whereDate('thoi_gian_den_kham', $ngayKham)
+                    ->where('trang_thai', '!=', 'huy')
+                    ->count() + 1;
+
+                // Lưu vào database với trạng thái ban đầu là "cho_thanh_toan" và STT đã chốt
                 $luotKhamMoi = LuotKham::create([
                     'ma_ho_so' => $request->ma_ho_so,
                     'ma_bac_si' => $request->ma_bac_si,
+                    'so_thu_tu' => $soThuTu,
                     'thoi_gian_den_kham' => $request->thoi_gian_den_kham,
                     'trang_thai' => 'cho_thanh_toan',
                     'chan_doan' => null
@@ -258,12 +265,17 @@ class LuotKhamController extends Controller
             ->whereIn('luot_kham.ma_ho_so', $request->danh_sach_ma_ho_so)
             ->leftJoin('ho_so_benh_an', 'luot_kham.ma_ho_so', '=', 'ho_so_benh_an.ma_ho_so')
             ->leftJoin('BacSi as bs_table', 'luot_kham.ma_bac_si', '=', 'bs_table.ma_bs')
+            ->leftJoin('ChuyenKhoa as ck', 'bs_table.ma_chuyen_khoa', '=', 'ck.ma_chuyen_khoa')
             ->leftJoin('users as bac_si', 'luot_kham.ma_bac_si', '=', 'bac_si.id')
             ->select(
                 'luot_kham.ma_luot_kham',
+                'luot_kham.so_thu_tu',
                 'luot_kham.thoi_gian_den_kham',
                 'luot_kham.trang_thai as trang_thai_kham',
                 'luot_kham.ma_bac_si',
+                'bs_table.phong_kham',
+                DB::raw("COALESCE(ck.ten_chuyen_khoa, 'Khoa Khám Bệnh') as khoa"),
+                DB::raw("COALESCE(ck.ten_chuyen_khoa, 'Khám chuyên khoa') as chuyen_khoa"),
                 DB::raw("TRIM(CONCAT(COALESCE(ho_so_benh_an.ho_chu_lot, ''), ' ', COALESCE(ho_so_benh_an.ten, ''))) as ten_benh_nhan"),
                 DB::raw("COALESCE(bs_table.ho_ten, bac_si.name, 'Bác sĩ chuyên khoa') as ten_bac_si"),
                 DB::raw("CASE WHEN luot_kham.trang_thai = 'cho_thanh_toan' THEN 'ChuaThanhToan' ELSE 'DaThanhToan' END as trang_thai_thanh_toan")
@@ -300,10 +312,198 @@ class LuotKhamController extends Controller
                 'thoi_gian_den_kham' => $luotKham->thoi_gian_den_kham,
                 'ten_benh_nhan' => $hoSo ? trim(($hoSo->ho_chu_lot ?? '') . ' ' . ($hoSo->ten ?? '')) : null,
                 'ten_bac_si' => $bacSi?->ho_ten ?? $bacSi?->name ?? 'Bác sĩ chuyên khoa',
+                'phong_kham' => $bacSi?->phong_kham ?? 'Phòng 102 - Lầu 1 Khu A',
                 'is_paid' => $isPaid,
                 'is_checked_in' => $isCheckedIn,
                 'trang_thai_thanh_toan' => $isPaid ? 'DaThanhToan' : 'ChuaThanhToan',
             ]
         ], 200);
+    }
+
+    // 7. API Bệnh nhân: Theo dõi tiến trình hàng đợi theo thời gian thực (Live Queue Tracker)
+    public function layTienTrinhHangDoi(Request $request, $id)
+    {
+        $luotKham = LuotKham::find($id);
+        if (!$luotKham) {
+            return response()->json(['message' => 'Không tìm thấy lượt khám'], 404);
+        }
+
+        $hoSo = DB::table('ho_so_benh_an')->where('ma_ho_so', $luotKham->ma_ho_so)->first();
+        $bacSi = DB::table('BacSi')->where('ma_bs', $luotKham->ma_bac_si)->first();
+        $tenBacSi = $bacSi?->ho_ten ?? 'Bác sĩ chuyên khoa';
+        $phongKham = $bacSi?->phong_kham ?? 'Phòng 102 - Lầu 1 Khu A';
+
+        $chuyenKhoa = null;
+        if ($bacSi && $bacSi->ma_chuyen_khoa) {
+            $chuyenKhoa = DB::table('ChuyenKhoa')->where('ma_chuyen_khoa', $bacSi->ma_chuyen_khoa)->value('ten_chuyen_khoa');
+        }
+
+        $ngayKham = Carbon::parse($luotKham->thoi_gian_den_kham)->toDateString();
+
+        // Lấy danh sách lượt khám trong ngày của bác sĩ này
+        $danhSachTrongNgay = LuotKham::where('ma_bac_si', $luotKham->ma_bac_si)
+            ->whereDate('thoi_gian_den_kham', $ngayKham)
+            ->where('trang_thai', '!=', 'huy')
+            ->orderBy('thoi_gian_den_kham', 'asc')
+            ->orderBy('ma_luot_kham', 'asc')
+            ->get();
+
+        $index = $danhSachTrongNgay->search(function ($item) use ($luotKham) {
+            return $item->ma_luot_kham == $luotKham->ma_luot_kham;
+        });
+
+        // 1. Số thứ tự của bạn: đọc trực tiếp cột so_thu_tu trong Database
+        if ($request->has('stt')) {
+            $sttCuaBan = (int)$request->input('stt');
+        } elseif (!empty($luotKham->so_thu_tu)) {
+            $sttCuaBan = (int)$luotKham->so_thu_tu;
+        } elseif ($index !== false) {
+            $sttCuaBan = $index + 1;
+        } else {
+            $sttCuaBan = ($luotKham->ma_luot_kham > 0) ? ($luotKham->ma_luot_kham % 30) + 1 : 18;
+        }
+
+        // 2. Xác định số đang phục vụ: đồng bộ theo trạng thái database
+        if ($request->has('dang_phuc_vu')) {
+            $dangPhucVu = (int)$request->input('dang_phuc_vu');
+        } else {
+            // Kiểm tra lượt khám đang có trạng thái 'dang_kham' trong Database
+            $dangKhamItem = $danhSachTrongNgay->firstWhere('trang_thai', 'dang_kham');
+            if ($dangKhamItem && !empty($dangKhamItem->so_thu_tu)) {
+                $dangPhucVu = (int)$dangKhamItem->so_thu_tu;
+            } elseif ($dangKhamItem) {
+                $dangPhucVu = $danhSachTrongNgay->search(fn($i) => $i->ma_luot_kham == $dangKhamItem->ma_luot_kham) + 1;
+            } else {
+                // Kiểm tra lượt khám gần nhất đã hoàn thành trong Database
+                $maxDoneStt = $danhSachTrongNgay->where('trang_thai', 'hoan_thanh')->max('so_thu_tu');
+                if ($maxDoneStt) {
+                    $dangPhucVu = min((int)$maxDoneStt + 1, $sttCuaBan);
+                } else {
+                    $dangPhucVu = max(1, $sttCuaBan - 3);
+                }
+            }
+        }
+
+        // Tính toán trạng thái và thời gian chờ
+        if ($luotKham->trang_thai === 'dang_kham') {
+            $dangPhucVu = $sttCuaBan;
+            $soNguoiCho = 0;
+            $thoiGianCho = "Đang trong phòng khám";
+        } elseif ($luotKham->trang_thai === 'hoan_thanh') {
+            $soNguoiCho = 0;
+            $thoiGianCho = "Đã hoàn thành khám";
+        } else {
+            $soNguoiCho = max(0, $sttCuaBan - $dangPhucVu);
+            if ($soNguoiCho == 0) {
+                $thoiGianCho = "Đến lượt bạn ngay bây giờ!";
+            } else {
+                $minMinutes = $soNguoiCho * 3 + 1;
+                $maxMinutes = $soNguoiCho * 5;
+                $thoiGianCho = "~{$minMinutes} - {$maxMinutes} phút";
+            }
+        }
+
+        $canhBaoSapDenLuot = ($soNguoiCho > 0 && $soNguoiCho <= 3);
+        $thongBao = $canhBaoSapDenLuot 
+            ? "Sắp đến lượt bạn! Vui lòng có mặt trước cửa {$phongKham}." 
+            : ($soNguoiCho == 0 ? "Đã đến lượt khám của bạn! Mời vào phòng khám." : "Phòng khám đang phục vụ bình thường.");
+
+        // Tự động kích hoạt FCM Push notification khi còn 2-3 số nếu chưa gửi
+        if ($canhBaoSapDenLuot && $request->input('trigger_push') == 'true') {
+            $this->guiThongBaoSapDenLuot($luotKham, $phongKham, $sttCuaBan, $dangPhucVu);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'ma_luot_kham' => $luotKham->ma_luot_kham,
+                'so_thu_tu' => $sttCuaBan,
+                'dang_phuc_vu' => $dangPhucVu,
+                'so_nguoi_cho' => $soNguoiCho,
+                'thoi_gian_cho_uoc_tinh' => $thoiGianCho,
+                'phong_kham' => $phongKham,
+                'ten_bac_si' => $tenBacSi,
+                'chuyen_khoa' => $chuyenKhoa ?? 'Khoa Khám Bệnh',
+                'trang_thai' => $luotKham->trang_thai,
+                'canh_bao_sap_den_luot' => $canhBaoSapDenLuot,
+                'thong_bao' => $thongBao,
+            ]
+        ], 200);
+    }
+
+    // 8. API Gửi Push Notification thông báo sắp đến lượt khám
+    public function thongBaoSapDenLuot(Request $request, $id)
+    {
+        $luotKham = LuotKham::find($id);
+        if (!$luotKham) {
+            return response()->json(['message' => 'Không tìm thấy lượt khám'], 404);
+        }
+
+        $bacSi = DB::table('BacSi')->where('ma_bs', $luotKham->ma_bac_si)->first();
+        $phongKham = $bacSi?->phong_kham ?? 'Phòng 102 - Lầu 1 Khu A';
+
+        $sttCuaBan = (int)$request->input('stt', 18);
+        $dangPhucVu = (int)$request->input('dang_phuc_vu', 15);
+
+        $sent = $this->guiThongBaoSapDenLuot($luotKham, $phongKham, $sttCuaBan, $dangPhucVu);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã gửi thông báo đẩy sắp đến lượt khám thành công!',
+            'fcm_sent' => $sent,
+            'phong_kham' => $phongKham,
+            'so_thu_tu' => $sttCuaBan,
+            'dang_phuc_vu' => $dangPhucVu
+        ], 200);
+    }
+
+    // Hàm phụ trợ gửi FCM Push Notification
+    private function guiThongBaoSapDenLuot($luotKham, $phongKham, $sttCuaBan = null, $dangPhucVu = null)
+    {
+        try {
+            $hoSo = DB::table('ho_so_benh_an')->where('ma_ho_so', $luotKham->ma_ho_so)->first();
+            if (!$hoSo) return false;
+
+            $phone = $hoSo->so_dien_thoai;
+            if (empty($phone) && !empty($hoSo->ma_benh_nhan)) {
+                $bn = DB::table('benh_nhan')->where('ma_benh_nhan', $hoSo->ma_benh_nhan)->first();
+                $phone = $bn?->so_dien_thoai;
+            }
+
+            if (!$phone) return false;
+
+            $phone0 = str_starts_with($phone, '+84') ? '0' . substr($phone, 3) : $phone;
+            $phone84 = str_starts_with($phone, '0') ? '+84' . substr($phone, 1) : $phone;
+
+            $user = User::whereIn('phone_number', [$phone, $phone0, $phone84])->first();
+            if ($user && !empty($user->fcm_token)) {
+                $title = "🔔 Sắp đến lượt bạn!";
+                $body = "Vui lòng có mặt trước cửa {$phongKham}.";
+                if ($sttCuaBan && $dangPhucVu) {
+                    $body = "Số của bạn: #{$sttCuaBan} (Đang gọi #{$dangPhucVu}). Vui lòng có mặt trước cửa {$phongKham}.";
+                }
+
+                FCMService::sendNotification(
+                    $user->fcm_token,
+                    $title,
+                    $body,
+                    [
+                        'type' => 'queue_turn_alert',
+                        'ma_luot_kham' => (string)$luotKham->ma_luot_kham,
+                        'phong_kham' => $phongKham,
+                        'so_thu_tu' => (string)$sttCuaBan,
+                        'dang_phuc_vu' => (string)$dangPhucVu
+                    ]
+                );
+                Log::info("Đã gửi FCM queue_turn_alert cho lượt khám #{$luotKham->ma_luot_kham} tới SĐT {$phone}");
+                return true;
+            } else {
+                Log::info("Không tìm thấy fcm_token của user để gửi thông báo hàng đợi. SĐT: {$phone}");
+                return false;
+            }
+        } catch (\Exception $e) {
+            Log::error('Lỗi khi gửi FCM hàng đợi: ' . $e->getMessage());
+            return false;
+        }
     }
 }

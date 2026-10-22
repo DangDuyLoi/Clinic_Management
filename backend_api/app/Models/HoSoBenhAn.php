@@ -14,7 +14,7 @@ class HoSoBenhAn extends Model
         'ho_chu_lot', 'ten', 'ngay_sinh', 'dan_toc', 'gioi_tinh',
         'nghe_nghiep', 'quan_he', 'so_dien_thoai', 'email',
         'cccd', 'ho_chieu', 'so_dinh_danh', 'quoc_gia',
-        'tinh_thanh', 'phuong_xa', 'so_nha'
+        'tinh_thanh', 'quan_huyen', 'phuong_xa', 'so_nha'
     ];
 
     public function benhNhan()

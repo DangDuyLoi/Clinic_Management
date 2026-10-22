@@ -5,6 +5,19 @@ import '../core/constants/api_constants.dart';
 class BookingApiService {
   static const String baseUrl = ApiConstants.baseUrl;
 
+  /// Format giá tiền Việt Nam: 150000 → "150.000", 200000 → "200.000"
+  static String _formatPrice(int price) {
+    final str = price.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) {
+        buffer.write('.');
+      }
+      buffer.write(str[i]);
+    }
+    return buffer.toString();
+  }
+
   // Lấy danh sách chuyên khoa từ MySQL
   static Future<List<Map<String, dynamic>>> fetchSpecialties() async {
     final response = await http.get(
@@ -16,11 +29,18 @@ class BookingApiService {
       final json = jsonDecode(response.body);
       final list = (json['data'] ?? []) as List;
       return list.map<Map<String, dynamic>>((item) {
+        final giaKham = (item['gia_kham'] != null)
+            ? double.tryParse(item['gia_kham'].toString()) ?? 150000
+            : 150000.0;
+        final giaKhamInt = giaKham.round();
+        // Format giá: 150000 → "150.000đ", 200000 → "200.000đ"
+        final priceStr = '${_formatPrice(giaKhamInt)}đ';
         return {
           'id': item['ma_chuyen_khoa'].toString(),
           'ma_chuyen_khoa': item['ma_chuyen_khoa'],
           'name': (item['ten_chuyen_khoa'] ?? '').toString().toUpperCase(),
-          'price': '150.000đ',
+          'price': priceStr,
+          'gia_kham': giaKhamInt, // Giá số nguyên (int) để tính toán BHYT
           'desc': item['mo_ta'] ?? '',
         };
       }).toList();
@@ -159,6 +179,61 @@ class BookingApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Check-in thất bại');
+    }
+  }
+
+  /// Theo dõi tiến trình hàng đợi khám theo thời gian thực (Live Queue Tracker)
+  static Future<Map<String, dynamic>> getQueueStatus(
+    int maLuotKham, {
+    int? stt,
+    int? dangPhucVu,
+    bool triggerPush = false,
+  }) async {
+    String url = '$baseUrl/luot-kham/$maLuotKham/hang-doi';
+    final queryParams = <String>[];
+    if (stt != null) queryParams.add('stt=$stt');
+    if (dangPhucVu != null) queryParams.add('dang_phuc_vu=$dangPhucVu');
+    if (triggerPush) queryParams.add('trigger_push=true');
+    if (queryParams.isNotEmpty) {
+      url += '?${queryParams.join('&')}';
+    }
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: <String, String>{
+        'Accept': 'application/json',
+      },
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Không thể tải tiến trình hàng đợi của lượt khám #$maLuotKham');
+    }
+  }
+
+  /// Kích hoạt thông báo đẩy FCM khi sắp đến lượt khám
+  static Future<Map<String, dynamic>> triggerQueueNotification(
+    int maLuotKham, {
+    int stt = 18,
+    int dangPhucVu = 15,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/luot-kham/$maLuotKham/thong-bao-sap-den-luot'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(<String, dynamic>{
+        'stt': stt,
+        'dang_phuc_vu': dangPhucVu,
+      }),
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Gửi thông báo đẩy thất bại');
     }
   }
 }
