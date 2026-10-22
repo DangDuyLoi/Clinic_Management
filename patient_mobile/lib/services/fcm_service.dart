@@ -204,6 +204,50 @@ class FCMService {
     );
   }
 
+  /// Thông báo sắp đến lượt khám (còn 2-3 số)
+  static void showQueueTurnNotification({
+    String? title,
+    String? body,
+    String? room,
+    int? yourNumber,
+    int? currentServing,
+  }) {
+    final notifTitle = title ?? "🔔 Sắp đến lượt bạn!";
+    final notifBody = body ??
+        "Số của bạn: #${yourNumber ?? 18} (Đang phục vụ #${currentServing ?? 15}). Vui lòng có mặt trước cửa ${room ?? 'phòng khám'}.";
+
+    // 1. Lưu vào NotificationController
+    try {
+      final notifController = Get.isRegistered<NotificationController>()
+          ? Get.find<NotificationController>()
+          : Get.put(NotificationController());
+      notifController.addNotificationItem(
+        title: notifTitle,
+        body: notifBody,
+      );
+    } catch (_) {}
+
+    // 2. Hiển thị thông báo nổi
+    Get.snackbar(
+      notifTitle,
+      notifBody,
+      snackPosition: SnackPosition.TOP,
+      duration: const Duration(seconds: 6),
+      backgroundColor: const Color(0xFFD97706),
+      colorText: Colors.white,
+      icon: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 28),
+      margin: const EdgeInsets.all(16),
+      borderRadius: 12,
+      boxShadows: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.15),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        )
+      ],
+    );
+  }
+
   // Xử lý khi người dùng click vào thông báo FCM
   static void _handleNotificationClick(RemoteMessage message) {
     if (Get.isRegistered<NotificationController>()) {
@@ -221,6 +265,17 @@ class FCMService {
         textConfirm: "Đã hiểu",
         confirmTextColor: Colors.white,
         buttonColor: const Color(0xFF059669),
+        onConfirm: () => Get.back(),
+      );
+    } else if (type == 'queue_turn_alert') {
+      Get.defaultDialog(
+        title: "🔔 Sắp đến lượt khám!",
+        titleStyle: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFD97706), fontSize: 18),
+        middleText: message.notification?.body ?? "Vui lòng có mặt trước cửa phòng khám để chuẩn bị vào khám.",
+        middleTextStyle: const TextStyle(fontSize: 15, color: Color(0xFF334155)),
+        textConfirm: "Đã hiểu",
+        confirmTextColor: Colors.white,
+        buttonColor: const Color(0xFFD97706),
         onConfirm: () => Get.back(),
       );
     } else if (type == 'payment_success') {

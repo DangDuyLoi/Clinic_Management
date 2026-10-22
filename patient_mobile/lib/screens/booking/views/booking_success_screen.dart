@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/fcm_service.dart';
+import '../../../widgets/live_queue_tracker_widget.dart';
 import '../../main/main_screen.dart';
 
 class BookingSuccessScreen extends StatefulWidget {
@@ -292,7 +293,16 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
                 ),
               ),
 
-              const SizedBox(height: 32),
+              // Tiến trình hàng đợi theo thời gian thực (Live Queue Tracker)
+              if (int.tryParse(_maLuotKham) != null) ...[
+                const SizedBox(height: 20),
+                LiveQueueTrackerWidget(
+                  maLuotKham: int.parse(_maLuotKham),
+                  autoPoll: true,
+                ),
+              ],
+
+              const SizedBox(height: 24),
 
               // Nút về trang chủ
               SizedBox(

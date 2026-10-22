@@ -101,8 +101,10 @@ class HomeScreen extends StatelessWidget {
                               date: dateStr,
                               time: timeStr,
                               doctorName: upcoming['ten_bac_si'] ?? 'Bác sĩ',
-                              specialty: upcoming['khoa'] ?? 'Khoa Khám Bệnh', // Thêm khoa nếu backend có trả về
+                              specialty: upcoming['khoa'] ?? upcoming['chuyen_khoa'] ?? 'Khoa Khám Bệnh',
                               patientName: upcoming['ten_benh_nhan'] ?? 'Bệnh nhân',
+                              maLuotKham: upcoming['ma_luot_kham'] != null ? int.tryParse(upcoming['ma_luot_kham'].toString()) : null,
+                              roomName: upcoming['phong_kham'],
                               onTap: () {
                                 Get.to(() => ETicketScreen(appointmentData: upcoming));
                               },

@@ -9,6 +9,18 @@ import 'package:flutter/material.dart';
 
 enum BookingMethod { bySpecialty, byDoctor, byDate }
 
+/// Enum mô tả loại BHYT bệnh nhân lựa chọn (bắt buộc chọn 1 trong 3)
+enum InsuranceOption {
+  /// Khám đúng tuyến / Cấp cứu / Có giấy chuyển viện → BHYT chi trả 80%
+  dungTuyen,
+
+  /// Khám trái tuyến → BHYT chi trả 60%
+  traiTuyen,
+
+  /// Không có BHYT → Bệnh nhân trả 100%
+  khongCoBHYT,
+}
+
 class BookingController extends GetxController {
   // ================= STATE (BookingState) =================
   final selectedProfile = Rxn<Map<String, dynamic>>();
@@ -28,13 +40,71 @@ class BookingController extends GetxController {
   
   var isLoading = false.obs;
   
-  // Thông tin Bảo hiểm
-  final hasHealthInsurance = false.obs; // BHYT
-  final healthInsuranceType = RxnString(); // Đúng tuyến, Trái tuyến...
-  final hasPrivateInsurance = false.obs; // BH Tư nhân
+  // ================= THÔNG TIN BẢO HIỂM (Bắt buộc chọn) =================
+  
+  /// Lựa chọn BHYT bắt buộc: Đúng tuyến / Trái tuyến / Không có BHYT
+  /// null = chưa chọn (sẽ bị validate)
+  final selectedInsurance = Rxn<InsuranceOption>();
+  
+  // Giữ lại state cũ để tương thích với code hiện tại
+  final hasHealthInsurance = false.obs;       // BHYT
+  final healthInsuranceType = RxnString();    // Đúng tuyến, Trái tuyến...
+  final hasPrivateInsurance = false.obs;      // BH Tư nhân
   
   // Phương thức thanh toán
   final paymentMethod = RxnString(); // Thẻ khám bệnh, MoMo, Mobile Banking
+
+  // ================= LOGIC BHYT THEO LUẬT VIỆT NAM =================
+  
+  /// Tỷ lệ BHYT chi trả theo luật BHYT Việt Nam (Luật sửa đổi 2024)
+  /// - Đúng tuyến / Cấp cứu / Giấy chuyển viện: BHYT chi trả 80%
+  /// - Trái tuyến: BHYT chi trả 60%
+  /// - Không có BHYT: 0%
+  double get insuranceRate {
+    switch (selectedInsurance.value) {
+      case InsuranceOption.dungTuyen:
+        return 0.80; // 80%
+      case InsuranceOption.traiTuyen:
+        return 0.60; // 60%
+      case InsuranceOption.khongCoBHYT:
+      case null:
+        return 0.0;  // 0%
+    }
+  }
+
+  /// Label hiển thị trên UI cho lựa chọn BHYT hiện tại
+  String get insuranceLabel {
+    switch (selectedInsurance.value) {
+      case InsuranceOption.dungTuyen:
+        return 'Đúng tuyến (BHYT trả 80%)';
+      case InsuranceOption.traiTuyen:
+        return 'Trái tuyến (BHYT trả 60%)';
+      case InsuranceOption.khongCoBHYT:
+        return 'Không có BHYT (Trả 100%)';
+      case null:
+        return 'Chưa chọn';
+    }
+  }
+
+  /// Cập nhật lựa chọn BHYT (đồng bộ cả state cũ để tương thích)
+  void setInsuranceOption(InsuranceOption option) {
+    selectedInsurance.value = option;
+    // Đồng bộ state cũ
+    switch (option) {
+      case InsuranceOption.dungTuyen:
+        hasHealthInsurance.value = true;
+        healthInsuranceType.value = 'Đúng tuyến';
+        break;
+      case InsuranceOption.traiTuyen:
+        hasHealthInsurance.value = true;
+        healthInsuranceType.value = 'Trái tuyến';
+        break;
+      case InsuranceOption.khongCoBHYT:
+        hasHealthInsurance.value = false;
+        healthInsuranceType.value = null;
+        break;
+    }
+  }
 
   /// Thêm chuyên khoa vừa chọn vào danh sách giỏ khám
   void addCurrentBookingToItems() {
@@ -42,14 +112,18 @@ class BookingController extends GetxController {
       return;
     }
 
+    // Lấy giá khám thực tế từ chuyên khoa (nếu có), fallback 150.000đ
+    final int giaKham = selectedSpecialty.value?['gia_kham'] as int? ?? 150000;
+
     final newItem = {
       'specialty': selectedSpecialty.value,
       'doctor': selectedDoctor.value,
       'date': selectedDate.value,
       'timeSlot': selectedTimeSlot.value,
-      'price': 150000,
+      'price': giaKham,
       'hasHealthInsurance': hasHealthInsurance.value,
       'healthInsuranceType': healthInsuranceType.value,
+      'insuranceOption': selectedInsurance.value,
     };
 
     final doc2 = selectedDoctor.value;
@@ -105,11 +179,19 @@ class BookingController extends GetxController {
     }
   }
 
-  /// Tổng tiền của tất cả các chuyên khoa đã chọn
-  int get totalBookingCost {
-    if (bookedItems.isEmpty) return 150000;
+  // ================= TÍNH PHÍ THEO BHYT =================
+
+  /// Tổng tiền khám gốc (chưa trừ BHYT) của tất cả chuyên khoa đã chọn
+  int get totalOriginalCost {
+    if (bookedItems.isEmpty) return selectedSpecialty.value?['gia_kham'] as int? ?? 150000;
     return bookedItems.fold<int>(0, (sum, item) => sum + (item['price'] as int? ?? 150000));
   }
+
+  /// Số tiền BHYT chi trả (giảm giá)
+  int get insuranceDiscount => (totalOriginalCost * insuranceRate).round();
+
+  /// Tổng tiền BN phải thanh toán thực tế (sau khi trừ BHYT)
+  int get totalBookingCost => totalOriginalCost - insuranceDiscount;
 
   @override
   void onInit() {
@@ -158,18 +240,14 @@ class BookingController extends GetxController {
 
   // ================= VALIDATION BƯỚC 6 =================
   bool validateInsuranceStep() {
-    if (hasHealthInsurance.value == false && hasPrivateInsurance.value == false) {
+    if (selectedInsurance.value == null) {
       Get.defaultDialog(
         title: "Thiếu thông tin",
-        middleText: "Vui lòng chọn thông tin bảo hiểm y tế để tiếp tục.",
+        middleText: "Vui lòng chọn thông tin bảo hiểm y tế (Đúng tuyến / Trái tuyến / Không có BHYT) để tiếp tục.",
         textConfirm: "Đóng",
+        confirmTextColor: Colors.white,
         onConfirm: () => Get.back(),
       );
-      return false;
-    }
-    
-    if (hasHealthInsurance.value == true && healthInsuranceType.value == null) {
-      Get.snackbar('Cảnh báo', 'Vui lòng chọn loại Bảo hiểm Y tế (Đúng tuyến/Trái tuyến).');
       return false;
     }
     

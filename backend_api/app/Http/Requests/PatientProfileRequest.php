@@ -37,6 +37,7 @@ class PatientProfileRequest extends FormRequest
             'so_dinh_danh' => 'nullable|string|max:20',
             'quoc_gia' => 'nullable|string|max:100',
             'tinh_thanh' => 'required|string|max:100',
+            'quan_huyen' => 'nullable|string|max:100',
             'phuong_xa' => 'required|string|max:100',
             'so_nha' => 'required|string|max:255',
             // User should pass ma_benh_nhan if the patient already exists, or it will be created

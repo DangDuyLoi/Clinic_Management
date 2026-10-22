@@ -17,6 +17,7 @@ class ChuyenKhoa extends Model
     protected $fillable = [
         'ten_chuyen_khoa',
         'mo_ta',
+        'gia_kham',
         'trang_thai'
     ];
 }

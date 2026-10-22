@@ -55,6 +55,8 @@ Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // B�
 Route::get('luot-kham/gio-trong', [LuotKhamController::class, 'layGioTrong']); // API lấy giờ trống của Bác sĩ
 Route::post('luot-kham/danh-sach', [LuotKhamController::class, 'danhSachTheoHoSo']); // Lấy danh sách khám theo hồ sơ
 Route::get('luot-kham/{id}/check-status', [LuotKhamController::class, 'checkStatus']); // Kiểm tra trạng thái lượt khám & thanh toán
+Route::get('luot-kham/{id}/hang-doi', [LuotKhamController::class, 'layTienTrinhHangDoi']); // Tiến trình hàng đợi thời gian thực (Live Queue Tracker)
+Route::post('luot-kham/{id}/thong-bao-sap-den-luot', [LuotKhamController::class, 'thongBaoSapDenLuot']); // Kích hoạt push notification sắp đến lượt khám
 
 // Quản lý hồ sơ bệnh nhân
 Route::prefix('patient-profiles')->group(function () {

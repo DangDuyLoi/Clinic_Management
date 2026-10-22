@@ -22,7 +22,8 @@ class ChuyenKhoaController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'ten_chuyen_khoa' => 'required|string|max:255',
-            'mo_ta' => 'nullable|string'
+            'mo_ta' => 'nullable|string',
+            'gia_kham' => 'nullable|numeric|min:0'
         ]);
 
         if ($validator->fails()) {
@@ -32,6 +33,7 @@ class ChuyenKhoaController extends Controller
         $chuyenKhoa = ChuyenKhoa::create([
             'ten_chuyen_khoa' => $request->ten_chuyen_khoa,
             'mo_ta' => $request->mo_ta,
+            'gia_kham' => $request->gia_kham ?? 150000,
             'trang_thai' => true
         ]);
 
@@ -48,7 +50,8 @@ class ChuyenKhoaController extends Controller
 
         $validator = Validator::make($request->all(), [
             'ten_chuyen_khoa' => 'string|max:255',
-            'mo_ta' => 'nullable|string'
+            'mo_ta' => 'nullable|string',
+            'gia_kham' => 'nullable|numeric|min:0'
         ]);
 
         if ($validator->fails()) {

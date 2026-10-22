@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS ChuyenKhoa (
     ma_chuyen_khoa INT AUTO_INCREMENT PRIMARY KEY,
     ten_chuyen_khoa VARCHAR(100) NOT NULL,
     mo_ta TEXT,
+    gia_kham DECIMAL(12,2) NOT NULL DEFAULT 150000 COMMENT 'Giá khám theo chuyên khoa (VND)',
     trang_thai BOOLEAN DEFAULT TRUE
 );
 
@@ -95,6 +96,7 @@ CREATE TABLE IF NOT EXISTS LichKham (
     ma_khung_gio INT NOT NULL,
     thoi_gian_den_quay TIME NULL, 
     khach_vang_lai BOOLEAN DEFAULT FALSE,
+    so_thu_tu INT DEFAULT NULL COMMENT 'Số thứ tự khám trong ngày',
     diem_uu_tien INT DEFAULT 0,
     trang_thai ENUM('ChoXacNhan', 'ChoDenKham', 'ChoKham', 'DangKham', 'HoanThanh', 'DaHuy') DEFAULT 'ChoXacNhan',
     ghi_chu TEXT,
@@ -225,10 +227,10 @@ INSERT IGNORE INTO TaiKhoan (ma_tk, ten_dang_nhap, mat_khau, vai_tro) VALUES
 (3, 'letan_lan', '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyWpNBnHBnHBnG', 'LeTan'),
 (4, 'bn_nguyenvan', '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyWpNBnHBnHBnG', 'BenhNhan');
 
-INSERT IGNORE INTO ChuyenKhoa (ma_chuyen_khoa, ten_chuyen_khoa, mo_ta) VALUES 
-(1, 'Nội tổng hợp', 'Khám các bệnh lý nội khoa chung'),
-(2, 'Tim mạch', 'Khám và điều trị các bệnh tim mạch'),
-(3, 'Da liễu', 'Khám các bệnh về da');
+INSERT IGNORE INTO ChuyenKhoa (ma_chuyen_khoa, ten_chuyen_khoa, mo_ta, gia_kham) VALUES 
+(1, 'Nội tổng hợp', 'Khám các bệnh lý nội khoa chung', 150000),
+(2, 'Tim mạch', 'Khám và điều trị các bệnh tim mạch', 200000),
+(3, 'Da liễu', 'Khám các bệnh về da', 120000);
 
 INSERT IGNORE INTO BacSi (ma_bs, ma_tk, ma_chuyen_khoa, ho_ten, phong_kham, trinh_do, luot_kham_toi_da_moi_ca) VALUES 
 (1, 2, 2, 'Hoàng Minh Tuấn', 'Phòng 101', 'Thạc sĩ - Bác sĩ chuyên khoa II', 20);
