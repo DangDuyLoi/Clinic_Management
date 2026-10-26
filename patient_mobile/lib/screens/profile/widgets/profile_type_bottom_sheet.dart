@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../search_profile_screen.dart';
-import '../create_profile_screen.dart';
 
 class ProfileTypeBottomSheet extends StatelessWidget {
   const ProfileTypeBottomSheet({Key? key}) : super(key: key);
@@ -18,15 +16,18 @@ class ProfileTypeBottomSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Bạn đã từng khám tại Phòng khám đa khoa chưa?',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Bạn đã từng khám tại Phòng khám đa khoa chưa?',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),

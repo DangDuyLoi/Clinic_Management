@@ -2,6 +2,8 @@
 /backend_api/vendor/
 /backend_api/.env
 /patient_mobile/build/
+/patient_mobile/android/build/
+**/build/
 /patient_mobile/.dart_tool/
 /patient_mobile/.pub-cache/
 /frontend_web/node_modules/

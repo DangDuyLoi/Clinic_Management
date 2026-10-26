@@ -5,13 +5,29 @@ import 'controllers/payment_tab_controller.dart';
 
 /// Màn hình Thanh toán viện phí (Payment Screen)
 /// Tách biệt hoàn toàn UI và Logic theo mô hình GetX
-class PaymentScreen extends StatelessWidget {
+class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
 
   @override
+  State<PaymentScreen> createState() => _PaymentScreenState();
+}
+
+class _PaymentScreenState extends State<PaymentScreen> {
+  late final PaymentTabController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.isRegistered<PaymentTabController>()
+        ? Get.find<PaymentTabController>()
+        : Get.put(PaymentTabController());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchPaymentData();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Khởi tạo hoặc tìm PaymentTabController
-    final controller = Get.put(PaymentTabController());
 
     return DefaultTabController(
       length: 2,

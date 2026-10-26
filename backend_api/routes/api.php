@@ -60,6 +60,7 @@ Route::post('luot-kham/{id}/thong-bao-sap-den-luot', [LuotKhamController::class,
 
 // Quản lý hồ sơ bệnh nhân
 Route::prefix('patient-profiles')->group(function () {
+    Route::get('/metadata', [PatientProfileController::class, 'getMetadata']);
     Route::post('/', [PatientProfileController::class, 'store']);
     Route::get('/search-by-code', [PatientProfileController::class, 'findByCode']);
     Route::get('/search-by-info', [PatientProfileController::class, 'findByInfo']);

@@ -35,13 +35,14 @@ class PaymentTabController extends GetxController {
       isLoading.value = true;
 
       final authService = AuthService();
-      final phone = await authService.getUserPhone() ?? '0374244315';
+      String phone = await authService.getUserPhone() ?? '0374244315';
+      if (phone.trim().isEmpty) phone = '0374244315';
 
       final url = Uri.parse('${ApiConstants.baseUrl}/payment/bills?phone=$phone');
       final response = await http.get(
         url,
         headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 7));
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final resData = json.decode(response.body);

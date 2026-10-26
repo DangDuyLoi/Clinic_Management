@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/vietnam_administrative_data.dart';
+import '../../core/address/controllers/address_cascading_controller.dart';
+import '../../core/address/repositories/vietnam_address_repository.dart';
+import '../../core/address/widgets/cascading_address_picker.dart';
+import '../../services/master_data_service.dart';
 import '../../services/patient_profile_service.dart';
 
 class CreateProfileScreen extends StatefulWidget {
@@ -13,6 +16,7 @@ class CreateProfileScreen extends StatefulWidget {
 class _CreateProfileScreenState extends State<CreateProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _profileService = PatientProfileService();
+  late final AddressCascadingController _addressController;
   bool _isLoading = false;
 
   // Controllers
@@ -24,7 +28,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   final _hoChieuController = TextEditingController();
   final _soDinhDanhController = TextEditingController();
   final _soNhaController = TextEditingController();
-  final _customPhuongXaController = TextEditingController();
 
   // Selected values
   DateTime? _ngaySinh;
@@ -32,14 +35,17 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   int? _gioiTinh;
   String? _ngheNghiep;
   String _quanHe = 'Bản thân';
-  String _quocGia = 'Việt Nam';
-  String? _tinhThanh;
-  String? _quanHuyen;
-  String? _phuongXa;
-  bool _isCustomPhuongXa = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _addressController = AddressCascadingController(VietnamAddressRepository());
+    _addressController.initialize();
+  }
 
   @override
   void dispose() {
+    _addressController.dispose();
     _hoChuLotController.dispose();
     _tenController.dispose();
     _soDienThoaiController.dispose();
@@ -48,25 +54,15 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     _hoChieuController.dispose();
     _soDinhDanhController.dispose();
     _soNhaController.dispose();
-    _customPhuongXaController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      // Validate Dropdowns and Radios which are not directly handled by Form validation
-      if (_ngaySinh == null || _gioiTinh == null || _tinhThanh == null || _quanHuyen == null || _phuongXa == null) {
+      // Validate Dropdowns, Radios and Address
+      if (_ngaySinh == null || _gioiTinh == null || !_addressController.isValid) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vui lòng nhập đầy đủ các trường bắt buộc có dấu *')),
-        );
-        return;
-      }
-
-      final phuongXaFinal = _phuongXa ?? '';
-
-      if (phuongXaFinal.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng chọn Phường / Xã / Thị trấn')),
         );
         return;
       }
@@ -89,10 +85,10 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
           'cccd': _cccdController.text.trim(),
           'ho_chieu': _hoChieuController.text.trim(),
           'so_dinh_danh': _soDinhDanhController.text.trim(),
-          'quoc_gia': _quocGia,
-          'tinh_thanh': _tinhThanh,
-          'quan_huyen': _quanHuyen,
-          'phuong_xa': phuongXaFinal,
+          'quoc_gia': _addressController.selectedCountry?.name ?? 'Việt Nam',
+          'tinh_thanh': _addressController.selectedProvince?.name,
+          'quan_huyen': _addressController.selectedDistrict?.name,
+          'phuong_xa': _addressController.selectedWard?.name,
           'so_nha': _soNhaController.text.trim(),
         };
 
@@ -191,16 +187,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final availableProvinces = VietnamAdministrativeData.getProvincesByCountry(_quocGia);
-
-    final availableDistricts = _tinhThanh != null
-        ? VietnamAdministrativeData.getDistricts(_quocGia, _tinhThanh)
-        : <String>[];
-
-    final availableWards = _quanHuyen != null
-        ? VietnamAdministrativeData.getWards(_quocGia, _quanHuyen)
-        : <String>[];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tạo hồ sơ khám bệnh'),
@@ -243,12 +229,12 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    value: VietnamAdministrativeData.ethnicGroups.contains(_danToc)
+                    value: MasterDataService.ethnicGroups.contains(_danToc)
                         ? _danToc
-                        : VietnamAdministrativeData.ethnicGroups.first,
+                        : MasterDataService.ethnicGroups.first,
                     isExpanded: true,
                     menuMaxHeight: 350,
-                    items: VietnamAdministrativeData.ethnicGroups
+                    items: MasterDataService.ethnicGroups
                         .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (val) => setState(() => _danToc = val ?? 'Kinh'),
@@ -279,12 +265,12 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    value: VietnamAdministrativeData.occupations.contains(_ngheNghiep)
+                    value: MasterDataService.occupations.contains(_ngheNghiep)
                         ? _ngheNghiep
                         : null,
                     isExpanded: true,
                     menuMaxHeight: 350,
-                    items: VietnamAdministrativeData.occupations
+                    items: MasterDataService.occupations
                         .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (val) => setState(() => _ngheNghiep = val),
@@ -296,12 +282,12 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    value: VietnamAdministrativeData.relationships.contains(_quanHe)
+                    value: MasterDataService.relationships.contains(_quanHe)
                         ? _quanHe
-                        : VietnamAdministrativeData.relationships.first,
+                        : MasterDataService.relationships.first,
                     isExpanded: true,
                     menuMaxHeight: 350,
-                    items: VietnamAdministrativeData.relationships
+                    items: MasterDataService.relationships
                         .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (val) => setState(() => _quanHe = val ?? 'Bản thân'),
@@ -339,114 +325,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
               _buildCard(
                 title: 'Địa chỉ thường trú',
                 children: [
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Quốc gia *',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    value: VietnamAdministrativeData.countries.contains(_quocGia)
-                        ? _quocGia
-                        : VietnamAdministrativeData.countries.first,
-                    isExpanded: true,
-                    menuMaxHeight: 350,
-                    items: VietnamAdministrativeData.countries
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _quocGia = val ?? 'Việt Nam';
-                        _tinhThanh = null;
-                        _quanHuyen = null;
-                        _phuongXa = null;
-                        _isCustomPhuongXa = false;
-                        _customPhuongXaController.clear();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: _quocGia == 'Việt Nam'
-                          ? 'Tỉnh / Thành phố *'
-                          : 'Tỉnh / Bang / Thành phố (${_quocGia.split(' ').first}) *',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    value: availableProvinces.contains(_tinhThanh) ? _tinhThanh : null,
-                    isExpanded: true,
-                    menuMaxHeight: 350,
-                    hint: Text(_quocGia == 'Việt Nam'
-                        ? 'Chọn Tỉnh / Thành phố'
-                        : 'Chọn Tỉnh / Bang / Thành phố (${_quocGia.split(' ').first})'),
-                    items: availableProvinces
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _tinhThanh = val;
-                        _quanHuyen = null;
-                        _phuongXa = null;
-                        _isCustomPhuongXa = false;
-                        _customPhuongXaController.clear();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: _quocGia == 'Việt Nam'
-                          ? 'Quận / Huyện *'
-                          : 'Quận / Huyện / Hạt / Thị trấn *',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      hintText: _tinhThanh == null
-                          ? 'Vui lòng chọn Tỉnh/Thành trước'
-                          : 'Chọn Quận / Huyện',
-                    ),
-                    value: availableDistricts.contains(_quanHuyen) ? _quanHuyen : null,
-                    isExpanded: true,
-                    menuMaxHeight: 350,
-                    items: availableDistricts
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: _tinhThanh == null
-                        ? null
-                        : (val) {
-                            setState(() {
-                              _quanHuyen = val;
-                              _phuongXa = null;
-                              _isCustomPhuongXa = false;
-                              _customPhuongXaController.clear();
-                            });
-                          },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: _quocGia == 'Việt Nam'
-                          ? 'Phường / Xã / Thị trấn *'
-                          : 'Phường / Xã / Khu phố *',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      hintText: _quanHuyen == null
-                          ? 'Vui lòng chọn Quận/Huyện trước'
-                          : 'Chọn Phường / Xã',
-                    ),
-                    value: availableWards.contains(_phuongXa) ? _phuongXa : null,
-                    isExpanded: true,
-                    menuMaxHeight: 350,
-                    items: availableWards
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: _quanHuyen == null
-                        ? null
-                        : (val) {
-                            setState(() {
-                              _phuongXa = val;
-                            });
-                          },
-                  ),
+                  CascadingAddressPicker(controller: _addressController),
                   const SizedBox(height: 16),
                   _buildTextField(
                     'Số nhà, tên đường, tổ/khu phố/ấp/thôn *',

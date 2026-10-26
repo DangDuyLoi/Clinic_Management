@@ -38,7 +38,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.blue),
       ),
-      body: Obx(() => Stack(
+      body: Stack(
         children: [
           SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -255,15 +255,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
               ],
             ),
           ),
-          if (controller.isLoading.value)
-            Container(
-              color: Colors.black45,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
+          Obx(() => controller.isLoading.value
+              ? Container(
+                  color: Colors.black45,
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : const SizedBox.shrink()),
         ],
-      )),
+      ),
       
       // Bottom Bar
       bottomNavigationBar: Container(
@@ -399,48 +400,61 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     Get.back(); // Đóng bottom sheet
                                     await Future.delayed(const Duration(milliseconds: 300)); // Đợi bottom sheet đóng hẳn
                                     controller.paymentMethod.value = 'vnpay';
-                                    
-                                    var result = await controller.submitBooking();
-                                    if (result == null) return; // Stop if booking failed
+                                     
+                                     var result = await controller.submitBooking();
+                                     if (result == null) return; // Stop if booking failed
 
-                                    // Lấy mã lượt khám vừa tạo
-                                    int? maLuotKham;
-                                    if (result['data'] is Map && result['data']['ma_luot_kham'] != null) {
-                                      maLuotKham = int.tryParse(result['data']['ma_luot_kham'].toString());
-                                    } else if (result['ma_luot_kham'] != null) {
-                                      maLuotKham = int.tryParse(result['ma_luot_kham'].toString());
-                                    } else if (result['id'] != null) {
-                                      maLuotKham = int.tryParse(result['id'].toString());
-                                    }
+                                     final List<dynamic> idList = (result['danh_sach_ma_luot_kham'] is List)
+                                         ? (result['danh_sach_ma_luot_kham'] as List)
+                                         : [];
 
-                                    if (maLuotKham == null) {
-                                      Get.snackbar('Lỗi', 'Không lấy được mã lượt khám từ phản hồi của máy chủ.');
-                                      return;
-                                    }
+                                     String maLuotKhamParam;
+                                     int firstId;
+                                     if (idList.isNotEmpty) {
+                                       maLuotKhamParam = idList.map((e) => e.toString()).join('-');
+                                       firstId = int.tryParse(idList.first.toString()) ?? 0;
+                                     } else {
+                                       int? singleId;
+                                       if (result['data'] is Map && result['data']['ma_luot_kham'] != null) {
+                                         singleId = int.tryParse(result['data']['ma_luot_kham'].toString());
+                                       } else if (result['ma_luot_kham'] != null) {
+                                         singleId = int.tryParse(result['ma_luot_kham'].toString());
+                                       } else if (result['id'] != null) {
+                                         singleId = int.tryParse(result['id'].toString());
+                                       }
 
-                                    // Tổng tiền theo số lượng chuyên khoa đã đặt
-                                    final double amount = controller.totalBookingCost.toDouble();
+                                       if (singleId == null) {
+                                         Get.snackbar('Lỗi', 'Không lấy được mã lượt khám từ phản hồi của máy chủ.');
+                                         return;
+                                       }
+                                       maLuotKhamParam = singleId.toString();
+                                       firstId = singleId;
+                                     }
 
-                                    Get.defaultDialog(
-                                      title: 'Đang xử lý',
-                                      middleText: 'Đang chuyển đến cổng thanh toán VNPay...',
-                                      barrierDismissible: false,
-                                    );
-                                    
-                                    try {
-                                      await VNPayService.openPayment(
-                                        maLuotKham: maLuotKham,
-                                        amount: amount,
-                                        orderInfo: 'Thanh toan phi kham luot #$maLuotKham',
-                                      );
-                                      if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
+                                     // Tổng tiền theo số lượng chuyên khoa đã đặt
+                                     final double amount = controller.totalBookingCost.toDouble();
 
-                                      // Chuyển sang màn hình chờ thanh toán (chưa xuất QR)
-                                      Get.to(() => PaymentPendingScreen(
-                                        maLuotKham: maLuotKham!,
-                                        bookingData: result,
-                                        amount: amount,
-                                      ));
+                                     Get.defaultDialog(
+                                       title: 'Đang xử lý',
+                                       middleText: 'Đang chuyển đến cổng thanh toán VNPay...',
+                                       barrierDismissible: false,
+                                     );
+                                     
+                                     try {
+                                       await VNPayService.openPayment(
+                                         maLuotKham: maLuotKhamParam,
+                                         amount: amount,
+                                         orderInfo: 'Thanh toan phi kham luot #$maLuotKhamParam',
+                                       );
+                                       if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
+
+                                       // Chuyển sang màn hình chờ thanh toán (chưa xuất QR)
+                                       Get.to(() => PaymentPendingScreen(
+                                         maLuotKham: firstId,
+                                         maLuotKhamParam: maLuotKhamParam,
+                                         bookingData: result,
+                                         amount: amount,
+                                       ));
                                     } catch (e) {
                                       if (Get.isDialogOpen ?? false) Get.back(); // Đóng dialog
                                       Get.snackbar('Lỗi Thanh Toán', 'Không thể mở VNPay: $e',

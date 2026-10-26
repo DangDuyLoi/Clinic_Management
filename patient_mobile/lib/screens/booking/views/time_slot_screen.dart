@@ -68,7 +68,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                     children: [
                       const Icon(Icons.calendar_month, color: Colors.blue, size: 20),
                       const SizedBox(width: 8),
-                      Obx(() {
+                      Builder(builder: (context) {
                         final date = controller.selectedDate.value;
                         final dateStr = date != null ? DateFormat('dd/MM/yyyy').format(date) : 'Chưa chọn ngày';
                         return Text('Ngày khám: $dateStr', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
@@ -76,7 +76,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Obx(() {
+                  Builder(builder: (context) {
                     final doctor = controller.selectedDoctor.value;
                     if (doctor == null) return const SizedBox.shrink();
                     return Row(
@@ -147,43 +147,41 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
         final isAvailable = controller.availableTimeSlots.contains(slot);
         final isDisabled = !isAvailable;
         
-        return Obx(() {
-          final isSelected = controller.selectedTimeSlot.value?['time'] == slot;
-          
-          return GestureDetector(
-            onTap: isDisabled
-                ? null
-                : () {
-                    controller.selectedTimeSlot.value = {'time': slot};
-                    // Chuyển tới bước tiếp theo (Bảo hiểm)
-                    Get.to(() => const InsuranceScreen());
-                  },
-            child: Container(
-              decoration: BoxDecoration(
+        final isSelected = controller.selectedTimeSlot.value?['time'] == slot;
+        
+        return GestureDetector(
+          onTap: isDisabled
+              ? null
+              : () {
+                  controller.selectedTimeSlot.value = {'time': slot};
+                  // Chuyển tới bước tiếp theo (Bảo hiểm)
+                  Get.to(() => const InsuranceScreen());
+                },
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDisabled
+                  ? Colors.grey.shade200
+                  : (isSelected ? Colors.blue : Colors.white),
+              border: Border.all(
                 color: isDisabled
-                    ? Colors.grey.shade200
-                    : (isSelected ? Colors.blue : Colors.white),
-                border: Border.all(
-                  color: isDisabled
-                      ? Colors.transparent
-                      : (isSelected ? Colors.blue : Colors.blue.shade200),
-                ),
-                borderRadius: BorderRadius.circular(8),
+                    ? Colors.transparent
+                    : (isSelected ? Colors.blue : Colors.blue.shade200),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                slot.substring(0, 5), // Chỉ hiện 08:00
-                style: TextStyle(
-                  color: isDisabled
-                      ? Colors.grey.shade500
-                      : (isSelected ? Colors.white : Colors.blue.shade700),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
-                ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              slot.substring(0, 5), // Chỉ hiện 08:00
+              style: TextStyle(
+                color: isDisabled
+                    ? Colors.grey.shade500
+                    : (isSelected ? Colors.white : Colors.blue.shade700),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 13,
               ),
             ),
-          );
-        });
+          ),
+        );
       },
     );
   }

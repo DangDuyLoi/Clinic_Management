@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/vietnam_administrative_data.dart';
+import '../../services/master_data_service.dart';
 
 class SearchProfileScreen extends StatefulWidget {
   const SearchProfileScreen({Key? key}) : super(key: key);
@@ -160,10 +160,10 @@ class _SearchProfileScreenState extends State<SearchProfileScreen> with SingleTi
                 _buildTextField('Năm sinh (YYYY)', _namSinhController, isRequired: true, keyboardType: TextInputType.number),
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Quốc gia', border: OutlineInputBorder(), isDense: true),
-                  value: VietnamAdministrativeData.countries.contains(_quocGia) ? _quocGia : VietnamAdministrativeData.countries.first,
+                  value: MasterDataService.countries.contains(_quocGia) ? _quocGia : MasterDataService.countries.first,
                   isExpanded: true,
                   menuMaxHeight: 350,
-                  items: VietnamAdministrativeData.countries.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+                  items: MasterDataService.countries.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: (val) => setState(() => _quocGia = val),
                 ),
                 const SizedBox(height: 32),

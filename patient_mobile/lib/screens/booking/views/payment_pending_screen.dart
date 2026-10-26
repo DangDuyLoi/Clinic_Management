@@ -9,12 +9,14 @@ import 'booking_success_screen.dart';
 
 class PaymentPendingScreen extends StatefulWidget {
   final int maLuotKham;
+  final String? maLuotKhamParam;
   final Map<String, dynamic> bookingData;
   final double amount;
 
   const PaymentPendingScreen({
     super.key,
     required this.maLuotKham,
+    this.maLuotKhamParam,
     required this.bookingData,
     this.amount = 150000,
   });
@@ -106,10 +108,11 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
 
   Future<void> _reopenVNPay() async {
     try {
+      final param = widget.maLuotKhamParam ?? widget.maLuotKham.toString();
       await VNPayService.openPayment(
-        maLuotKham: widget.maLuotKham,
+        maLuotKham: param,
         amount: widget.amount,
-        orderInfo: 'Thanh toan lai luot #${widget.maLuotKham}',
+        orderInfo: 'Thanh toan lai luot #$param',
       );
     } catch (e) {
       Get.snackbar('Lỗi', 'Không thể mở VNPay: $e');

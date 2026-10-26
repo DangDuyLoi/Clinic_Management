@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'medical_ai_explainer_sheet.dart';
 
 class VisitDetailScreen extends StatelessWidget {
   final Map<String, dynamic> visitData;
@@ -162,6 +163,31 @@ class VisitDetailScreen extends StatelessWidget {
                       ),
                     );
                   }).toList(),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0056D2),
+                        side: const BorderSide(color: Color(0xFF0056D2)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: const Text(
+                        'Hỏi AI giải thích đơn thuốc & lưu ý dùng',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      onPressed: () {
+                        MedicalAiExplainerSheet.showPrescriptionExplainer(
+                          context,
+                          diagnosis: visitData['diagnosis'] as String? ?? 'Chẩn đoán chung',
+                          medications: medications,
+                          doctorNote: visitData['note'] as String?,
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
           ],

@@ -33,14 +33,14 @@ class VNPayController extends Controller
             $vnp_Returnurl = $dynamicReturn;
         }
         
-        $maLuotKham = $request->input('ma_luot_kham');
+        $maLuotKham = str_replace(',', '-', (string)$request->input('ma_luot_kham'));
         $amount = $request->input('amount', 150000);
 
         // Tạo TxnRef gắn mã lượt khám: LK_{ma_luot_kham}_{timestamp}
         $txnSuffix = date('YmdHis');
-        $vnp_TxnRef = $maLuotKham ? "LK_{$maLuotKham}_{$txnSuffix}" : "LK_GEN_{$txnSuffix}";
+        $vnp_TxnRef = !empty($maLuotKham) ? "LK_{$maLuotKham}_{$txnSuffix}" : "LK_GEN_{$txnSuffix}";
         
-        $vnp_OrderInfo = $maLuotKham ? "Thanh toan phi kham luot #{$maLuotKham}" : "Thanh toan phi kham HUIT Care";
+        $vnp_OrderInfo = !empty($maLuotKham) ? "Thanh toan phi kham luot #{$maLuotKham}" : "Thanh toan phi kham HUIT Care";
         $vnp_OrderType = "billpayment";
         $vnp_Amount = $amount * 100;
         $vnp_Locale = "vn";
@@ -127,31 +127,40 @@ class VNPayController extends Controller
         $txnRef = $request->input('vnp_TxnRef', '');
         
         // Trích xuất mã lượt khám từ LK_{ma_luot_kham}_{timestamp}
-        $maLuotKham = null;
-        if (preg_match('/LK_(\d+)_/', $txnRef, $matches)) {
-            $maLuotKham = $matches[1];
+        $maLuotKhamStr = null;
+        if (preg_match('/LK_([0-9-]+)_/', $txnRef, $matches)) {
+            $maLuotKhamStr = $matches[1];
         } else {
             $parts = explode('_', $txnRef);
-            if (count($parts) > 1 && is_numeric($parts[1])) {
-                $maLuotKham = $parts[1];
-            } elseif (is_numeric($parts[0])) {
-                $maLuotKham = $parts[0];
+            if (count($parts) > 1) {
+                $maLuotKhamStr = $parts[1];
             }
         }
 
+        $listMaLK = [];
+        if (!empty($maLuotKhamStr)) {
+            $listMaLK = array_values(array_filter(explode('-', $maLuotKhamStr), fn($id) => is_numeric($id)));
+        }
+
         $isSuccess = ($isValid && $responseCode === '00');
+        $maLuotKham = !empty($listMaLK) ? implode('-', $listMaLK) : null;
 
-        Log::info("VNPay Return: TxnRef={$txnRef}, Code={$responseCode}, Valid=" . ($isValid ? 'true' : 'false') . ", MaLK={$maLuotKham}");
+        Log::info("VNPay Return: TxnRef={$txnRef}, Code={$responseCode}, Valid=" . ($isValid ? 'true' : 'false') . ", MaLK=" . json_encode($listMaLK));
 
-        if ($isSuccess && $maLuotKham) {
-            $luotKham = LuotKham::find($maLuotKham);
-            if ($luotKham) {
-                $luotKham->update(['trang_thai' => 'da_thanh_toan']);
-                Log::info("Đã cập nhật trạng thái da_thanh_toan cho lượt khám #{$maLuotKham}");
+        if ($isSuccess && !empty($listMaLK)) {
+            foreach ($listMaLK as $idLK) {
+                $luotKham = LuotKham::find($idLK);
+                if ($luotKham) {
+                    $luotKham->update(['trang_thai' => 'da_thanh_toan']);
+                    Log::info("Đã cập nhật trạng thái da_thanh_toan cho lượt khám #{$idLK}");
+                }
+            }
 
-                // Gửi thông báo đẩy FCM cho bệnh nhân
-                try {
-                    $hoSo = DB::table('ho_so_benh_an')->where('ma_ho_so', $luotKham->ma_ho_so)->first();
+            // Gửi thông báo đẩy FCM cho bệnh nhân
+            try {
+                $firstLK = LuotKham::find($listMaLK[0]);
+                if ($firstLK) {
+                    $hoSo = DB::table('ho_so_benh_an')->where('ma_ho_so', $firstLK->ma_ho_so)->first();
                     if ($hoSo) {
                         $phone = $hoSo->so_dien_thoai;
                         if (empty($phone) && !empty($hoSo->ma_benh_nhan)) {
@@ -166,23 +175,28 @@ class VNPayController extends Controller
                             $user = User::whereIn('phone_number', [$phone, $phone0, $phone84])->first();
 
                             if ($user && !empty($user->fcm_token)) {
+                                $countLK = count($listMaLK);
+                                $msgText = $countLK > 1
+                                    ? "Đã thanh toán thành công cho {$countLK} chuyên khoa khám. Mã QR check-in đã sẵn sàng trên ứng dụng!"
+                                    : "Lượt khám #{$listMaLK[0]} đã được thanh toán. Mã QR check-in đã sẵn sàng trên ứng dụng!";
+
                                 FCMService::sendNotification(
                                     $user->fcm_token,
                                     '💳 Thanh toán thành công!',
-                                    "Lượt khám #{$maLuotKham} đã được thanh toán. Mã QR check-in đã sẵn sàng trên ứng dụng!",
+                                    $msgText,
                                     [
                                         'type' => 'payment_success',
-                                        'ma_luot_kham' => (string)$maLuotKham,
+                                        'ma_luot_kham' => (string)$listMaLK[0],
                                         'trang_thai' => 'da_thanh_toan'
                                     ]
                                 );
-                                Log::info("Đã gửi FCM payment_success cho lượt khám #{$maLuotKham}");
+                                Log::info("Đã gửi FCM payment_success cho các lượt khám " . json_encode($listMaLK));
                             }
                         }
                     }
-                } catch (\Exception $e) {
-                    Log::error('Lỗi gửi FCM thanh toán thành công: ' . $e->getMessage());
                 }
+            } catch (\Exception $e) {
+                Log::error('Lỗi gửi FCM thanh toán thành công: ' . $e->getMessage());
             }
         }
 

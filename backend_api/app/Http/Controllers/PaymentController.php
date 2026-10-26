@@ -213,11 +213,20 @@ class PaymentController extends Controller
             if (!empty($phone) && empty($maHoSoList)) {
                 $cleanPhone = preg_replace('/^\+84/', '0', $phone);
                 $intlPhone = '+84' . ltrim($cleanPhone, '0');
+                $phones = array_unique([$phone, $cleanPhone, $intlPhone]);
                 
-                $maHoSoList = DB::table('ho_so_benh_an')
-                    ->whereIn('so_dien_thoai', [$phone, $cleanPhone, $intlPhone])
+                $hsFromHoSo = DB::table('ho_so_benh_an')
+                    ->whereIn('so_dien_thoai', $phones)
                     ->pluck('ma_ho_so')
                     ->toArray();
+
+                $hsFromBN = DB::table('ho_so_benh_an')
+                    ->join('benh_nhan', 'ho_so_benh_an.ma_benh_nhan', '=', 'benh_nhan.ma_benh_nhan')
+                    ->whereIn('benh_nhan.so_dien_thoai', $phones)
+                    ->pluck('ho_so_benh_an.ma_ho_so')
+                    ->toArray();
+
+                $maHoSoList = array_values(array_unique(array_merge($hsFromHoSo, $hsFromBN)));
             }
 
             // 1. LẤY TỪ BẢNG luot_kham (Lượt khám bệnh đặt qua app)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../services/emr_service.dart';
 import '../../../../core/app_colors.dart';
+import 'medical_ai_explainer_sheet.dart';
 
 class TestResultsTab extends StatefulWidget {
   const TestResultsTab({Key? key}) : super(key: key);
@@ -284,6 +285,33 @@ class _TestResultsTabState extends State<TestResultsTab> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF0056D2).withOpacity(0.08),
+                        foregroundColor: const Color(0xFF0056D2),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.auto_awesome, size: 16),
+                      label: const Text(
+                        'Hỏi AI về kết quả này',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () {
+                        MedicalAiExplainerSheet.showLabTestExplainer(
+                          context,
+                          testName: testName,
+                          result: item['result'] as String? ?? 'Chưa có kết luận',
+                          department: item['department'] as String? ?? 'Chuyên khoa',
+                          doctor: item['doctor'] as String? ?? 'Bác sĩ điều trị',
+                          date: item['date'] as String? ?? '',
+                        );
+                      },
                     ),
                   ),
                 ],

@@ -8,7 +8,7 @@ class VNPayService {
 
   /// Mở giao diện thanh toán VNPay trên trình duyệt
   static Future<String> openPayment({
-    required int maLuotKham,
+    required dynamic maLuotKham,
     double amount = 150000,
     String? orderInfo,
   }) async {

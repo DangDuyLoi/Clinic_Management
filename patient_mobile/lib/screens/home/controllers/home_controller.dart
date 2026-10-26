@@ -9,7 +9,7 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    fetchUpcomingAppointment();
+    Future.microtask(() => fetchUpcomingAppointment());
   }
 
   Future<void> fetchUpcomingAppointment() async {
