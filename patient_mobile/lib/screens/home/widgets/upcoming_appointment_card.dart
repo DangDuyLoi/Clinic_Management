@@ -5,6 +5,7 @@ import '../../../../widgets/live_queue_tracker_widget.dart';
 class UpcomingAppointmentCard extends StatefulWidget {
   final String date;
   final String time;
+  final DateTime? appointmentDateTime;
   final String doctorName;
   final String specialty;
   final String patientName;
@@ -16,6 +17,7 @@ class UpcomingAppointmentCard extends StatefulWidget {
     Key? key,
     required this.date,
     required this.time,
+    this.appointmentDateTime,
     required this.doctorName,
     required this.specialty,
     required this.patientName,
@@ -29,10 +31,76 @@ class UpcomingAppointmentCard extends StatefulWidget {
 }
 
 class _UpcomingAppointmentCardState extends State<UpcomingAppointmentCard> {
-  bool _showQueueTracker = true;
+  late bool _showQueueTracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _showQueueTracker = _checkIsToday();
+  }
+
+  bool _checkIsToday() {
+    if (widget.appointmentDateTime != null) {
+      final now = DateTime.now();
+      return widget.appointmentDateTime!.year == now.year &&
+          widget.appointmentDateTime!.month == now.month &&
+          widget.appointmentDateTime!.day == now.day;
+    }
+    try {
+      final parts = widget.date.split('/');
+      if (parts.length == 3) {
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+        final now = DateTime.now();
+        return year == now.year && month == now.month && day == now.day;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  int _getDaysLeft() {
+    DateTime? aptDate = widget.appointmentDateTime;
+    if (aptDate == null) {
+      try {
+        final parts = widget.date.split('/');
+        if (parts.length == 3) {
+          aptDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        }
+      } catch (_) {}
+    }
+    if (aptDate != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final target = DateTime(aptDate.year, aptDate.month, aptDate.day);
+      return target.difference(today).inDays;
+    }
+    return 0;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isToday = _checkIsToday();
+    final daysLeft = _getDaysLeft();
+
+    String badgeText = 'Sắp tới';
+    Color badgeTextColor = AppColors.primary;
+    Color badgeBgColor = Colors.white.withValues(alpha: 0.85);
+
+    if (isToday) {
+      badgeText = 'Hôm nay';
+      badgeTextColor = const Color(0xFF047857);
+      badgeBgColor = const Color(0xFFD1FAE5);
+    } else if (daysLeft > 0) {
+      badgeText = 'Còn $daysLeft ngày';
+      badgeTextColor = const Color(0xFF1E40AF);
+      badgeBgColor = const Color(0xFFDBEAFE);
+    } else if (daysLeft < 0) {
+      badgeText = 'Đã qua';
+      badgeTextColor = Colors.grey.shade700;
+      badgeBgColor = Colors.grey.shade200;
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -72,14 +140,14 @@ class _UpcomingAppointmentCardState extends State<UpcomingAppointmentCard> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: badgeBgColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'Sắp tới',
-                    style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
+                  child: Text(
+                    badgeText,
+                    style: TextStyle(fontSize: 12, color: badgeTextColor, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -102,19 +170,26 @@ class _UpcomingAppointmentCardState extends State<UpcomingAppointmentCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.person_pin, size: 16, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Bệnh nhân: ${widget.patientName}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_pin, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Bệnh nhân: ${widget.patientName}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 if (widget.maLuotKham != null)
                   InkWell(
                     onTap: () {
@@ -139,7 +214,7 @@ class _UpcomingAppointmentCardState extends State<UpcomingAppointmentCard> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _showQueueTracker ? 'Thu gọn' : 'Live Queue',
+                            _showQueueTracker ? 'Thu gọn' : 'Xem hàng đợi',
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -152,6 +227,27 @@ class _UpcomingAppointmentCardState extends State<UpcomingAppointmentCard> {
                   ),
               ],
             ),
+            if (widget.maLuotKham != null && !_showQueueTracker && !isToday && daysLeft > 0)
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Lịch khám ngày ${widget.date}. Hàng đợi trực tiếp sẽ mở vào đúng ngày khám.',
+                        style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // Widget Live Queue Tracker theo thời gian thực
             if (widget.maLuotKham != null && _showQueueTracker) ...[

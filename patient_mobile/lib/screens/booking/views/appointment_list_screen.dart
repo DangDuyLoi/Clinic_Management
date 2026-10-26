@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'e_ticket_screen.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/patient_profile_service.dart';
+import '../../../services/vnpay_service.dart';
 
 class AppointmentListScreen extends StatefulWidget {
   const AppointmentListScreen({Key? key}) : super(key: key);
@@ -326,8 +327,37 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton(
-                            onPressed: () {
-                              // Chuyển tới màn hình thanh toán
+                            onPressed: () async {
+                              final maLK = int.tryParse(formattedApt['ma_luot_kham']?.toString() ?? '');
+                              if (maLK != null) {
+                                Get.dialog(
+                                  const Center(
+                                    child: Card(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(20),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircularProgressIndicator(),
+                                            SizedBox(height: 16),
+                                            Text('Đang kết nối cổng thanh toán VNPay...'),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  barrierDismissible: false,
+                                );
+
+                                try {
+                                  await VNPayService.openPayment(maLuotKham: maLK, amount: 150000);
+                                  if (Get.isDialogOpen ?? false) Get.back();
+                                  _fetchData();
+                                } catch (e) {
+                                  if (Get.isDialogOpen ?? false) Get.back();
+                                  Get.snackbar('Lỗi thanh toán', 'Không thể mở VNPay: $e');
+                                }
+                              }
                             },
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.orange,

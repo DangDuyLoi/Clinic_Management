@@ -12,7 +12,9 @@ class SpecialtyScreen extends StatefulWidget {
 }
 
 class _SpecialtyScreenState extends State<SpecialtyScreen> {
-  final BookingController controller = Get.find<BookingController>();
+  final BookingController controller = Get.isRegistered<BookingController>()
+      ? Get.find<BookingController>()
+      : Get.put(BookingController());
   List<Map<String, dynamic>> _allSpecialties = [];
   List<Map<String, dynamic>> _filteredSpecialties = [];
   bool _isLoading = true;

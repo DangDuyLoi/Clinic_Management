@@ -44,6 +44,9 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
   String _status = "cho_kham";
   bool _isNearTurn = true;
   String _alertMessage = "Sắp đến lượt bạn! Vui lòng có mặt trước cửa phòng khám.";
+  bool _isToday = true;
+  bool _isFuture = false;
+  int _daysLeft = 0;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -66,8 +69,8 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
     _loadQueueStatus();
 
     if (widget.autoPoll) {
-      // Poll mỗi 6 giây để cập nhật tiến trình hàng đợi
-      _pollingTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      // Poll mỗi 15 giây để cập nhật tiến trình hàng đợi
+      _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
         _loadQueueStatus(isBackground: true);
       });
     }
@@ -97,6 +100,9 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
         final String st = data['trang_thai'] ?? _status;
         final bool nearTurn = data['canh_bao_sap_den_luot'] ?? (waiting > 0 && waiting <= 3);
         final String msg = data['thong_bao'] ?? "Sắp đến lượt bạn! Vui lòng có mặt trước cửa $roomName.";
+        final bool isToday = data['is_today'] ?? true;
+        final bool isFuture = data['is_future'] ?? false;
+        final int daysLeft = data['so_ngay_con_lai'] ?? 0;
 
         setState(() {
           _yourNumber = yourNum;
@@ -108,11 +114,14 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
           _status = st;
           _isNearTurn = nearTurn;
           _alertMessage = msg;
+          _isToday = isToday;
+          _isFuture = isFuture;
+          _daysLeft = daysLeft;
           _isLoading = false;
         });
 
-        // Tự động kích hoạt Push Notification khi còn 2-3 số
-        if (nearTurn && !_hasNotifiedThisTurn) {
+        // Chỉ kích hoạt Push Notification khi đúng ngày khám hôm nay và còn 2-3 số
+        if (_isToday && nearTurn && !_hasNotifiedThisTurn) {
           _hasNotifiedThisTurn = true;
           FCMService.showQueueTurnNotification(
             title: "🔔 Sắp đến lượt bạn!",
@@ -177,7 +186,7 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
       );
     }
 
-    final double progress = (_yourNumber > 0)
+    final double progress = (_yourNumber > 0 && _isToday)
         ? (_currentServing / _yourNumber).clamp(0.0, 1.0)
         : 0.0;
 
@@ -193,8 +202,8 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
           ),
         ],
         border: Border.all(
-          color: _isNearTurn ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0),
-          width: _isNearTurn ? 1.5 : 1.0,
+          color: _isToday && _isNearTurn ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0),
+          width: _isToday && _isNearTurn ? 1.5 : 1.0,
         ),
       ),
       child: Column(
@@ -204,9 +213,9 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: _isNearTurn
-                  ? const Color(0xFFFFFBEB)
-                  : const Color(0xFFF8FAFC),
+              color: !_isToday
+                  ? const Color(0xFFEFF6FF)
+                  : (_isNearTurn ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC)),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(
@@ -220,19 +229,25 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                         width: 10,
                         height: 10,
                         decoration: BoxDecoration(
-                          color: _isNearTurn ? const Color(0xFFD97706) : const Color(0xFF10B981),
+                          color: !_isToday
+                              ? const Color(0xFF3B82F6)
+                              : (_isNearTurn ? const Color(0xFFD97706) : const Color(0xFF10B981)),
                           shape: BoxShape.circle,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'HÀNG ĐỢI TRỰC TIẾP',
+                      !_isToday
+                          ? (_isFuture ? 'LỊCH HẸN TRƯỚC' : 'LỊCH KHÁM')
+                          : 'HÀNG ĐỢI TRỰC TIẾP',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.6,
-                        color: _isNearTurn ? const Color(0xFFB45309) : const Color(0xFF047857),
+                        color: !_isToday
+                            ? const Color(0xFF1D4ED8)
+                            : (_isNearTurn ? const Color(0xFFB45309) : const Color(0xFF047857)),
                       ),
                     ),
                   ],
@@ -279,7 +294,7 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                     // Số thứ tự của bạn
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF0056D2), Color(0xFF2563EB)],
@@ -317,19 +332,21 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                'LƯỢT CỦA BẠN',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.4,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  _isToday ? 'LƯỢT CỦA BẠN' : 'STT ĐÃ CẤP',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
@@ -338,23 +355,23 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                       ),
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
 
                     // Hiện tại đang phục vụ
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: !_isToday ? const Color(0xFFF1F5F9) : const Color(0xFFECFDF5),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                          border: Border.all(color: !_isToday ? const Color(0xFFCBD5E1) : const Color(0xFFA7F3D0)),
                         ),
                         child: Column(
                           children: [
-                            const Text(
+                            Text(
                               'Đang phục vụ',
                               style: TextStyle(
-                                color: Color(0xFF065F46),
+                                color: !_isToday ? const Color(0xFF64748B) : const Color(0xFF065F46),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -362,36 +379,44 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '$_currentServing',
-                              style: const TextStyle(
-                                color: Color(0xFF047857),
+                              _isToday ? '$_currentServing' : '--',
+                              style: TextStyle(
+                                color: !_isToday ? const Color(0xFF94A3B8) : const Color(0xFF047857),
                                 fontSize: 36,
                                 fontWeight: FontWeight.w900,
                                 height: 1.1,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD1FAE5),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.play_arrow_rounded, size: 12, color: Color(0xFF047857)),
-                                  SizedBox(width: 2),
-                                  Text(
-                                    'ĐANG KHÁM',
-                                    style: TextStyle(
-                                      color: Color(0xFF047857),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.4,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: !_isToday ? const Color(0xFFE2E8F0) : const Color(0xFFD1FAE5),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      !_isToday ? Icons.schedule_rounded : Icons.play_arrow_rounded,
+                                      size: 11,
+                                      color: !_isToday ? const Color(0xFF64748B) : const Color(0xFF047857),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      !_isToday
+                                          ? (_isFuture ? 'CHƯA TỚI NGÀY' : 'ĐÃ QUA')
+                                          : 'ĐANG KHÁM',
+                                      style: TextStyle(
+                                        color: !_isToday ? const Color(0xFF64748B) : const Color(0xFF047857),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -410,24 +435,36 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Tiến trình khám: $_currentServing/$_yourNumber',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                        Flexible(
+                          child: Text(
+                            _isToday
+                                ? 'Tiến trình khám: $_currentServing/$_yourNumber'
+                                : 'Trạng thái: Chưa mở hàng đợi',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Text(
-                          _waitingAhead > 0
-                              ? 'Còn $_waitingAhead số nữa'
-                              : (_status == 'dang_kham' ? 'Đang khám' : 'Đến lượt bạn!'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _waitingAhead <= 3
-                                ? const Color(0xFFD97706)
-                                : const Color(0xFF0056D2),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            !_isToday
+                                ? (_isFuture ? 'Còn $_daysLeft ngày nữa' : 'Đã qua ngày hẹn')
+                                : (_waitingAhead > 0
+                                    ? 'Còn $_waitingAhead số nữa'
+                                    : (_status == 'dang_kham' ? 'Đang khám' : 'Đến lượt bạn!')),
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _isToday && _waitingAhead <= 3
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFF0056D2),
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -440,7 +477,9 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                         minHeight: 8,
                         backgroundColor: const Color(0xFFE2E8F0),
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          _isNearTurn ? const Color(0xFFD97706) : const Color(0xFF0056D2),
+                          !_isToday
+                              ? const Color(0xFF94A3B8)
+                              : (_isNearTurn ? const Color(0xFFD97706) : const Color(0xFF0056D2)),
                         ),
                       ),
                     ),
@@ -459,34 +498,48 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.access_time_rounded, size: 16, color: Color(0xFF64748B)),
-                          SizedBox(width: 6),
-                          Text(
-                            'Ước tính thời gian chờ:',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF475569),
-                              fontWeight: FontWeight.w500,
+                      const Flexible(
+                        flex: 5,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time_rounded, size: 16, color: Color(0xFF64748B)),
+                            SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Ước tính thời gian chờ:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF475569),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      Text(
-                        _estimatedWaitTime,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        flex: 6,
+                        child: Text(
+                          _estimatedWaitTime,
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Banner cảnh báo sắp đến lượt (khi còn 2-3 số)
-                if (_isNearTurn) ...[
+                // Banner cảnh báo sắp đến lượt (khi đúng ngày khám và còn 2-3 số)
+                if (_isToday && _isNearTurn) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -555,6 +608,48 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
                               side: const BorderSide(color: Color(0xFFF59E0B)),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Banner thông báo nếu là lịch hẹn tương lai (chưa đến ngày khám)
+                if (!_isToday && _isFuture) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF0056D2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.info_outline_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _alertMessage,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF1E3A8A),
+                              fontWeight: FontWeight.w500,
+                              height: 1.35,
                             ),
                           ),
                         ),

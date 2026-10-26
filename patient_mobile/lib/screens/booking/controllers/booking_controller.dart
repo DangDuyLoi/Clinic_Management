@@ -281,6 +281,7 @@ class BookingController extends GetxController {
       final maHoSoStr = (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id']).toString();
       final maHoSo = int.parse(maHoSoStr);
 
+      List<int> createdIds = [];
       Map<String, dynamic>? lastResult;
 
       // Duyệt qua tất cả chuyên khoa đã chọn để tạo lịch khám
@@ -307,6 +308,22 @@ class BookingController extends GetxController {
           thoiGianDenKham: thoiGian,
         );
         lastResult = result;
+
+        int? id;
+        if (result['data'] is Map && result['data']['ma_luot_kham'] != null) {
+          id = int.tryParse(result['data']['ma_luot_kham'].toString());
+        } else if (result['ma_luot_kham'] != null) {
+          id = int.tryParse(result['ma_luot_kham'].toString());
+        } else if (result['id'] != null) {
+          id = int.tryParse(result['id'].toString());
+        }
+        if (id != null) {
+          createdIds.add(id);
+        }
+      }
+
+      if (lastResult != null && createdIds.isNotEmpty) {
+        lastResult['danh_sach_ma_luot_kham'] = createdIds;
       }
 
       isLoading.value = false;

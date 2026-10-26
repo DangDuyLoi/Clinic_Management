@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'screens/auth/login_screen.dart';
 import 'firebase_options.dart';
 import 'services/patient_profile_service.dart';
+import 'services/master_data_service.dart';
 import 'services/fcm_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -33,6 +34,7 @@ void main() async {
     print("Firebase initialization error: $e");
   }
   
+  await MasterDataService.initialize();
   await PatientProfileService.loadProfiles();
   
   runApp(const UMCCareCloneApp());

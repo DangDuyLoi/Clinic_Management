@@ -16,6 +16,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final HomeController homeController = Get.put(HomeController());
     return Scaffold(
       backgroundColor: const Color(
         0xFFF0F5FA,
@@ -77,7 +78,6 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         Obx(() {
-                          final homeController = Get.put(HomeController());
                           if (homeController.isLoading.value) {
                             return const Padding(
                               padding: EdgeInsets.only(bottom: 24.0),
@@ -100,6 +100,7 @@ class HomeScreen extends StatelessWidget {
                             child: UpcomingAppointmentCard(
                               date: dateStr,
                               time: timeStr,
+                              appointmentDateTime: aptDate,
                               doctorName: upcoming['ten_bac_si'] ?? 'Bác sĩ',
                               specialty: upcoming['khoa'] ?? upcoming['chuyen_khoa'] ?? 'Khoa Khám Bệnh',
                               patientName: upcoming['ten_benh_nhan'] ?? 'Bệnh nhân',

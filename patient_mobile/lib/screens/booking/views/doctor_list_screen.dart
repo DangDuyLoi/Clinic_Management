@@ -21,7 +21,11 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
   @override
   void initState() {
     super.initState();
-    controller.selectedDate.value ??= DateTime.now();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && controller.selectedDate.value == null) {
+        controller.selectedDate.value = DateTime.now();
+      }
+    });
     _loadData();
   }
 

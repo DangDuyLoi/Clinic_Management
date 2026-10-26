@@ -338,7 +338,12 @@ class LuotKhamController extends Controller
             $chuyenKhoa = DB::table('ChuyenKhoa')->where('ma_chuyen_khoa', $bacSi->ma_chuyen_khoa)->value('ten_chuyen_khoa');
         }
 
-        $ngayKham = Carbon::parse($luotKham->thoi_gian_den_kham)->toDateString();
+        $ngayKhamCarbon = Carbon::parse($luotKham->thoi_gian_den_kham);
+        $ngayKham = $ngayKhamCarbon->toDateString();
+        $today = Carbon::today();
+        $isToday = $ngayKhamCarbon->isToday();
+        $isFuture = $ngayKhamCarbon->isFuture() && !$isToday;
+        $isPast = $ngayKhamCarbon->isPast() && !$isToday;
 
         // Lấy danh sách lượt khám trong ngày của bác sĩ này
         $danhSachTrongNgay = LuotKham::where('ma_bac_si', $luotKham->ma_bac_si)
@@ -363,7 +368,55 @@ class LuotKhamController extends Controller
             $sttCuaBan = ($luotKham->ma_luot_kham > 0) ? ($luotKham->ma_luot_kham % 30) + 1 : 18;
         }
 
-        // 2. Xác định số đang phục vụ: đồng bộ theo trạng thái database
+        // Nếu là lịch khám trong tương lai (chưa đến ngày khám)
+        if ($isFuture) {
+            $diffDays = $today->diffInDays($ngayKhamCarbon->copy()->startOfDay());
+            $thoiGianDenKhamStr = $ngayKhamCarbon->format('d/m/Y H:i');
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'ma_luot_kham' => $luotKham->ma_luot_kham,
+                    'is_today' => false,
+                    'is_future' => true,
+                    'so_ngay_con_lai' => $diffDays,
+                    'so_thu_tu' => $sttCuaBan,
+                    'dang_phuc_vu' => 0,
+                    'so_nguoi_cho' => 0,
+                    'thoi_gian_cho_uoc_tinh' => "Khám ngày " . $ngayKhamCarbon->format('d/m/Y'),
+                    'phong_kham' => $phongKham,
+                    'ten_bac_si' => $tenBacSi,
+                    'chuyen_khoa' => $chuyenKhoa ?? 'Khoa Khám Bệnh',
+                    'trang_thai' => $luotKham->trang_thai,
+                    'canh_bao_sap_den_luot' => false,
+                    'thong_bao' => "Lịch khám vào lúc {$thoiGianDenKhamStr} (còn {$diffDays} ngày nữa). Hàng đợi trực tiếp sẽ được mở vào đúng ngày khám.",
+                ]
+            ], 200);
+        }
+
+        // Nếu là lịch khám trong quá khứ
+        if ($isPast && !in_array($luotKham->trang_thai, ['hoan_thanh', 'dang_kham'])) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'ma_luot_kham' => $luotKham->ma_luot_kham,
+                    'is_today' => false,
+                    'is_future' => false,
+                    'so_ngay_con_lai' => 0,
+                    'so_thu_tu' => $sttCuaBan,
+                    'dang_phuc_vu' => 0,
+                    'so_nguoi_cho' => 0,
+                    'thoi_gian_cho_uoc_tinh' => "Lịch khám đã qua",
+                    'phong_kham' => $phongKham,
+                    'ten_bac_si' => $tenBacSi,
+                    'chuyen_khoa' => $chuyenKhoa ?? 'Khoa Khám Bệnh',
+                    'trang_thai' => $luotKham->trang_thai,
+                    'canh_bao_sap_den_luot' => false,
+                    'thong_bao' => "Lượt khám này đã qua ngày hẹn ({$ngayKhamCarbon->format('d/m/Y')}).",
+                ]
+            ], 200);
+        }
+
+        // 2. Đúng ngày khám hôm nay: Xác định số đang phục vụ
         if ($request->has('dang_phuc_vu')) {
             $dangPhucVu = (int)$request->input('dang_phuc_vu');
         } else {
@@ -417,6 +470,9 @@ class LuotKhamController extends Controller
             'status' => 'success',
             'data' => [
                 'ma_luot_kham' => $luotKham->ma_luot_kham,
+                'is_today' => true,
+                'is_future' => false,
+                'so_ngay_con_lai' => 0,
                 'so_thu_tu' => $sttCuaBan,
                 'dang_phuc_vu' => $dangPhucVu,
                 'so_nguoi_cho' => $soNguoiCho,

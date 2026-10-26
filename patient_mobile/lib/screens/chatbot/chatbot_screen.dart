@@ -19,64 +19,119 @@ class ChatbotScreen extends StatelessWidget {
         title: const Text('Trợ lý y tế AI'),
         centerTitle: true,
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            tooltip: 'Cài đặt API Key',
+            onPressed: () => _showApiKeyDialog(context, controller),
+          ),
+        ],
       ),
       body: Obx(
-        () => DashChat(
-          // Người dùng hiện tại (bệnh nhân)
-          currentUser: controller.currentUser,
+        () => Column(
+          children: [
+            // Thanh trạng thái nhận diện giọng nói thời gian thực
+            if (controller.isListening.value)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: Colors.red.shade50,
+                child: Row(
+                  children: [
+                    const Icon(Icons.mic, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        controller.voiceStatusText.value.isNotEmpty
+                            ? controller.voiceStatusText.value
+                            : 'Đang lắng nghe... Hãy nói triệu chứng của bạn',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: controller.toggleVoiceRecording,
+                      child: const Text('Xong', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: DashChat(
+                // Người dùng hiện tại (bệnh nhân)
+                currentUser: controller.currentUser,
 
-          // Danh sách tin nhắn hiển thị (cần cast từ RxList sang List bình thường)
-          messages: controller.messages.toList(),
+                // Danh sách tin nhắn hiển thị (cần cast từ RxList sang List bình thường)
+                messages: controller.messages.toList(),
 
-          // Hàm callback khi người dùng gửi tin nhắn
-          onSend: controller.sendMessage,
+                // Hàm callback khi người dùng gửi tin nhắn
+                onSend: controller.sendMessage,
 
-          // Danh sách người dùng đang soạn tin (hiển thị hiệu ứng ba chấm typing)
-          typingUsers: controller.isTyping.value
-              ? [controller.geminiUser]
-              : <ChatUser>[],
+                // Danh sách người dùng đang soạn tin (hiển thị hiệu ứng ba chấm typing)
+                typingUsers: controller.isTyping.value
+                    ? [controller.geminiUser]
+                    : <ChatUser>[],
 
-          // Tùy chỉnh giao diện bong bóng tin nhắn (MessageOptions)
-          messageOptions: MessageOptions(
-            // Màu nền tin nhắn của currentUser (màu xanh chủ đạo của ứng dụng)
-            currentUserContainerColor: AppColors.primary,
-            currentUserTextColor: Colors.white,
+                // Tùy chỉnh giao diện bong bóng tin nhắn (MessageOptions)
+                messageOptions: MessageOptions(
+                  // Màu nền tin nhắn của currentUser (màu xanh chủ đạo của ứng dụng)
+                  currentUserContainerColor: AppColors.primary,
+                  currentUserTextColor: Colors.white,
 
-            // Màu nền tin nhắn của geminiUser (màu xám nhạt)
-            containerColor: Colors.grey.shade200,
-            textColor: Colors.black87,
+                  // Màu nền tin nhắn của geminiUser (màu xám nhạt)
+                  containerColor: Colors.grey.shade200,
+                  textColor: Colors.black87,
 
-            // Hiển thị thời gian gửi tin nhắn
-            showTime: true,
-            timeTextColor: Colors.black54,
+                  // Hiển thị thời gian gửi tin nhắn
+                  showTime: true,
+                  timeTextColor: Colors.black54,
 
-            // Tự động render markdown **in đậm** thành chữ in đậm thực sự
-            messageTextBuilder: (ChatMessage message, ChatMessage? previousMessage, ChatMessage? nextMessage) {
-              final isUser = message.user.id == controller.currentUser.id;
-              final baseStyle = TextStyle(
-                color: isUser ? Colors.white : Colors.black87,
-                fontSize: 15,
-                height: 1.45,
-              );
-              return _buildFormattedMarkdownText(message.text, baseStyle);
-            },
+                  // Tự động render markdown **in đậm** thành chữ in đậm thực sự
+                  messageTextBuilder: (ChatMessage message, ChatMessage? previousMessage, ChatMessage? nextMessage) {
+                    final isUser = message.user.id == controller.currentUser.id;
+                    final baseStyle = TextStyle(
+                      color: isUser ? Colors.white : Colors.black87,
+                      fontSize: 15,
+                      height: 1.45,
+                    );
+                    return _buildFormattedMarkdownText(message.text, baseStyle);
+                  },
 
-            // Yêu cầu 3: Nút điều hướng thông minh nằm ngay dưới bong bóng chat
-            bottom: (ChatMessage message, ChatMessage? previousMessage, ChatMessage? nextMessage) {
-              return _buildSmartBookingButton(message, controller.geminiUser);
-            },
-          ),
+                  // Nút điều hướng thông minh nằm ngay dưới bong bóng chat
+                  bottom: (ChatMessage message, ChatMessage? previousMessage, ChatMessage? nextMessage) {
+                    return _buildSmartBookingButton(message, controller.geminiUser);
+                  },
+                ),
 
-          // Tùy chỉnh ô nhập văn bản và nút gửi
-          inputOptions: const InputOptions(
-            inputDecoration: InputDecoration(
-              hintText: 'Nhập triệu chứng hoặc câu hỏi sức khỏe...',
-              hintStyle: TextStyle(color: Colors.black38, fontSize: 14),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                // Tùy chỉnh ô nhập văn bản và nút Mic Voice-to-Text
+                inputOptions: InputOptions(
+                  textController: controller.inputController,
+                  inputDecoration: const InputDecoration(
+                    hintText: 'Nhập hoặc bấm Mic nói triệu chứng...',
+                    hintStyle: TextStyle(color: Colors.black38, fontSize: 14),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  trailing: [
+                    IconButton(
+                      icon: Icon(
+                        controller.isListening.value ? Icons.mic : Icons.mic_none,
+                        color: controller.isListening.value ? Colors.red : AppColors.primary,
+                        size: 24,
+                      ),
+                      tooltip: 'Nói triệu chứng (Voice-to-Text)',
+                      onPressed: controller.toggleVoiceRecording,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -184,6 +239,116 @@ class ChatbotScreen extends StatelessWidget {
     return SelectableText.rich(
       TextSpan(children: spans),
       style: baseStyle,
+    );
+  }
+
+  // ===========================================================================
+  // HỘP THOẠI CẤU HÌNH API KEY GOOGLE GEMINI
+  // ===========================================================================
+  void _showApiKeyDialog(BuildContext context, ChatbotController controller) {
+    final textController = TextEditingController();
+    final currentKey = controller.currentApiKey.value;
+    final maskedKey = currentKey.length > 12
+        ? '${currentKey.substring(0, 6)}...${currentKey.substring(currentKey.length - 6)}'
+        : currentKey;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.vpn_key_outlined, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Cấu hình Gemini API Key', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Nếu gặp lỗi xác thực hoặc hết hạn mức, bạn có thể nhập API Key Google Gemini cá nhân để tiếp tục trò chuyện.',
+                style: TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Text('Khóa hiện tại: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    Expanded(
+                      child: Text(
+                        maskedKey,
+                        style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontFamily: 'monospace'),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: textController,
+                decoration: const InputDecoration(
+                  labelText: 'Dán API Key mới vào đây',
+                  hintText: 'AQ... hoặc AIzaSy...',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '💡 Bạn có thể tạo key miễn phí tại: aistudio.google.com/app/apikey',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await controller.resetApiKey();
+              if (ctx.mounted) Navigator.pop(ctx);
+              Get.snackbar(
+                'Đã khôi phục',
+                'API Key đã trở về khóa mặc định của hệ thống',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+            child: const Text('Mặc định', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final newKey = textController.text.trim();
+              if (newKey.isNotEmpty) {
+                await controller.updateApiKey(newKey);
+                if (ctx.mounted) Navigator.pop(ctx);
+                Get.snackbar(
+                  'Thành công',
+                  'Đã cập nhật API Key mới cho trợ lý AI',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              }
+            },
+            child: const Text('Lưu & Áp dụng'),
+          ),
+        ],
+      ),
     );
   }
 }

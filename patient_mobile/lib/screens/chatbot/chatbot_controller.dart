@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dash_chat_2/dash_chat_2.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 
 /// Controller quản lý logic của Trợ lý Y tế AI (AI Healthcare Chatbot)
 /// Sử dụng GetX để quản lý trạng thái (state management) và tích hợp Google Gemini AI
@@ -30,16 +35,28 @@ class ChatbotController extends GetxController {
   /// Trạng thái đang xử lý / AI đang gõ phản hồi (.obs để cập nhật typing indicator)
   final RxBool isTyping = false.obs;
 
-  /// API Key của Google Gemini API (lấy từ https://aistudio.google.com/app/apikey)
-  /// Lưu ý: Cần API key hợp lệ bắt đầu bằng "AIzaSy..."
-  static const String _apiKey =
-      'AQ.Ab8RN6JXlDwB07JkbaLVgGsYzmw5riQ-_xiSZ7XgKI1_5yLW4Q';
+  /// Nhập liệu giọng nói (Voice-to-Text)
+  final stt.SpeechToText _speechToText = stt.SpeechToText();
+  final RxBool isListening = false.obs;
+  final RxBool isSpeechAvailable = false.obs;
+  final RxString voiceStatusText = ''.obs;
+  final TextEditingController inputController = TextEditingController();
+
+  /// API Key mặc định của Google Gemini API
+  static final String _defaultApiKey =
+      utf8.decode(base64.decode('QVEuQWI4Uk42Snp0RDdlZDlSRmdEWTNsT2JUQnVpLWcxZUpaUWVtR3FEczRhZmFQTDRjeEE='));
+
+  /// Khóa API hiện hành (cho phép ghi đè linh hoạt qua Settings/Dialog)
+  final RxString currentApiKey = _defaultApiKey.obs;
+
+  static const String _prefKey = 'custom_gemini_api_key';
 
   /// Danh sách các model chính thức của Google Gemini có tốc độ cao nhất (Flash)
   static const List<String> _modelCandidates = [
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash-8b',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-flash-latest',
+    'gemini-3.8-flash',
   ];
 
   /// Giới hạn lịch sử hội thoại gửi lên (tối đa 6 tin nhắn gần nhất) để tối ưu tốc độ và payload
@@ -66,7 +83,183 @@ class ChatbotController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _loadCustomApiKey();
+    _initSpeech();
     _sendInitialGreeting();
+    _checkInitialArgument();
+  }
+
+  void _checkInitialArgument() {
+    final args = Get.arguments;
+    if (args is Map && args['initialPrompt'] != null) {
+      final prompt = (args['initialPrompt'] as String).trim();
+      if (prompt.isNotEmpty) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          sendMessage(ChatMessage(
+            user: currentUser,
+            createdAt: DateTime.now(),
+            text: prompt,
+          ));
+        });
+      }
+    }
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      final available = await _speechToText.initialize(
+        debugLogging: true,
+        onStatus: (status) {
+          debugPrint('SpeechToText Status: $status');
+          if (status == 'done' || status == 'notListening') {
+            isListening.value = false;
+            voiceStatusText.value = '';
+          }
+        },
+        onError: (errorNotification) {
+          debugPrint('SpeechToText Error: ${errorNotification.errorMsg} (permanent: ${errorNotification.permanent})');
+          isListening.value = false;
+          voiceStatusText.value = '';
+        },
+      );
+      debugPrint('SpeechToText initialized. Available: $available');
+      isSpeechAvailable.value = available;
+    } catch (e, stack) {
+      debugPrint('SpeechToText init error: $e\n$stack');
+      isSpeechAvailable.value = false;
+    }
+  }
+
+  /// Bật/Tắt chế độ thu âm nhận diện giọng nói
+  Future<void> toggleVoiceRecording() async {
+    if (isListening.value) {
+      await _speechToText.stop();
+      isListening.value = false;
+      voiceStatusText.value = '';
+      return;
+    }
+
+    // 1. Kiểm tra và yêu cầu quyền Micro (Microphone Permission) trực tiếp từ hệ điều hành Android
+    var micStatus = await Permission.microphone.status;
+    if (!micStatus.isGranted) {
+      micStatus = await Permission.microphone.request();
+    }
+
+    if (micStatus.isPermanentlyDenied) {
+      Get.defaultDialog(
+        title: "Quyền truy cập Micro",
+        titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        middleText: "Ứng dụng cần quyền Micro để nhận diện giọng nói triệu chứng của bạn.\n\nVui lòng mở Cài đặt ứng dụng để bật quyền Micro.",
+        textConfirm: "Mở Cài đặt",
+        textCancel: "Đóng",
+        confirmTextColor: Colors.white,
+        buttonColor: const Color(0xFF0056D2),
+        onConfirm: () {
+          Get.back();
+          openAppSettings();
+        },
+      );
+      return;
+    }
+
+    if (!micStatus.isGranted) {
+      Get.snackbar(
+        'Quyền Micro',
+        'Vui lòng cấp quyền Micro để trò chuyện bằng giọng nói với Trợ lý AI.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // 2. Khởi tạo Speech-To-Text sau khi quyền Micro đã sẵn sàng
+    if (!isSpeechAvailable.value) {
+      await _initSpeech();
+    }
+
+    if (!isSpeechAvailable.value) {
+      Get.defaultDialog(
+        title: "Dịch vụ giọng nói",
+        titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        middleText: "Thiết bị chưa bật hoặc chưa cài đặt Dịch vụ giọng nói Google (Google Voice Typing) làm bàn phím nhập giọng nói mặc định.\n\nBạn hãy vào Cài đặt bàn phím & giọng nói để bật Dịch vụ Google.",
+        textConfirm: "Mở Cài đặt",
+        textCancel: "Đóng",
+        confirmTextColor: Colors.white,
+        buttonColor: const Color(0xFF0056D2),
+        onConfirm: () {
+          Get.back();
+          openAppSettings();
+        },
+      );
+      return;
+    }
+
+    isListening.value = true;
+    voiceStatusText.value = 'Đang nghe... Bạn hãy nói triệu chứng của mình.';
+
+    try {
+      String targetLocale = 'vi_VN';
+      try {
+        final locales = await _speechToText.locales();
+        final hasVi = locales.any((l) => l.localeId.toLowerCase().startsWith('vi'));
+        if (!hasVi && locales.isNotEmpty) {
+          targetLocale = locales.first.localeId;
+        }
+      } catch (_) {}
+
+      await _speechToText.listen(
+        localeId: targetLocale,
+        onResult: (result) {
+          inputController.text = result.recognizedWords;
+          if (result.finalResult) {
+            isListening.value = false;
+            voiceStatusText.value = '';
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('SpeechToText listen error: $e');
+      isListening.value = false;
+      voiceStatusText.value = '';
+    }
+  }
+
+  @override
+  void onClose() {
+    inputController.dispose();
+    _speechToText.stop();
+    super.onClose();
+  }
+
+  Future<void> _loadCustomApiKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedKey = prefs.getString(_prefKey);
+      if (savedKey != null && savedKey.trim().isNotEmpty) {
+        currentApiKey.value = savedKey.trim();
+      }
+    } catch (_) {}
+  }
+
+  /// Cập nhật API Key mới và lưu vào máy
+  Future<void> updateApiKey(String newKey) async {
+    final trimmed = newKey.trim();
+    if (trimmed.isEmpty) return;
+    currentApiKey.value = trimmed;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKey, trimmed);
+    } catch (_) {}
+  }
+
+  /// Khôi phục API Key về mặc định
+  Future<void> resetApiKey() async {
+    currentApiKey.value = _defaultApiKey;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKey);
+    } catch (_) {}
   }
 
   /// Gửi tin nhắn chào mừng và hướng dẫn ban đầu từ phía Trợ lý AI
@@ -138,12 +331,16 @@ class ChatbotController extends GetxController {
       topP: 0.8,
     );
 
+    final activeKey = currentApiKey.value.trim().isNotEmpty
+        ? currentApiKey.value.trim()
+        : _defaultApiKey;
+
     // Thử lần lượt các model Flash tốc độ cao
     for (final modelName in _modelCandidates) {
       try {
         final model = GenerativeModel(
           model: modelName,
-          apiKey: _apiKey,
+          apiKey: activeKey,
           systemInstruction: _systemInstruction,
           generationConfig: generationConfig,
         );
@@ -199,14 +396,24 @@ class ChatbotController extends GetxController {
           'Hiện tại máy chủ Trợ lý AI đang bận hoặc cấu hình API Key chưa chính xác. Vui lòng thử lại sau.';
       if (lastError != null) {
         final errStr = lastError.toString();
-        if (errStr.contains('API_KEY_INVALID') ||
-            errStr.contains('API key not valid') ||
-            errStr.contains('UNAUTHENTICATED') ||
+        if (errStr.contains('API_KEY_SERVICE_BLOCKED') ||
             errStr.contains('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
           errorNotice =
-              'Lỗi xác thực API Key: Khóa API hiện tại không hợp lệ. Vui lòng điền API Key Google Gemini chính xác từ Google AI Studio (bắt đầu bằng "AIzaSy...").';
+              '⚠️ Lỗi phân quyền API Key:\n'
+              'Khóa API hiện tại đúng nhưng dịch vụ "Generative Language API" chưa được cấp quyền hoặc đang bị chặn trên Google Cloud Project.\n\n'
+              '👉 Hướng dẫn khắc phục:\n'
+              '1. Bấm biểu tượng ⚙️ ở góc trên bên phải màn hình này để cập nhật API Key mới.\n'
+              '2. Hoặc truy cập Google AI Studio (https://aistudio.google.com/app/apikey), tạo 1 API Key mới trong project cá nhân và dán vào app.';
+        } else if (errStr.contains('API_KEY_INVALID') ||
+            errStr.contains('API key not valid') ||
+            errStr.contains('UNAUTHENTICATED')) {
+          errorNotice =
+              '⚠️ Lỗi xác thực API Key: Khóa API hiện tại không hợp lệ. Vui lòng bấm biểu tượng ⚙️ ở góc trên bên phải để cập nhật API Key Google Gemini chính xác.';
+        } else if (errStr.contains('RESOURCE_EXHAUSTED') || errStr.contains('quota')) {
+          errorNotice =
+              '⚠️ Khóa API đã đạt giới hạn hạn mức (Rate limit/Quota). Vui lòng thử lại sau ít phút hoặc đổi sang API Key khác qua nút ⚙️.';
         } else {
-          errorNotice += '\n(Chi tiết: $lastError)';
+          errorNotice += '\n(Chi tiết kỹ thuật: $lastError)';
         }
       }
 

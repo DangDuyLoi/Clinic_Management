@@ -109,4 +109,71 @@ class PatientProfileController extends Controller
 
         return response()->json(['data' => $hoSo], 200);
     }
+
+    /**
+     * Lấy danh mục master data chuẩn (Dân tộc, Nghề nghiệp, Mối quan hệ, Quốc gia)
+     */
+    public function getMetadata()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'ethnic_groups' => [
+                    'Kinh', 'Tày', 'Thái', 'Mường', 'H Mông', 'Dao', 'Khmer', 'Nùng', 'Hoa', 'Gia Rai',
+                    'Ê Đê', 'Ba Na', 'Xơ Đăng', 'Sán Chay', 'Cơ Ho', 'Chăm', 'Sán Dìu', 'Hrê', 'Ra Glai',
+                    'M Nông', 'Xtiêng', 'Bru - Vân Kiều', 'Thổ', 'Khơ Mú', 'Cơ Tu', 'Giáy', 'Giẻ Triêng',
+                    'Tà Ôi', 'Mạ', 'Co', 'Chơ Ro', 'Hà Nhì', 'Xinh Mun', 'Chu Ru', 'Lào', 'La Chí',
+                    'Kháng', 'Phù Lá', 'La Ha', 'La Hủ', 'Lự', 'Lô Lô', 'Chứt', 'Mảng', 'Pà Thẻn',
+                    'Cơ Lao', 'Cống', 'Bố Y', 'Si La', 'Pu Péo', 'Rơ Măm', 'Brâu', 'Ơ Đu'
+                ],
+                'relationships' => [
+                    'Bản thân',
+                    'Vợ / Chồng',
+                    'Bố / Mẹ',
+                    'Con cái',
+                    'Anh / Chị / Em ruột',
+                    'Ông / Bà',
+                    'Người bảo trợ / Người giám hộ',
+                    'Họ hàng / Người thân thích'
+                ],
+                'occupations' => [
+                    'Cán bộ / Công chức / Viên chức',
+                    'Công nhân / Người lao động',
+                    'Doanh nhân / Chủ doanh nghiệp / Quản lý',
+                    'Giáo viên / Giảng viên / Nghiên cứu sinh',
+                    'Học sinh / Sinh viên',
+                    'Hưu trí / Người cao tuổi',
+                    'Kế toán / Kiểm toán / Ngân hàng',
+                    'Kinh doanh / Buôn bán / Thương nhân',
+                    'Kỹ sư / Chuyên viên CNTT / Kỹ thuật',
+                    'Lao động tự do / Làm việc độc lập',
+                    'Lực lượng vũ trang (Công an, Quân đội)',
+                    'Luật sư / Chuyên viên pháp lý',
+                    'Nghệ sĩ / Diễn viên / Thiết kế / Báo chí',
+                    'Nông dân / Ngư dân / Lâm nghiệp',
+                    'Nội trợ',
+                    'Tài xế / Giao nhận / Logistics'
+                ],
+                'countries' => [
+                    'Việt Nam',
+                    'Hoa Kỳ (Mỹ)',
+                    'Nhật Bản',
+                    'Hàn Quốc',
+                    'Trung Quốc',
+                    'Úc (Australia)',
+                    'Anh (United Kingdom)',
+                    'Pháp (France)',
+                    'Đức (Germany)',
+                    'Canada',
+                    'Singapore',
+                    'Thái Lan',
+                    'Malaysia',
+                    'Lào',
+                    'Campuchia',
+                    'Đài Loan (Taiwan)',
+                    'Nga (Russia)'
+                ]
+            ]
+        ], 200);
+    }
 }
