@@ -223,6 +223,9 @@ class DoctorBookingCard extends StatefulWidget {
 class _DoctorBookingCardState extends State<DoctorBookingCard> {
   DateTime? selectedDate;
   late List<DateTime> dates;
+  bool _isLoadingSlots = false;
+  List<String> _availableSlots = [];
+  String? _lastLoadedDate;
 
   List<String> get timeSlots {
     if (widget.configuredSlots.isNotEmpty) {
@@ -248,12 +251,18 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
   void initState() {
     super.initState();
     _initDates();
+    if (selectedDate != null) {
+      _fetchAvailableSlots();
+    }
   }
 
   @override
   void didUpdateWidget(covariant DoctorBookingCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     _initDates();
+    if (selectedDate != null) {
+      _fetchAvailableSlots();
+    }
   }
 
   void _initDates() {
@@ -277,6 +286,58 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
     dates = List.generate(7, (index) => start.add(Duration(days: index)));
   }
 
+  Future<void> _fetchAvailableSlots() async {
+    if (selectedDate == null) return;
+    final doctorId = widget.doctor['id'] ?? widget.doctor['ma_bs'];
+    if (doctorId == null) return;
+
+    final int? docId = int.tryParse(doctorId.toString());
+    if (docId == null) return;
+
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate!);
+    _lastLoadedDate = dateStr;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingSlots = true;
+      });
+    }
+
+    try {
+      final slots = await BookingApiService.getAvailableTimeSlots(docId, dateStr);
+      if (mounted && _lastLoadedDate == dateStr) {
+        setState(() {
+          _availableSlots = slots;
+          _isLoadingSlots = false;
+        });
+      }
+    } catch (e) {
+      if (mounted && _lastLoadedDate == dateStr) {
+        setState(() {
+          _isLoadingSlots = false;
+        });
+      }
+    }
+  }
+
+  bool _isSlotAvailable(String slot) {
+    if (_isLoadingSlots) return false;
+
+    // Khớp nguyên chuỗi (ví dụ: '07:30 - 08:30')
+    if (_availableSlots.contains(slot)) return true;
+
+    // Khớp theo giờ bắt đầu (ví dụ: '07:30' hoặc '07:30:00')
+    String start = slot;
+    if (slot.contains(' - ')) {
+      start = slot.split(' - ')[0].trim();
+    }
+    if (_availableSlots.contains(start)) return true;
+    if (_availableSlots.contains('$start:00')) return true;
+    if (start.length >= 5 && _availableSlots.contains(start.substring(0, 5))) return true;
+
+    return false;
+  }
+
   Future<void> _pickAnotherDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -290,6 +351,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
       setState(() {
         _initDates();
       });
+      _fetchAvailableSlots();
     }
   }
 
@@ -445,11 +507,15 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                       setState(() {
                         if (isSelected) {
                           selectedDate = null;
+                          _availableSlots = [];
                         } else {
                           selectedDate = date;
                           widget.controller.selectedDate.value = date;
                         }
                       });
+                      if (selectedDate != null) {
+                        _fetchAvailableSlots();
+                      }
                     },
                     child: Container(
                       width: 70,
@@ -516,58 +582,119 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${DateFormat('dd/MM/yyyy').format(selectedDate!)} - Buổi khám (Thứ ${selectedDate!.weekday == 7 ? 'CN' : selectedDate!.weekday + 1})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5B46), fontSize: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${DateFormat('dd/MM/yyyy').format(selectedDate!)} - Buổi khám (Thứ ${selectedDate!.weekday == 7 ? 'CN' : selectedDate!.weekday + 1})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5B46), fontSize: 14),
+                      ),
+                      if (!_isLoadingSlots)
+                        InkWell(
+                          onTap: _fetchAvailableSlots,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              children: [
+                                Icon(Icons.refresh, size: 14, color: Color(0xFF0056D2)),
+                                SizedBox(width: 4),
+                                Text('Làm mới', style: TextStyle(color: Color(0xFF0056D2), fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 2.8,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                    ),
-                    itemCount: timeSlots.length,
-                    itemBuilder: (context, index) {
-                      final slot = timeSlots[index];
-                      return GestureDetector(
-                        onTap: () {
-                          // Gán bác sĩ, ngày khám và khung giờ thực từ MySQL
-                          widget.controller.selectedDoctor.value = widget.doctor;
-                          widget.controller.selectedDate.value = selectedDate;
-                          widget.controller.selectedTimeSlot.value = {'time': slot, 'label': slot};
-                          Get.to(() => const InsuranceScreen());
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F1FE),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
-                          ),
-                          child: Column(
+                  _isLoadingSlots
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          alignment: Alignment.center,
+                          child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                slot,
-                                style: const TextStyle(
-                                  color: Color(0xFF0056D2),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
                               ),
-                              const Text(
-                                'Còn chỗ',
-                                style: TextStyle(color: Color(0xFF059669), fontSize: 11, fontWeight: FontWeight.w500),
+                              SizedBox(width: 12),
+                              Text(
+                                'Đang kiểm tra tình trạng chỗ trống...',
+                                style: TextStyle(color: Colors.black54, fontSize: 13),
                               ),
                             ],
                           ),
+                        )
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 2.8,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemCount: timeSlots.length,
+                          itemBuilder: (context, index) {
+                            final slot = timeSlots[index];
+                            final isAvailable = _isSlotAvailable(slot);
+
+                            return GestureDetector(
+                              onTap: isAvailable
+                                  ? () {
+                                      // Gán bác sĩ, ngày khám và khung giờ thực từ MySQL
+                                      widget.controller.selectedDoctor.value = widget.doctor;
+                                      widget.controller.selectedDate.value = selectedDate;
+                                      widget.controller.selectedTimeSlot.value = {'time': slot, 'label': slot};
+                                      Get.to(() => const InsuranceScreen());
+                                    }
+                                  : () {
+                                      Get.snackbar(
+                                        'Khung giờ đã kín chỗ',
+                                        'Khung giờ $slot của bác sĩ này đã có người đặt trước. Vui lòng chọn khung giờ khác.',
+                                        snackPosition: SnackPosition.BOTTOM,
+                                        backgroundColor: const Color(0xFFDC2626),
+                                        colorText: Colors.white,
+                                        duration: const Duration(seconds: 3),
+                                        margin: const EdgeInsets.all(12),
+                                      );
+                                    },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isAvailable ? const Color(0xFFE8F1FE) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isAvailable ? const Color(0xFFBFDBFE) : const Color(0xFFCBD5E1),
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      slot,
+                                      style: TextStyle(
+                                        color: isAvailable ? const Color(0xFF0056D2) : const Color(0xFF94A3B8),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        decoration: isAvailable ? null : TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isAvailable ? 'Còn chỗ' : 'Hết chỗ',
+                                      style: TextStyle(
+                                        color: isAvailable ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),

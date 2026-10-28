@@ -330,7 +330,16 @@ class BookingController extends GetxController {
       return lastResult;
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar('Lỗi Đặt Khám', e.toString(), backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 5), snackPosition: SnackPosition.TOP);
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
+      Get.snackbar(
+        'Lỗi Đặt Khám',
+        cleanMsg,
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(12),
+      );
       return null;
     }
   }
@@ -340,7 +349,8 @@ class BookingController extends GetxController {
     
     isLoadingSlots.value = true;
     try {
-      final doctorId = int.parse(selectedDoctor.value!['id'].toString());
+      final docIdRaw = selectedDoctor.value!['id'] ?? selectedDoctor.value!['ma_bs'];
+      final doctorId = int.parse(docIdRaw.toString());
       final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate.value!);
       
       final slots = await BookingApiService.getAvailableTimeSlots(doctorId, dateStr);
