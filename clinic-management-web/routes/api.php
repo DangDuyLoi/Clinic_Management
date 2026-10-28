@@ -25,7 +25,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/login',    [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
 });
-Route::post('vnpay/ipn', [VNPayController::class, 'ipn']);
+Route::get('vnpay/ipn', [VNPayController::class, 'ipn']);
 /* ============================================================
    PROTECTED ROUTES — Yêu cầu JWT
    ============================================================ */
