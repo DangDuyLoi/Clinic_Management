@@ -7,7 +7,7 @@ export default defineConfig({
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
-            refresh: true,
+            refresh: true,  
             fonts: [
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
@@ -17,6 +17,11 @@ export default defineConfig({
         tailwindcss(),
     ],
     server: {
+        host: 'huitclinic.test',
+        port: 5173,
+        hmr: {
+            host: 'huitclinic.test',
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },
