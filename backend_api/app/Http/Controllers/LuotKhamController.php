@@ -163,8 +163,14 @@ class LuotKhamController extends Controller
 
         try {
             $result = DB::transaction(function () use ($request) {
+                // Tự động giải phóng các lượt khám chưa thanh toán quá 15 phút
+                LuotKham::where('trang_thai', 'cho_thanh_toan')
+                    ->where('created_at', '<=', Carbon::now()->subMinutes(15))
+                    ->update(['trang_thai' => 'huy']);
+
                 $soNguoiDaDat = LuotKham::where('ma_bac_si', $request->ma_bac_si)
                                         ->where('thoi_gian_den_kham', $request->thoi_gian_den_kham)
+                                        ->where('trang_thai', '!=', 'huy')
                                         ->lockForUpdate()
                                         ->count();
 
@@ -223,29 +229,87 @@ class LuotKhamController extends Controller
         $maBacSi = $request->ma_bac_si;
         $ngayKham = $request->ngay_kham;
 
-        $khungGioMacDinh = [
-            '08:00:00', '08:30:00', '09:00:00', '09:30:00',
-            '10:00:00', '10:30:00', '11:00:00', '11:30:00',
-            '13:00:00', '13:30:00', '14:00:00', '14:30:00',
-            '15:00:00', '15:30:00', '16:00:00', '16:30:00'
-        ];
+        // Tự động giải phóng các lượt khám chưa thanh toán quá 15 phút
+        LuotKham::where('trang_thai', 'cho_thanh_toan')
+            ->where('created_at', '<=', Carbon::now()->subMinutes(15))
+            ->update(['trang_thai' => 'huy']);
 
+        // 1. Lấy danh sách khung giờ từ Database (bảng khunggio)
+        $khungGioDb = DB::table('khunggio')
+            ->orderBy('gio_bat_dau')
+            ->get();
+
+        if ($khungGioDb->isEmpty()) {
+            $khungGioList = [
+                ['start' => '07:30:00', 'end' => '08:30:00'],
+                ['start' => '08:30:00', 'end' => '09:30:00'],
+                ['start' => '09:30:00', 'end' => '10:30:00'],
+                ['start' => '10:30:00', 'end' => '11:30:00'],
+                ['start' => '13:00:00', 'end' => '14:00:00'],
+                ['start' => '14:00:00', 'end' => '15:00:00'],
+                ['start' => '15:00:00', 'end' => '16:00:00'],
+                ['start' => '16:00:00', 'end' => '17:00:00'],
+            ];
+        } else {
+            $khungGioList = $khungGioDb->map(function ($kg) {
+                return [
+                    'start' => $kg->gio_bat_dau,
+                    'end' => $kg->gio_ket_thuc,
+                ];
+            })->toArray();
+        }
+
+        // 2. Lấy các lịch khám đã đặt của bác sĩ trong ngày (loại trừ các lịch bị hủy 'huy')
         $cacLichDaDat = LuotKham::where('ma_bac_si', $maBacSi)
             ->whereDate('thoi_gian_den_kham', $ngayKham)
             ->where('trang_thai', '!=', 'huy')
-            ->pluck('thoi_gian_den_kham')
-            ->map(function ($datetime) {
-                return Carbon::parse($datetime)->format('H:i:s');
-            })
-            ->toArray();
+            ->get();
 
-        $gioTrong = array_values(array_diff($khungGioMacDinh, $cacLichDaDat));
+        $soLuongTheoGio = [];
+        foreach ($cacLichDaDat as $lich) {
+            $timeOnly = Carbon::parse($lich->thoi_gian_den_kham)->format('H:i:s');
+            $timeShort = Carbon::parse($lich->thoi_gian_den_kham)->format('H:i');
+            $soLuongTheoGio[$timeOnly] = ($soLuongTheoGio[$timeOnly] ?? 0) + 1;
+            $soLuongTheoGio[$timeShort] = ($soLuongTheoGio[$timeShort] ?? 0) + 1;
+        }
+
+        $gioTrong = [];
+        $chiTiet = [];
+
+        foreach ($khungGioList as $kg) {
+            $start = $kg['start'];
+            $end = $kg['end'];
+            $startShort = substr($start, 0, 5);
+            $endShort = substr($end, 0, 5);
+            $timeRange = "{$startShort} - {$endShort}";
+
+            $daDat = $soLuongTheoGio[$start] ?? $soLuongTheoGio[$startShort] ?? 0;
+            $gioiHan = 1; // 1 người khám cho 1 bác sĩ tại 1 khung giờ
+            $conCho = ($daDat < $gioiHan);
+
+            if ($conCho) {
+                $gioTrong[] = $start;
+                $gioTrong[] = $startShort;
+                $gioTrong[] = $timeRange;
+            }
+
+            $chiTiet[] = [
+                'gio_bat_dau' => $start,
+                'gio_ket_thuc' => $end,
+                'time_range' => $timeRange,
+                'label' => $timeRange,
+                'con_cho' => $conCho,
+                'da_dat' => $daDat,
+                'gioi_han' => $gioiHan,
+            ];
+        }
 
         return response()->json([
             'message' => 'Lấy danh sách giờ trống thành công',
             'ma_bac_si' => $maBacSi,
             'ngay_kham' => $ngayKham,
-            'danh_sach_gio_trong' => $gioTrong
+            'danh_sach_gio_trong' => array_values(array_unique($gioTrong)),
+            'chi_tiet' => $chiTiet,
         ], 200);
     }
 

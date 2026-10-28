@@ -27,8 +27,8 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
   @override
   Widget build(BuildContext context) {
     final morningSlots = [
-      '08:00:00', '08:30:00', '09:00:00', '09:30:00',
-      '10:00:00', '10:30:00', '11:00:00', '11:30:00'
+      '07:30:00', '08:00:00', '08:30:00', '09:00:00',
+      '09:30:00', '10:00:00', '10:30:00', '11:00:00', '11:30:00'
     ];
     
     final afternoonSlots = [
@@ -144,7 +144,10 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
       itemCount: slots.length,
       itemBuilder: (context, index) {
         final slot = slots[index];
-        final isAvailable = controller.availableTimeSlots.contains(slot);
+        final shortSlot = slot.length >= 5 ? slot.substring(0, 5) : slot;
+        final isAvailable = controller.availableTimeSlots.contains(slot) ||
+            controller.availableTimeSlots.contains(shortSlot) ||
+            controller.availableTimeSlots.any((s) => s.startsWith(shortSlot));
         final isDisabled = !isAvailable;
         
         final isSelected = controller.selectedTimeSlot.value?['time'] == slot;
