@@ -149,6 +149,9 @@ class LuotKhamController extends Controller
             'ma_ho_so' => 'required|integer',
             'ma_bac_si' => 'required|integer',
             'thoi_gian_den_kham' => 'required|date_format:Y-m-d H:i:s|after:now',
+            'priority_level' => 'nullable|integer',
+            'trang_thai' => 'nullable|string',
+            'so_tien' => 'nullable|numeric',
         ], [
             'thoi_gian_den_kham.after' => 'Thời gian khám phải lớn hơn thời gian hiện tại.',
             'thoi_gian_den_kham.date_format' => 'Định dạng thời gian không hợp lệ (Chuẩn: YYYY-MM-DD HH:MM:SS).'
@@ -163,9 +166,30 @@ class LuotKhamController extends Controller
 
         try {
             $result = DB::transaction(function () use ($request) {
+                // Kiểm tra chống trục lợi BHYT từ Hệ thống Giám định BHYT Quốc gia
+                $maTheBhyt = $request->input('ma_the_bhyt');
+                $isBhyt = $request->boolean('is_bhyt') || !empty($maTheBhyt);
+                if ($isBhyt && !empty($maTheBhyt)) {
+                    $cleanCard = strtoupper(trim($maTheBhyt));
+                    $blacklistedCodes = ['DN4010123456789', 'DN4019999999999', 'GD4019999999999', 'TE1019999999999', 'HN2019999999999'];
+                    $prefix = substr($cleanCard, 0, 2);
+                    $tail4 = substr($cleanCard, -4);
+                    
+                    if (in_array($prefix, ['CB', 'TL', 'BL']) || in_array($cleanCard, $blacklistedCodes) || $tail4 === '9999' || str_contains($cleanCard, 'TRUCLOI')) {
+                        throw new Exception('Hệ thống Giám định BHYT Quốc gia TỪ CHỐI THANH TOÁN: Thẻ BHYT ' . $cleanCard . ' nằm trong danh sách cảnh báo đen do phát hiện hành vi đi khám liên tục nhiều ngày tại nhiều cơ sở để gom thuốc. Quý khách vui lòng chuyển sang Khám Dịch Vụ.');
+                    }
+                }
+
                 // Tự động giải phóng các lượt khám chưa thanh toán quá 15 phút
                 LuotKham::where('trang_thai', 'cho_thanh_toan')
                     ->where('created_at', '<=', Carbon::now()->subMinutes(15))
+                    ->update(['trang_thai' => 'huy']);
+
+                // Tự động giải phóng lượt cho_thanh_toan cũ của chính ma_ho_so này ở khung giờ này (tránh tự khóa chính mình)
+                LuotKham::where('ma_ho_so', $request->ma_ho_so)
+                    ->where('ma_bac_si', $request->ma_bac_si)
+                    ->where('thoi_gian_den_kham', $request->thoi_gian_den_kham)
+                    ->where('trang_thai', 'cho_thanh_toan')
                     ->update(['trang_thai' => 'huy']);
 
                 $soNguoiDaDat = LuotKham::where('ma_bac_si', $request->ma_bac_si)
@@ -186,24 +210,38 @@ class LuotKhamController extends Controller
                     ->where('trang_thai', '!=', 'huy')
                     ->count() + 1;
 
-                // Lưu vào database với trạng thái ban đầu là "cho_thanh_toan" và STT đã chốt
+                // Xác định trạng thái ban đầu:
+                // Nếu được miễn chi trả 0đ (so_tien == 0 hoặc trang_thai == 'da_thanh_toan') -> lưu luôn là 'da_thanh_toan'
+                $trangThaiBanDau = 'cho_thanh_toan';
+                if ($request->input('trang_thai') === 'da_thanh_toan' || ($request->has('so_tien') && (float)$request->input('so_tien') == 0)) {
+                    $trangThaiBanDau = 'da_thanh_toan';
+                }
+
+                // Lưu vào database
                 $luotKhamMoi = LuotKham::create([
                     'ma_ho_so' => $request->ma_ho_so,
                     'ma_bac_si' => $request->ma_bac_si,
                     'so_thu_tu' => $soThuTu,
+                    'priority_level' => $request->input('priority_level', 4),
                     'thoi_gian_den_kham' => $request->thoi_gian_den_kham,
-                    'trang_thai' => 'cho_thanh_toan',
+                    'trang_thai' => $trangThaiBanDau,
                     'chan_doan' => null
                 ]);
 
-                // BƯỚC 4: Đẩy tác vụ gửi Email/thông báo vào Queue để chạy ngầm
-                SendBookingEmailJob::dispatch($luotKhamMoi);
+                // BƯỚC 4: Chỉ gửi thông báo chúc mừng khi đã thanh toán (hoặc 0đ BHYT)
+                if ($trangThaiBanDau === 'da_thanh_toan') {
+                    SendBookingEmailJob::dispatch($luotKhamMoi);
+                }
 
                 return $luotKhamMoi;
             });
 
+            $msg = ($result->trang_thai === 'da_thanh_toan')
+                ? 'Đặt khám thành công! Mã QR check-in đã sẵn sàng.'
+                : 'Đặt lịch thành công! Vui lòng hoàn tất thanh toán để nhận mã QR.';
+
             return response()->json([
-                'message' => 'Đặt lịch thành công! Vui lòng hoàn tất thanh toán để nhận mã QR.',
+                'message' => $msg,
                 'data' => $result
             ], 201);
 
@@ -212,6 +250,28 @@ class LuotKhamController extends Controller
                 'message' => $e->getMessage()
             ], 400);
         }
+    }
+
+    // 3.1 API Hủy giữ chỗ lượt khám (khi chưa thanh toán)
+    public function huyLuotKham(Request $request, $id)
+    {
+        $luotKham = LuotKham::find($id);
+        if (!$luotKham) {
+            return response()->json(['message' => 'Không tìm thấy lượt khám'], 404);
+        }
+
+        if ($luotKham->trang_thai === 'cho_thanh_toan') {
+            $luotKham->update(['trang_thai' => 'huy']);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đã hủy giữ chỗ thành công'
+            ], 200);
+        }
+
+        return response()->json([
+            'status' => 'ignored',
+            'message' => 'Lượt khám không ở trạng thái chờ thanh toán'
+        ], 200);
     }
 
     // 4. API Bệnh nhân: Lấy danh sách khung giờ trống của Bác sĩ trong 1 ngày
@@ -344,6 +404,7 @@ class LuotKhamController extends Controller
                 DB::raw("COALESCE(bs_table.ho_ten, bac_si.name, 'Bác sĩ chuyên khoa') as ten_bac_si"),
                 DB::raw("CASE WHEN luot_kham.trang_thai = 'cho_thanh_toan' THEN 'ChuaThanhToan' ELSE 'DaThanhToan' END as trang_thai_thanh_toan")
             )
+            ->addSelect('luot_kham.priority_level')
             ->orderBy('luot_kham.thoi_gian_den_kham', 'desc')
             ->get();
 
@@ -372,6 +433,8 @@ class LuotKhamController extends Controller
             'status' => 'success',
             'data' => [
                 'ma_luot_kham' => $luotKham->ma_luot_kham,
+                'so_thu_tu' => $luotKham->so_thu_tu,
+                'priority_level' => (int)($luotKham->priority_level ?? 4),
                 'trang_thai' => $luotKham->trang_thai,
                 'thoi_gian_den_kham' => $luotKham->thoi_gian_den_kham,
                 'ten_benh_nhan' => $hoSo ? trim(($hoSo->ho_chu_lot ?? '') . ' ' . ($hoSo->ten ?? '')) : null,
@@ -409,10 +472,11 @@ class LuotKhamController extends Controller
         $isFuture = $ngayKhamCarbon->isFuture() && !$isToday;
         $isPast = $ngayKhamCarbon->isPast() && !$isToday;
 
-        // Lấy danh sách lượt khám trong ngày của bác sĩ này
+        // Lấy danh sách lượt khám trong ngày của bác sĩ này (ưu tiên priority_level thấp hơn = ưu tiên cao hơn)
         $danhSachTrongNgay = LuotKham::where('ma_bac_si', $luotKham->ma_bac_si)
             ->whereDate('thoi_gian_den_kham', $ngayKham)
             ->where('trang_thai', '!=', 'huy')
+            ->orderBy('priority_level', 'asc')
             ->orderBy('thoi_gian_den_kham', 'asc')
             ->orderBy('ma_luot_kham', 'asc')
             ->get();
@@ -440,6 +504,7 @@ class LuotKhamController extends Controller
                 'status' => 'success',
                 'data' => [
                     'ma_luot_kham' => $luotKham->ma_luot_kham,
+                    'priority_level' => (int)($luotKham->priority_level ?? 4),
                     'is_today' => false,
                     'is_future' => true,
                     'so_ngay_con_lai' => $diffDays,
@@ -463,6 +528,7 @@ class LuotKhamController extends Controller
                 'status' => 'success',
                 'data' => [
                     'ma_luot_kham' => $luotKham->ma_luot_kham,
+                    'priority_level' => (int)($luotKham->priority_level ?? 4),
                     'is_today' => false,
                     'is_future' => false,
                     'so_ngay_con_lai' => 0,
@@ -534,6 +600,7 @@ class LuotKhamController extends Controller
             'status' => 'success',
             'data' => [
                 'ma_luot_kham' => $luotKham->ma_luot_kham,
+                'priority_level' => (int)($luotKham->priority_level ?? 4),
                 'is_today' => true,
                 'is_future' => false,
                 'so_ngay_con_lai' => 0,

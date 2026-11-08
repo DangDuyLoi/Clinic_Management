@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import '../../../services/auth_service.dart';
 
 class AppNotification {
   final String id;
@@ -46,19 +47,44 @@ class NotificationController extends GetxController {
 
   int get unreadCount => notifications.where((n) => !n.isRead).length;
 
+  Future<String> _getStorageKey() async {
+    try {
+      final authService = AuthService();
+      final phone = await authService.getUserPhone();
+      if (phone != null && phone.isNotEmpty) {
+        return 'notifications_$phone';
+      }
+    } catch (_) {}
+    return 'notifications_guest';
+  }
+
   Future<void> loadNotifications() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? notificationsJson = prefs.getString('notifications');
+    
+    // Dọn dẹp key cũ không có scope số điện thoại để xóa hoàn toàn rò rỉ dữ liệu
+    if (prefs.containsKey('notifications')) {
+      await prefs.remove('notifications');
+    }
+
+    final key = await _getStorageKey();
+    final String? notificationsJson = prefs.getString(key);
     if (notificationsJson != null) {
       final List<dynamic> decoded = jsonDecode(notificationsJson);
       notifications.value = decoded.map((e) => AppNotification.fromJson(e)).toList();
+    } else {
+      notifications.clear();
     }
   }
 
   Future<void> saveNotifications() async {
     final prefs = await SharedPreferences.getInstance();
+    final key = await _getStorageKey();
     final String encoded = jsonEncode(notifications.map((e) => e.toJson()).toList());
-    await prefs.setString('notifications', encoded);
+    await prefs.setString(key, encoded);
+  }
+
+  void clearNotifications() {
+    notifications.clear();
   }
 
   void addNotification(RemoteMessage message) {

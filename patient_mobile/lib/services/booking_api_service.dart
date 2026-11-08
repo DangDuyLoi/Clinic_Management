@@ -102,19 +102,30 @@ class BookingApiService {
     required int maHoSo,
     required int maBacSi,
     required String thoiGianDenKham, // format: Y-m-d H:i:s
+    int priorityLevel = 4,
+    String? trangThai,
+    num? soTien,
+    String? maTheBhyt,
+    bool isBhyt = false,
   }) async {
-    print("DEBUG: Sending createBooking request with thoiGianDenKham = '$thoiGianDenKham'");
+    final bodyData = <String, dynamic>{
+      'ma_ho_so': maHoSo,
+      'ma_bac_si': maBacSi,
+      'thoi_gian_den_kham': thoiGianDenKham,
+      'priority_level': priorityLevel,
+    };
+    if (trangThai != null) bodyData['trang_thai'] = trangThai;
+    if (soTien != null) bodyData['so_tien'] = soTien;
+    if (maTheBhyt != null && maTheBhyt.isNotEmpty) bodyData['ma_the_bhyt'] = maTheBhyt;
+    if (isBhyt) bodyData['is_bhyt'] = true;
+
     final response = await http.post(
       Uri.parse('$baseUrl/luot-kham/dat-lich'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Accept': 'application/json',
       },
-      body: jsonEncode(<String, dynamic>{
-        'ma_ho_so': maHoSo,
-        'ma_bac_si': maBacSi,
-        'thoi_gian_den_kham': thoiGianDenKham,
-      }),
+      body: jsonEncode(bodyData),
     ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 201) {
@@ -126,6 +137,41 @@ class BookingApiService {
         errorMessage += '\n' + errorData['errors'].toString();
       }
       throw Exception(errorMessage);
+    }
+  }
+
+  /// Tra cứu thẻ BHYT & Giám định phòng chống trục lợi gom thuốc
+  static Future<Map<String, dynamic>> checkBhytFraudWarning({
+    required String maThe,
+    int? maHoSo,
+  }) async {
+    try {
+      String url = '$baseUrl/bhxh/tra-cuu-the?ma_the=${Uri.encodeComponent(maThe)}';
+      if (maHoSo != null) {
+        url += '&ma_ho_so=$maHoSo';
+      }
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (_) {}
+    return {'status': 'unknown', 'is_blacklisted': false};
+  }
+
+  // Hủy giữ chỗ lượt khám (khi chưa thanh toán)
+  static Future<bool> cancelBooking(int maLuotKham) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/luot-kham/$maLuotKham/huy'),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -123,29 +123,48 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        final shouldPop = await showDialog<bool>(
+        final action = await showDialog<String>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Hủy chờ thanh toán?'),
+            title: const Text('Thoát thanh toán?'),
             content: const Text(
-              'Lịch khám đã được tạo. Bạn có thể thanh toán sau trong mục lịch khám hoặc quay lại trang chủ.',
+              'Bạn có muốn hủy giữ chỗ cho khung giờ này không? Nếu hủy, khung giờ sẽ được giải phóng ngay lập tức để người khác hoặc bạn có thể đặt lại.',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(context, 'stay'),
                 child: const Text('Ở lại'),
               ),
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context, true);
-                  Get.offAll(() => const MainScreen());
-                },
-                child: const Text('Về trang chủ'),
+                onPressed: () => Navigator.pop(context, 'keep'),
+                child: const Text('Thanh toán sau'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, 'cancel'),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Hủy giữ chỗ'),
               ),
             ],
           ),
         );
-        return shouldPop ?? false;
+
+        if (action == 'cancel') {
+          final ids = (widget.maLuotKhamParam ?? '')
+              .split('-')
+              .map((e) => int.tryParse(e.trim()))
+              .whereType<int>()
+              .toList();
+          if (ids.isEmpty) ids.add(widget.maLuotKham);
+          for (final id in ids) {
+            await BookingApiService.cancelBooking(id);
+          }
+          Get.offAll(() => const MainScreen());
+          return false;
+        } else if (action == 'keep') {
+          Get.offAll(() => const MainScreen());
+          return false;
+        }
+        return false;
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
@@ -158,7 +177,7 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black87),
-            onPressed: () => Get.offAll(() => const MainScreen()),
+            onPressed: () => Navigator.maybePop(context),
           ),
         ),
         body: SafeArea(

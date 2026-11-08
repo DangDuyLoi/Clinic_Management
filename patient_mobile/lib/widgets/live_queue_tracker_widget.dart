@@ -13,6 +13,8 @@ class LiveQueueTrackerWidget extends StatefulWidget {
   final int maLuotKham;
   final String? initialDoctorName;
   final String? initialRoom;
+  final int? initialPriorityLevel;
+  final String? initialPriorityLabel;
   final bool isCompact;
   final bool autoPoll;
 
@@ -21,6 +23,8 @@ class LiveQueueTrackerWidget extends StatefulWidget {
     required this.maLuotKham,
     this.initialDoctorName,
     this.initialRoom,
+    this.initialPriorityLevel,
+    this.initialPriorityLabel,
     this.isCompact = false,
     this.autoPoll = true,
   });
@@ -47,6 +51,8 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
   bool _isToday = true;
   bool _isFuture = false;
   int _daysLeft = 0;
+  int _priorityLevel = 4;
+  String _priorityLabel = '';
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -56,6 +62,8 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
     super.initState();
     _room = widget.initialRoom ?? _room;
     _doctorName = widget.initialDoctorName ?? _doctorName;
+    _priorityLevel = widget.initialPriorityLevel ?? _priorityLevel;
+    _priorityLabel = widget.initialPriorityLabel ?? _priorityLabel;
 
     _pulseController = AnimationController(
       vsync: this,
@@ -103,6 +111,8 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
         final bool isToday = data['is_today'] ?? true;
         final bool isFuture = data['is_future'] ?? false;
         final int daysLeft = data['so_ngay_con_lai'] ?? 0;
+        final int pLevel = int.tryParse(data['priority_level']?.toString() ?? '4') ?? _priorityLevel;
+        final String pLabel = data['priority_label']?.toString() ?? _priorityLabel;
 
         setState(() {
           _yourNumber = yourNum;
@@ -117,6 +127,8 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
           _isToday = isToday;
           _isFuture = isFuture;
           _daysLeft = daysLeft;
+          _priorityLevel = pLevel;
+          _priorityLabel = pLabel;
           _isLoading = false;
         });
 
@@ -288,6 +300,53 @@ class _LiveQueueTrackerWidgetState extends State<LiveQueueTrackerWidget>
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
+                // Huy hiệu Diện ưu tiên (Badge)
+                if (_priorityLevel < 4 || _priorityLabel.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: _priorityLevel == 2
+                            ? [const Color(0xFFFEF3C7), const Color(0xFFFDE68A)]
+                            : [const Color(0xFFFFEDD5), const Color(0xFFFED7AA)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _priorityLevel == 2 ? const Color(0xFFF59E0B) : const Color(0xFFEA580C),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.stars_rounded,
+                          size: 18,
+                          color: _priorityLevel == 2 ? const Color(0xFFD97706) : const Color(0xFFC2410C),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            _priorityLabel.isNotEmpty
+                                ? _priorityLabel.toUpperCase()
+                                : (_priorityLevel == 2
+                                    ? 'ĐỐI TƯỢNG ƯU TIÊN: TRẺ EM / NGƯỜI CAO TUỔI'
+                                    : 'ĐỐI TƯỢNG ƯU TIÊN: THAI PHỤ / KHUYẾT TẬT'),
+                            style: TextStyle(
+                              color: _priorityLevel == 2 ? const Color(0xFF92400E) : const Color(0xFF9A3412),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11.5,
+                              letterSpacing: 0.4,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // 2 Cột hiển thị số: STT Của bạn & Đang phục vụ
                 Row(
                   children: [

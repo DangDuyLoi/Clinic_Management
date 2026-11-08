@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/address/controllers/address_cascading_controller.dart';
 import '../../core/address/repositories/vietnam_address_repository.dart';
 import '../../core/address/widgets/cascading_address_picker.dart';
+import '../../services/auth_service.dart';
 import '../../services/master_data_service.dart';
 import '../../services/patient_profile_service.dart';
 
 class CreateProfileScreen extends StatefulWidget {
-  const CreateProfileScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? initialProfile;
+  const CreateProfileScreen({Key? key, this.initialProfile}) : super(key: key);
 
   @override
   State<CreateProfileScreen> createState() => _CreateProfileScreenState();
@@ -18,6 +20,8 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   final _profileService = PatientProfileService();
   late final AddressCascadingController _addressController;
   bool _isLoading = false;
+
+  bool get isEditing => widget.initialProfile != null;
 
   // Controllers
   final _hoChuLotController = TextEditingController();
@@ -40,7 +44,55 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   void initState() {
     super.initState();
     _addressController = AddressCascadingController(VietnamAddressRepository());
-    _addressController.initialize();
+    
+    if (isEditing) {
+      final p = widget.initialProfile!;
+      _hoChuLotController.text = p['ho_chu_lot']?.toString() ?? '';
+      _tenController.text = p['ten']?.toString() ?? '';
+      _soDienThoaiController.text = p['so_dien_thoai']?.toString() ?? '';
+      _emailController.text = p['email']?.toString() ?? '';
+      _cccdController.text = p['cccd']?.toString() ?? '';
+      _hoChieuController.text = p['ho_chieu']?.toString() ?? '';
+      _soDinhDanhController.text = p['so_dinh_danh']?.toString() ?? '';
+      _soNhaController.text = p['so_nha']?.toString() ?? '';
+
+      if (p['ngay_sinh'] != null) {
+        _ngaySinh = DateTime.tryParse(p['ngay_sinh'].toString());
+      }
+      if (p['dan_toc'] != null && p['dan_toc'].toString().isNotEmpty) {
+        _danToc = p['dan_toc'].toString();
+      }
+      if (p['gioi_tinh'] != null) {
+        _gioiTinh = int.tryParse(p['gioi_tinh'].toString());
+      }
+      if (p['nghe_nghiep'] != null) {
+        _ngheNghiep = p['nghe_nghiep'].toString();
+      }
+      if (p['quan_he'] != null && p['quan_he'].toString().isNotEmpty) {
+        _quanHe = p['quan_he'].toString();
+      }
+
+      _addressController.initialize(
+        defaultCountry: p['quoc_gia']?.toString() ?? 'Việt Nam',
+        defaultProvince: p['tinh_thanh']?.toString(),
+        defaultDistrict: p['quan_huyen']?.toString(),
+        defaultWard: p['phuong_xa']?.toString(),
+      );
+    } else {
+      _addressController.initialize();
+      _prefillPhone();
+    }
+  }
+
+  Future<void> _prefillPhone() async {
+    try {
+      final phone = await AuthService().getUserPhone();
+      if (phone != null && phone.isNotEmpty && mounted && _soDienThoaiController.text.isEmpty) {
+        setState(() {
+          _soDienThoaiController.text = phone;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -92,18 +144,37 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
           'so_nha': _soNhaController.text.trim(),
         };
 
-        await _profileService.createProfile(data);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Hồ sơ đã được tạo thành công!')),
-          );
-          Navigator.pop(context); // Go back after success
+        if (isEditing) {
+          final profileId = widget.initialProfile!['ma_ho_so'] ?? widget.initialProfile!['id'];
+          await _profileService.updateProfile(profileId, data);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Hồ sơ đã được cập nhật thành công!'),
+                backgroundColor: Color(0xFF0056A6),
+              ),
+            );
+            Navigator.pop(context, true);
+          }
+        } else {
+          await _profileService.createProfile(data);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Hồ sơ đã được tạo thành công!'),
+                backgroundColor: Color(0xFF0056A6),
+              ),
+            );
+            Navigator.pop(context, true);
+          }
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi: ${e.toString()}')),
+            SnackBar(
+              content: Text('Lỗi: ${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: Colors.redAccent,
+            ),
           );
         }
       } finally {
@@ -189,7 +260,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo hồ sơ khám bệnh'),
+        title: Text(isEditing ? 'Chỉnh sửa hồ sơ' : 'Tạo hồ sơ khám bệnh'),
         backgroundColor: const Color(0xFF0056A6),
         foregroundColor: Colors.white,
       ),
@@ -354,9 +425,9 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : const Text(
-                        'TẠO HỒ SƠ KHÁM BỆNH',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    : Text(
+                        isEditing ? 'LƯU THAY ĐỔI' : 'TẠO HỒ SƠ KHÁM BỆNH',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
               ),
               const SizedBox(height: 32),

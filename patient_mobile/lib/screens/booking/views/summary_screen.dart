@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import '../controllers/booking_controller.dart';
 import 'package:intl/intl.dart';
 import '../../../services/vnpay_service.dart';
+import '../../../services/fcm_service.dart';
+import '../../../screens/home/controllers/notification_controller.dart';
 import 'booking_success_screen.dart';
 import 'payment_pending_screen.dart';
 
@@ -85,6 +87,38 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ],
                   ),
                 ),
+
+                // Huy hiệu Diện ưu tiên trên màn hình tóm tắt
+                Obx(() {
+                  if (controller.hasPriority) {
+                    return Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFCD34D)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.stars_rounded, color: Color(0xFFD97706), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              controller.priorityBadgeText,
+                              style: const TextStyle(
+                                color: Color(0xFF92400E),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
                 
                 const SizedBox(height: 24),
                 
@@ -236,13 +270,52 @@ class _SummaryScreenState extends State<SummaryScreen> {
                             // Cost details
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Column(
-                                children: [
-                                  _buildCostRow('Tiền khám', '${NumberFormat('#,###', 'vi_VN').format(item['price'] ?? 150000)}đ', isBoldValue: true, valueColor: const Color(0xFF0056D2)),
-                                  const SizedBox(height: 12),
-                                  _buildCostRow('BHYT', item['hasHealthInsurance'] == true ? (item['healthInsuranceType'] ?? 'Có') : 'Không có BHYT'),
-                                ],
-                              ),
+                              child: Builder(builder: (context) {
+                                final breakdown = controller.itemCostBreakdown;
+                                final itemBreakdown = (index < breakdown.length) ? breakdown[index] : null;
+                                final int itemCost = itemBreakdown?['cost'] ?? ((item['price'] ?? 150000) * (index == 0 ? 1.0 : 0.3)).round();
+                                final bool isCapped = itemBreakdown?['isCapped'] == true;
+                                final String note = itemBreakdown?['capNote'] ?? (index == 0 ? 'Khoa 1 (100% công khám)' : 'Khoa ${index + 1} (30% công khám)');
+
+                                return Column(
+                                  children: [
+                                    _buildCostRow(
+                                      'Tiền khám',
+                                      '${NumberFormat('#,###', 'vi_VN').format(itemCost)}đ',
+                                      isBoldValue: true,
+                                      valueColor: isCapped ? Colors.red.shade700 : const Color(0xFF0056D2),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          isCapped ? Icons.warning_amber_rounded : Icons.info_outline,
+                                          size: 13,
+                                          color: isCapped ? Colors.red.shade700 : Colors.grey.shade600,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            note,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isCapped ? Colors.red.shade700 : Colors.grey.shade600,
+                                              fontWeight: isCapped ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildCostRow(
+                                      'Hình thức',
+                                      controller.isBhyt
+                                          ? 'BHYT (Mã: ${controller.bhytCardNumber.value})'
+                                          : 'Khám Dịch vụ (Giá nội bộ)',
+                                    ),
+                                  ],
+                                );
+                              }),
                             ),
                             
                             const SizedBox(height: 16),
@@ -289,6 +362,37 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
                 return Column(
                   children: [
+                    // Cảnh báo chạm hoặc vượt trần BHYT 2 lần tiền công khám
+                    if (controller.hasExceededBhytCap) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                controller.bhytCapWarningText,
+                                style: const TextStyle(
+                                  color: Color(0xFF92400E),
+                                  fontSize: 11.5,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // Tiền gốc
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -304,8 +408,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'BHYT chi trả (${(controller.insuranceRate * 100).round()}%)',
-                            style: const TextStyle(color: Color(0xFF059669), fontSize: 13),
+                            controller.isSmallInvoice
+                                ? 'BHYT chi trả (100% - Hóa đơn nhỏ)'
+                                : 'BHYT chi trả (${(controller.insuranceRate * 100).round()}%)',
+                            style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                           Text(
                             '- ${formatter.format(discount)}đ',
@@ -359,7 +465,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        // Nếu được miễn đồng chi trả (0đ), xác nhận đặt khám ngay
+                        if (controller.totalBookingCost == 0) {
+                          controller.paymentMethod.value = 'bhyt_free';
+                          var result = await controller.submitBooking();
+                          if (result != null) {
+                            FCMService.showPaymentSuccessNotification(
+                              title: '🎉 Đặt khám BHYT thành công!',
+                              body: 'Đặt khám BHYT thành công (Miễn đồng chi trả 0đ). Mã QR check-in đã sẵn sàng.',
+                            );
+                            Get.offAll(() => BookingSuccessScreen(bookingData: result));
+                          }
+                          return;
+                        }
+
                         // Hiện BottomSheet chọn phương thức thanh toán
                         Get.bottomSheet(
                           Container(
@@ -386,6 +506,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     controller.paymentMethod.value = 'cash';
                                     var result = await controller.submitBooking();
                                     if (result != null) {
+                                      try {
+                                        final notifController = Get.isRegistered<NotificationController>()
+                                            ? Get.find<NotificationController>()
+                                            : Get.put(NotificationController());
+                                        notifController.addNotificationItem(
+                                          title: '📅 Đặt khám thành công!',
+                                          body: 'Lịch khám của bạn đã được ghi nhận. Vui lòng thanh toán tại quầy khi đến khám.',
+                                        );
+                                      } catch (_) {}
                                       Get.snackbar('Thành công', 'Đặt khám thành công. Vui lòng thanh toán tại quầy.', backgroundColor: Colors.green, colorText: Colors.white);
                                       Get.offAll(() => BookingSuccessScreen(bookingData: result));
                                     }

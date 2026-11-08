@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import '../../services/auth_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'register_phone_screen.dart';
@@ -56,6 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
             actions: [
               TextButton(
                 onPressed: () {
+                  // Xóa sạch controller cũ trong bộ nhớ để khởi tạo đúng tài khoản mới
+                  Get.deleteAll(force: true);
                   // Navigate to Main screen and remove auth screens
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const MainScreen()),

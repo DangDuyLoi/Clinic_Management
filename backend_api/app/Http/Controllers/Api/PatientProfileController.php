@@ -56,6 +56,70 @@ class PatientProfileController extends Controller
     }
 
     /**
+     * Update an existing patient profile.
+     */
+    public function update(PatientProfileRequest $request, $id)
+    {
+        $hoSo = HoSoBenhAn::find($id);
+        if (!$hoSo) {
+            return response()->json(['message' => 'Không tìm thấy hồ sơ'], 404);
+        }
+
+        $data = $request->validated();
+        $hoSo->update($data);
+
+        // Cập nhật thông tin bệnh nhân liên kết nếu có
+        if ($hoSo->ma_benh_nhan) {
+            $benhNhan = BenhNhan::find($hoSo->ma_benh_nhan);
+            if ($benhNhan) {
+                $diaChi = $data['so_nha'] . ', ' . $data['phuong_xa'];
+                if (!empty($data['quan_huyen'])) {
+                    $diaChi .= ', ' . $data['quan_huyen'];
+                }
+                $diaChi .= ', ' . $data['tinh_thanh'];
+
+                $benhNhan->update([
+                    'ho_ten' => $data['ho_chu_lot'] . ' ' . $data['ten'],
+                    'ngay_sinh' => $data['ngay_sinh'],
+                    'gioi_tinh' => $data['gioi_tinh'],
+                    'dia_chi' => $diaChi,
+                    'so_dien_thoai' => $data['so_dien_thoai'],
+                ]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Cập nhật hồ sơ thành công.',
+            'data' => $hoSo->fresh()->load('benhNhan')
+        ], 200);
+    }
+
+    /**
+     * Delete a patient profile.
+     */
+    public function destroy($id)
+    {
+        $hoSo = HoSoBenhAn::find($id);
+        if (!$hoSo) {
+            return response()->json(['message' => 'Không tìm thấy hồ sơ'], 404);
+        }
+
+        // Kiểm tra xem hồ sơ này đã có lượt khám y tế hay chưa
+        $soLuotKham = \App\Models\LuotKham::where('ma_ho_so', $id)->count();
+        if ($soLuotKham > 0) {
+            return response()->json([
+                'message' => 'Hồ sơ này đã có dữ liệu khám chữa bệnh tại phòng khám nên không thể xóa để đảm bảo toàn vẹn bệnh án.',
+            ], 422);
+        }
+
+        $hoSo->delete();
+
+        return response()->json([
+            'message' => 'Đã xóa hồ sơ thành công.'
+        ], 200);
+    }
+
+    /**
      * Find a profile by code (ma_ho_so or ma_benh_nhan).
      */
     public function findByCode(Request $request)
@@ -108,6 +172,29 @@ class PatientProfileController extends Controller
         }
 
         return response()->json(['data' => $hoSo], 200);
+    }
+
+    /**
+     * Lấy danh sách tất cả hồ sơ theo số điện thoại người dùng
+     */
+    public function getByPhone(Request $request)
+    {
+        $phone = $request->input('phone');
+        if (empty($phone)) {
+            return response()->json(['message' => 'Vui lòng cung cấp số điện thoại', 'data' => []], 400);
+        }
+
+        $phone0 = str_starts_with($phone, '+84') ? '0' . substr($phone, 3) : $phone;
+        $phone84 = str_starts_with($phone, '0') ? '+84' . substr($phone, 1) : $phone;
+
+        $profiles = HoSoBenhAn::with('benhNhan')
+            ->whereIn('so_dien_thoai', [$phone, $phone0, $phone84])
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $profiles
+        ], 200);
     }
 
     /**
