@@ -1,6 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:get/get.dart';
 import '../core/constants/api_constants.dart';
+import 'patient_profile_service.dart';
+import '../screens/home/controllers/notification_controller.dart';
+import '../screens/payment/controllers/payment_tab_controller.dart';
+import '../screens/booking/controllers/booking_controller.dart';
 
 class AuthService {
   final Dio _dio = Dio(BaseOptions(
@@ -72,6 +77,14 @@ class AuthService {
         await _storage.write(key: tokenKey, value: token);
       }
       await _storage.write(key: 'user_phone', value: phoneNumber);
+      
+      // Đồng bộ nạp lại đúng danh sách hồ sơ của tài khoản vừa đăng nhập
+      await PatientProfileService.loadProfiles();
+
+      // Nạp thông báo riêng của tài khoản này
+      if (Get.isRegistered<NotificationController>()) {
+        await Get.find<NotificationController>().loadNotifications();
+      }
     } on DioException catch (e) {
       if (e.response == null) {
         throw Exception('Không thể kết nối đến máy chủ. Vui lòng kiểm tra Server Backend.');
@@ -94,6 +107,19 @@ class AuthService {
   Future<void> logout() async {
     await _storage.delete(key: tokenKey);
     await _storage.delete(key: 'user_phone');
+    // Xóa sạch bộ nhớ đệm hồ sơ để không rò rỉ sang tài khoản khác
+    await PatientProfileService.clearCache();
+    // Xóa danh sách thông báo trên UI Controller
+    if (Get.isRegistered<NotificationController>()) {
+      Get.find<NotificationController>().clearNotifications();
+    }
+    // Xóa sạch bộ nhớ thanh toán viện phí để không kẹt ở tài khoản khác
+    if (Get.isRegistered<PaymentTabController>()) {
+      Get.delete<PaymentTabController>(force: true);
+    }
+    if (Get.isRegistered<BookingController>()) {
+      Get.delete<BookingController>(force: true);
+    }
   }
 
   Future<String?> getToken() async {

@@ -251,6 +251,9 @@ class PaymentController extends Controller
 
             if (!empty($maHoSoList)) {
                 $queryLK->whereIn('luot_kham.ma_ho_so', $maHoSoList);
+            } else {
+                // Người dùng chưa có hồ sơ hoặc sđt không khớp: không được trả về lượt khám của người khác
+                $queryLK->whereRaw('1 = 0');
             }
 
             $allVisits = $queryLK->orderBy('luot_kham.ma_luot_kham', 'desc')->get();
@@ -303,11 +306,23 @@ class PaymentController extends Controller
                 }
             }
 
-            // 2. LẤY THÊM TỪ BẢNG hoadon (Viện phí tại bệnh viện nếu có)
+            // 2. LẤY THÊM TỪ BẢNG hoadon (Viện phí tại bệnh viện nếu có) - BẮT BUỘC LỌC THEO HỒ SƠ CỦA BỆNH NHÂN HIỆN TẠI
             $queryHD = DB::table('hoadon')
                 ->leftJoin('phienkham', 'hoadon.ma_phien_kham', '=', 'phienkham.ma_phien_kham')
-                ->select('hoadon.*', 'phienkham.chan_doan_cuoi_cung')
+                ->leftJoin('luot_kham', 'phienkham.ma_lich_dat', '=', 'luot_kham.ma_luot_kham')
+                ->leftJoin('ho_so_benh_an', 'luot_kham.ma_ho_so', '=', 'ho_so_benh_an.ma_ho_so')
+                ->select(
+                    'hoadon.*',
+                    'phienkham.chan_doan_cuoi_cung',
+                    DB::raw("TRIM(CONCAT(COALESCE(ho_so_benh_an.ho_chu_lot, ''), ' ', COALESCE(ho_so_benh_an.ten, ''))) as ten_benh_nhan")
+                )
                 ->orderBy('hoadon.ma_hoa_don', 'desc');
+
+            if (!empty($maHoSoList)) {
+                $queryHD->whereIn('luot_kham.ma_ho_so', $maHoSoList);
+            } else {
+                $queryHD->whereRaw('1 = 0');
+            }
 
             $hospitalInvoices = $queryHD->limit(10)->get();
             foreach ($hospitalInvoices as $hd) {

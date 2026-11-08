@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
 import 'personal_info_screen.dart';
 import 'change_password_screen.dart';
+import 'profile_empty_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({Key? key}) : super(key: key);
@@ -32,7 +33,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _loadUserHeader() async {
     try {
-      final phone = await _authService.getUserPhone() ?? '0374244315';
+      final phone = await _authService.getUserPhone();
+      if (phone == null || phone.isEmpty) {
+        setState(() {
+          _userPhone = '';
+          _userName = 'NGƯỜI DÙNG';
+        });
+        return;
+      }
       final masked = phone.length >= 7
           ? '${phone.substring(0, 3)}****${phone.substring(phone.length - 3)}'
           : phone;
@@ -107,6 +115,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         'Thông tin cá nhân',
                         onTap: () async {
                           await Get.to(() => const PersonalInfoScreen());
+                          _loadUserHeader();
+                        },
+                      ),
+                      const Divider(height: 1, indent: 48, endIndent: 16),
+                      _buildMenuItem(
+                        Icons.badge_outlined,
+                        'Hồ sơ người bệnh',
+                        onTap: () async {
+                          await Get.to(() => const ProfileEmptyScreen());
                           _loadUserHeader();
                         },
                       ),
@@ -334,6 +351,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: () async {
         await _authService.logout();
+        Get.deleteAll(force: true);
         Get.offAll(() => const LoginScreen());
       },
     );

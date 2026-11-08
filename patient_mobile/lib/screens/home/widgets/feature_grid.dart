@@ -20,7 +20,7 @@ class FeatureGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final features = [
       {'icon': Icons.calendar_month, 'label': 'Đặt khám', 'onTap': onBookAppointment},
-      {'icon': Icons.person_add_alt_1, 'label': 'Tạo hồ sơ', 'onTap': onProfile ?? () {}},
+      {'icon': Icons.badge_outlined, 'label': 'Hồ sơ BN', 'onTap': onProfile ?? () {}},
       {'icon': Icons.folder_shared, 'label': 'HS Sức khoẻ', 'onTap': onEmr},
       {
         'icon': Icons.payment,

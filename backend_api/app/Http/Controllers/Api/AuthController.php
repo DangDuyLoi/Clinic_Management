@@ -252,7 +252,10 @@ class AuthController extends Controller
             $user = $request->user();
             if ($user) $rawPhone = $user->phone_number;
         }
-        $rawPhone = $rawPhone ?? '0374244315';
+        if (!$rawPhone) {
+            return response()->json(['message' => 'Vui lòng cung cấp số điện thoại'], 400);
+        }
+
         $phone0 = str_starts_with($rawPhone, '+84') ? '0' . substr($rawPhone, 3) : $rawPhone;
         $phone84 = str_starts_with($rawPhone, '0') ? '+84' . substr($rawPhone, 1) : $rawPhone;
 
@@ -261,15 +264,17 @@ class AuthController extends Controller
         $bnClinic = \Illuminate\Support\Facades\DB::table('benhnhan')->whereIn('so_dien_thoai', [$rawPhone, $phone0, $phone84])->first();
         $hoso = \Illuminate\Support\Facades\DB::table('ho_so_benh_an')->whereIn('so_dien_thoai', [$rawPhone, $phone0, $phone84])->first();
 
+        $defaultName = ($user && !empty($user->name)) ? $user->name : 'Người dùng';
+
         return response()->json([
             'status' => 'success',
             'data' => [
-                'name' => $bnClinic->ho_ten ?? ($bn->ho_ten ?? ($hoso ? ($hoso->ho_chu_lot . ' ' . $hoso->ten) : ($user->name ?? 'Đặng Duy Lợi'))),
+                'name' => $bnClinic->ho_ten ?? ($bn->ho_ten ?? ($hoso ? ($hoso->ho_chu_lot . ' ' . $hoso->ten) : $defaultName)),
                 'phone' => $phone0,
                 'email' => $bnClinic->email ?? ($user->email ?? ''),
-                'dob' => $bnClinic->ngay_sinh ?? ($bn->ngay_sinh ?? ($hoso->ngay_sinh ?? '2000-01-01')),
-                'gender' => $bnClinic->gioi_tinh ?? (($bn && $bn->gioi_tinh == 1) ? 'Nam' : 'Nữ'),
-                'address' => $bnClinic->dia_chi ?? ($bn->dia_chi ?? ($hoso->tinh_thanh ?? 'TP. Hồ Chí Minh')),
+                'dob' => $bnClinic->ngay_sinh ?? ($bn->ngay_sinh ?? ($hoso->ngay_sinh ?? '')),
+                'gender' => $bnClinic->gioi_tinh ?? (($bn && $bn->gioi_tinh == 1) ? 'Nam' : ($bn ? 'Nữ' : 'Chưa cập nhật')),
+                'address' => $bnClinic->dia_chi ?? ($bn->dia_chi ?? ($hoso->tinh_thanh ?? '')),
                 'cccd' => $bnClinic->cccd ?? ($hoso->cccd ?? ''),
             ]
         ]);

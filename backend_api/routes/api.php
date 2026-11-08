@@ -13,6 +13,7 @@ use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\PaymentController; // Thêm dòng này để gọi PaymentController
 use App\Http\Controllers\BacSiController;
 use App\Http\Controllers\EmrController;
+use App\Http\Controllers\MockBhxhController;
 
 // Phân hệ Hồ sơ bệnh án & Cận lâm sàng (EMR từ MySQL)
 Route::prefix('emr')->group(function () {
@@ -52,6 +53,7 @@ Route::post('/update-user-info', [AuthController::class, 'updateUserInfo']);
 Route::match(['put', 'post', 'get'], 'luot-kham/{id}/tiep-nhan', [LuotKhamController::class, 'tiepNhan']); // Lễ tân (hỗ trợ PUT, POST, GET để scan QR dễ dàng)
 Route::put('luot-kham/{id}/ket-qua', [LuotKhamController::class, 'capNhatKetQua']); // Bác sĩ
 Route::post('luot-kham/dat-lich', [LuotKhamController::class, 'datLich']); // Bệnh nhân đặt lịch
+Route::post('luot-kham/{id}/huy', [LuotKhamController::class, 'huyLuotKham']); // Hủy giữ chỗ lượt khám
 Route::get('luot-kham/gio-trong', [LuotKhamController::class, 'layGioTrong']); // API lấy giờ trống của Bác sĩ
 Route::post('luot-kham/danh-sach', [LuotKhamController::class, 'danhSachTheoHoSo']); // Lấy danh sách khám theo hồ sơ
 Route::get('luot-kham/{id}/check-status', [LuotKhamController::class, 'checkStatus']); // Kiểm tra trạng thái lượt khám & thanh toán
@@ -62,8 +64,11 @@ Route::post('luot-kham/{id}/thong-bao-sap-den-luot', [LuotKhamController::class,
 Route::prefix('patient-profiles')->group(function () {
     Route::get('/metadata', [PatientProfileController::class, 'getMetadata']);
     Route::post('/', [PatientProfileController::class, 'store']);
+    Route::put('/{id}', [PatientProfileController::class, 'update']);
+    Route::delete('/{id}', [PatientProfileController::class, 'destroy']);
     Route::get('/search-by-code', [PatientProfileController::class, 'findByCode']);
     Route::get('/search-by-info', [PatientProfileController::class, 'findByInfo']);
+    Route::get('/by-phone', [PatientProfileController::class, 'getByPhone']);
 });
 
 // Phân hệ Thanh toán VNPay (Cho ứng dụng di động)
@@ -79,3 +84,7 @@ Route::get('/thanh-toan/vnpay-return', [PaymentController::class, 'vnpayReturn']
 // Phân hệ Thanh toán MoMo
 Route::get('/thanh-toan/momo/{id}', [PaymentController::class, 'taoLinkMoMo']);
 Route::post('/thanh-toan/momo-notify', [PaymentController::class, 'momoNotify']); // MoMo dùng POST cho Webhook
+
+// Giả lập Cổng BHXH - Tra cứu thẻ BHYT & Giám định phòng chống trục lợi BHYT
+Route::match(['get', 'post'], '/bhxh/tra-cuu-the', [MockBhxhController::class, 'traCuuThe']);
+Route::post('/bhxh/kiem-tra-giam-dinh', [MockBhxhController::class, 'kiemTraGiamDinh']);

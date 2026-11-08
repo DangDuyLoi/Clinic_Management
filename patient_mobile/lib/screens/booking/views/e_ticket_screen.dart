@@ -21,11 +21,15 @@ class _ETicketScreenState extends State<ETicketScreen> {
   late bool _isPaid;
   late String _maLuotKham;
   late String _qrData;
+  int _priorityLevel = 4;
+  String _priorityLabel = '';
 
   @override
   void initState() {
     super.initState();
     _maLuotKham = widget.appointmentData['ma_luot_kham']?.toString() ?? '';
+    _priorityLevel = int.tryParse(widget.appointmentData['priority_level']?.toString() ?? '4') ?? 4;
+    _priorityLabel = widget.appointmentData['priority_label']?.toString() ?? '';
     _qrData = _maLuotKham.isNotEmpty
         ? '${ApiConstants.baseUrl}/luot-kham/$_maLuotKham/tiep-nhan'
         : 'TICKET_${DateTime.now().millisecondsSinceEpoch}';
@@ -54,10 +58,12 @@ class _ETicketScreenState extends State<ETicketScreen> {
             ['da_thanh_toan', 'cho_kham', 'dang_kham', 'hoan_thanh'].contains(data['trang_thai']);
         final bool isCheckedInServer = data['is_checked_in'] == true ||
             ['cho_kham', 'dang_kham', 'hoan_thanh'].contains(data['trang_thai']);
+        final int priorityServer = int.tryParse(data['priority_level']?.toString() ?? '4') ?? _priorityLevel;
 
         setState(() {
           _isPaid = isPaidServer;
           _isCheckedIn = isCheckedInServer;
+          _priorityLevel = priorityServer;
         });
 
         if (_isPaid && !_isCheckedIn && _pollTimer == null) {
@@ -147,6 +153,50 @@ class _ETicketScreenState extends State<ETicketScreen> {
                     _isCheckedIn ? 'Phiếu khám đã tiếp nhận' : 'Phiếu check-in điện tử',
                     style: const TextStyle(fontSize: 16, color: Colors.black54),
                   ),
+
+                  // Huy hiệu Ưu tiên (Badge)
+                  if (_priorityLevel < 4 || _priorityLabel.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _priorityLevel == 2
+                              ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                              : [const Color(0xFFEA580C), const Color(0xFFC2410C)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.stars_rounded, color: Colors.white, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            _priorityLabel.isNotEmpty
+                                ? _priorityLabel
+                                : (_priorityLevel == 2 ? 'Ưu tiên: Trẻ em / Người cao tuổi' : 'Ưu tiên: Thai phụ / Khuyết tật'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const Divider(height: 32, thickness: 1, color: Color(0xFFEEEEEE)),
                   
                   // QR Code (Chỉ hiển thị khi đã thanh toán)
@@ -262,6 +312,8 @@ class _ETicketScreenState extends State<ETicketScreen> {
                 maLuotKham: int.parse(_maLuotKham),
                 initialDoctorName: doctor,
                 initialRoom: room,
+                initialPriorityLevel: _priorityLevel,
+                initialPriorityLabel: _priorityLabel,
                 autoPoll: true,
               ),
             ],

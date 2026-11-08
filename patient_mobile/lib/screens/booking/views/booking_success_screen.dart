@@ -22,6 +22,8 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
   bool _isCheckedIn = false;
   late String _maLuotKham;
   late String _qrUrl;
+  List<int> _allIds = [];
+  int _selectedIdIndex = 0;
 
   @override
   void initState() {
@@ -35,6 +37,17 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
       _maLuotKham = widget.bookingData['id'].toString();
     } else {
       _maLuotKham = '1';
+    }
+
+    final rawList = widget.bookingData['danh_sach_ma_luot_kham'];
+    if (rawList is List && rawList.isNotEmpty) {
+      _allIds = rawList.map((e) => int.tryParse(e.toString())).whereType<int>().toList();
+    }
+    if (_allIds.isEmpty) {
+      final single = int.tryParse(_maLuotKham);
+      if (single != null) _allIds.add(single);
+    } else {
+      _maLuotKham = _allIds.first.toString();
     }
 
     _qrUrl = '${ApiConstants.baseUrl}/luot-kham/$_maLuotKham/tiep-nhan';
@@ -172,7 +185,109 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
                 style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
               ),
 
-              const SizedBox(height: 24),
+              // Huy hiệu Diện ưu tiên (Badge)
+              Builder(builder: (context) {
+                final int? pLevel = widget.bookingData['priority_level'] != null
+                    ? int.tryParse(widget.bookingData['priority_level'].toString())
+                    : null;
+                final String? pLabel = widget.bookingData['priority_label']?.toString();
+                if ((pLevel != null && pLevel < 4) || (pLabel != null && pLabel.isNotEmpty)) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: pLevel == 2
+                              ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                              : [const Color(0xFFEA580C), const Color(0xFFC2410C)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.stars_rounded, color: Colors.white, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            (pLabel != null && pLabel.isNotEmpty)
+                                ? pLabel
+                                : (pLevel == 2 ? 'Ưu tiên: Trẻ em / Người cao tuổi' : 'Ưu tiên: Thai phụ / Khuyết tật'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
+
+              // Chọn chuyên khoa nếu đặt nhiều chuyên khoa trong 1 lần
+              if (_allIds.length > 1) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Danh sách chuyên khoa đã đặt thành công:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(_allIds.length, (idx) {
+                      final id = _allIds[idx];
+                      final isSelected = idx == _selectedIdIndex;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text('Khoa ${idx + 1} (#$id)'),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFF0056D2),
+                          backgroundColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSelected ? const Color(0xFF0056D2) : Colors.grey.shade300,
+                            ),
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() {
+                                _selectedIdIndex = idx;
+                                _maLuotKham = id.toString();
+                                _qrUrl = '${ApiConstants.baseUrl}/luot-kham/$_maLuotKham/tiep-nhan';
+                                _isCheckedIn = false;
+                              });
+                              _pollTimer?.cancel();
+                              _startPollingCheckIn();
+                            }
+                          },
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 20),
 
               // Thẻ hiển thị QR Code hoặc Huy hiệu Check-in thành công
               Container(
@@ -298,6 +413,10 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
                 const SizedBox(height: 20),
                 LiveQueueTrackerWidget(
                   maLuotKham: int.parse(_maLuotKham),
+                  initialPriorityLevel: widget.bookingData['priority_level'] != null
+                      ? int.tryParse(widget.bookingData['priority_level'].toString())
+                      : null,
+                  initialPriorityLabel: widget.bookingData['priority_label']?.toString(),
                   autoPoll: true,
                 ),
               ],

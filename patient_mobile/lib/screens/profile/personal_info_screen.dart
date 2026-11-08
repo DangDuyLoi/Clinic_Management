@@ -45,7 +45,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
-      final phone = await _authService.getUserPhone() ?? '0374244315';
+      final phone = await _authService.getUserPhone() ?? '';
+      if (phone.isEmpty) return;
       final url = Uri.parse('${ApiConstants.baseUrl}/user-info?phone=$phone');
       final res = await http.get(url, headers: {'Accept': 'application/json'});
 
@@ -78,7 +79,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final phone = await _authService.getUserPhone() ?? '0374244315';
+      final phone = await _authService.getUserPhone() ?? '';
+      if (phone.isEmpty) {
+        setState(() => _isSaving = false);
+        return;
+      }
       final url = Uri.parse('${ApiConstants.baseUrl}/update-user-info');
       final res = await http.post(
         url,

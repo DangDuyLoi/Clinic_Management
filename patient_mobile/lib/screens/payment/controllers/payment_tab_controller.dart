@@ -35,8 +35,13 @@ class PaymentTabController extends GetxController {
       isLoading.value = true;
 
       final authService = AuthService();
-      String phone = await authService.getUserPhone() ?? '0374244315';
-      if (phone.trim().isEmpty) phone = '0374244315';
+      String? phone = await authService.getUserPhone();
+      if (phone == null || phone.trim().isEmpty) {
+        pendingBills.clear();
+        paymentHistory.clear();
+        isLoading.value = false;
+        return;
+      }
 
       final url = Uri.parse('${ApiConstants.baseUrl}/payment/bills?phone=$phone');
       final response = await http.get(
@@ -59,11 +64,20 @@ class PaymentTabController extends GetxController {
           return;
         }
       }
+      pendingBills.clear();
+      paymentHistory.clear();
     } catch (e) {
       debugPrint('Lỗi tải dữ liệu thanh toán: $e');
+      pendingBills.clear();
+      paymentHistory.clear();
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void clearData() {
+    pendingBills.clear();
+    paymentHistory.clear();
   }
 
   // ================= 3. PAYMENT LOGIC =================

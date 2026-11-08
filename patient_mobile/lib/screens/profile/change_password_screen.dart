@@ -69,7 +69,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final phone = await _authService.getUserPhone() ?? '0374244315';
+      final phone = await _authService.getUserPhone() ?? '';
+      if (phone.isEmpty) {
+        throw Exception('Vui lòng đăng nhập lại để đổi mật khẩu');
+      }
       final url = Uri.parse('${ApiConstants.baseUrl}/change-password');
       final res = await http.post(
         url,

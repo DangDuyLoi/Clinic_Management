@@ -10,7 +10,10 @@ class EmrService {
   /// Lấy lịch sử khám bệnh từ MySQL EMR
   Future<List<Map<String, dynamic>>> fetchVisitHistory() async {
     try {
-      final phone = await _authService.getUserPhone() ?? '0374244315';
+      final phone = await _authService.getUserPhone();
+      if (phone == null || phone.isEmpty) {
+        return [];
+      }
       final url = Uri.parse('$baseUrl/emr/lich-su-kham?phone=$phone');
       
       final response = await http.get(
@@ -54,7 +57,10 @@ class EmrService {
   /// Lấy kết quả cận lâm sàng (xét nghiệm, CĐHA, nội soi) từ MySQL EMR
   Future<List<Map<String, dynamic>>> fetchTestResults() async {
     try {
-      final phone = await _authService.getUserPhone() ?? '0374244315';
+      final phone = await _authService.getUserPhone();
+      if (phone == null || phone.isEmpty) {
+        return [];
+      }
       final url = Uri.parse('$baseUrl/emr/ket-qua-cls?phone=$phone');
 
       final response = await http.get(

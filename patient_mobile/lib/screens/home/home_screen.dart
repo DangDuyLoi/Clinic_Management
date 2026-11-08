@@ -45,7 +45,7 @@ class HomeScreen extends StatelessWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
-                  const CustomHeader(patientName: 'Đặng Duy Lợi'),
+                  Obx(() => CustomHeader(patientName: homeController.patientName.value)),
 
                   // The Scrollable White Box
                   Container(
@@ -141,14 +141,15 @@ class HomeScreen extends StatelessWidget {
                               ),
                             );
                           },
-                          onProfile: () {
-                            Navigator.push(
+                          onProfile: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const ProfileEmptyScreen(),
                               ),
                             );
+                            homeController.fetchUpcomingAppointment();
                           },
                         ),
                       ],

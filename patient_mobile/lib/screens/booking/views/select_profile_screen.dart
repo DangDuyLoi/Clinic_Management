@@ -5,10 +5,45 @@ import '../../profile/create_profile_screen.dart';
 import '../../../services/patient_profile_service.dart';
 import '../../main/main_screen.dart';
 
-class SelectProfileScreen extends StatelessWidget {
+class SelectProfileScreen extends StatefulWidget {
+  const SelectProfileScreen({super.key});
+
+  @override
+  State<SelectProfileScreen> createState() => _SelectProfileScreenState();
+}
+
+class _SelectProfileScreenState extends State<SelectProfileScreen> {
   final BookingController controller = Get.put(BookingController());
 
-  SelectProfileScreen({super.key});
+  @override
+  void initState() {
+    super.initState();
+    PatientProfileService.loadProfiles().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _addNewProfile() async {
+    final res = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CreateProfileScreen()),
+    );
+    if (res == true) {
+      await PatientProfileService.loadProfiles();
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _editProfile(Map<String, dynamic> profile) async {
+    final res = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => CreateProfileScreen(initialProfile: profile)),
+    );
+    if (res == true) {
+      await PatientProfileService.loadProfiles();
+      if (mounted) setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,10 +78,7 @@ class SelectProfileScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    // Chuyển sang màn hình tạo hồ sơ mới
-                    Get.to(() => const CreateProfileScreen());
-                  },
+                  onPressed: _addNewProfile,
                   icon: const Icon(Icons.person_add_alt_1),
                   label: const Text('Thêm mới hồ sơ'),
                   style: ElevatedButton.styleFrom(
@@ -130,6 +162,11 @@ class SelectProfileScreen extends StatelessWidget {
                                   '${profile['ho_chu_lot']?.toString() ?? ''} ${profile['ten']?.toString() ?? ''}'.trim().toUpperCase(),
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
                                 ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                                tooltip: 'Chỉnh sửa hồ sơ',
+                                onPressed: () => _editProfile(profile),
                               ),
                               const Icon(Icons.chevron_right, color: Colors.grey),
                             ],
