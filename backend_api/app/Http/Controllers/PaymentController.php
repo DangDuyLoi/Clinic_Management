@@ -242,6 +242,7 @@ class PaymentController extends Controller
                     'luot_kham.trang_thai',
                     'luot_kham.created_at',
                     'luot_kham.updated_at',
+                    DB::raw('COALESCE(luot_kham.so_tien, chuyenkhoa.gia_kham, 150000) as so_tien'),
                     DB::raw("TRIM(CONCAT(COALESCE(ho_so_benh_an.ho_chu_lot, ''), ' ', COALESCE(ho_so_benh_an.ten, ''))) as ten_benh_nhan"),
                     'ho_so_benh_an.so_dien_thoai',
                     DB::raw("COALESCE(BacSi.ho_ten, users.name, 'Bác sĩ chuyên khoa') as ten_bac_si"),
@@ -265,6 +266,7 @@ class PaymentController extends Controller
                 $dateFormatted = date('d/m/Y', strtotime($v->thoi_gian_den_kham));
                 $timeFormatted = date('H:i', strtotime($v->thoi_gian_den_kham));
                 $updatedFormatted = date('H:i - d/m/Y', strtotime($v->updated_at ?? $v->created_at));
+                $amount = (int) round((float) $v->so_tien);
 
                 // Phiếu chờ thanh toán
                 if ($v->trang_thai === 'cho_thanh_toan') {
@@ -275,13 +277,13 @@ class PaymentController extends Controller
                         'chuyen_khoa' => $v->ten_chuyen_khoa,
                         'bac_si' => $v->ten_bac_si,
                         'ten_benh_nhan' => $v->ten_benh_nhan,
-                        'tien_kham' => 150000,
+                        'tien_kham' => $amount,
                         'tien_dich_vu' => 0,
                         'tien_thuoc' => 0,
-                        'tong_tien' => 150000,
+                        'tong_tien' => $amount,
                         'trang_thai' => 'Chờ thanh toán',
                         'chi_tiet_dich_vu' => [
-                            ['ten' => 'Khám chuyên khoa ' . $v->ten_chuyen_khoa, 'gia' => 150000]
+                            ['ten' => 'Khám chuyên khoa ' . $v->ten_chuyen_khoa, 'gia' => $amount]
                         ],
                         'chi_tiet_thuoc' => []
                     ];
@@ -296,10 +298,10 @@ class PaymentController extends Controller
                         'chuyen_khoa' => $v->ten_chuyen_khoa,
                         'bac_si' => $v->ten_bac_si,
                         'ten_benh_nhan' => $v->ten_benh_nhan,
-                        'tien_kham' => 150000,
+                        'tien_kham' => $amount,
                         'tien_dich_vu' => 0,
                         'tien_thuoc' => 0,
-                        'tong_tien' => 150000,
+                        'tong_tien' => $amount,
                         'phuong_thuc' => 'VNPay Gateway',
                         'trang_thai' => 'Thành công'
                     ];

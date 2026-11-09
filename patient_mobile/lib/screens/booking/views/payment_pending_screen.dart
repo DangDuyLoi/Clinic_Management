@@ -6,6 +6,7 @@ import '../../../services/vnpay_service.dart';
 import '../../../services/fcm_service.dart';
 import '../../main/main_screen.dart';
 import 'booking_success_screen.dart';
+import '../controllers/booking_controller.dart';
 
 class PaymentPendingScreen extends StatefulWidget {
   final int maLuotKham;
@@ -321,7 +322,12 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                 const SizedBox(height: 16),
                 
                 TextButton(
-                  onPressed: () => Get.offAll(() => const MainScreen()),
+                  onPressed: () {
+                    if (Get.isRegistered<BookingController>()) {
+                      Get.find<BookingController>().resetBookingSession();
+                    }
+                    Get.offAll(() => const MainScreen());
+                  },
                   child: const Text(
                     'Để sau, quay về trang chủ',
                     style: TextStyle(color: Color(0xFF64748B), fontSize: 14),

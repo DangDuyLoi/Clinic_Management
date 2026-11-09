@@ -6,5 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 class LuotKham extends Model {
     protected $table = 'luot_kham';
     protected $primaryKey = 'ma_luot_kham';
-    protected $fillable = ['ma_ho_so', 'ma_bac_si', 'so_thu_tu', 'priority_level', 'thoi_gian_den_kham', 'trang_thai', 'chan_doan'];
+    protected $fillable = [
+        'ma_ho_so',
+        'ma_bac_si',
+        'so_thu_tu',
+        'priority_level',
+        'thoi_gian_den_kham',
+        'trang_thai',
+        'is_bhyt',
+        'ma_the_bhyt',
+        'so_tien',
+        'chan_doan'
+    ];
+
+    protected $casts = [
+        'is_bhyt' => 'boolean',
+    ];
 }

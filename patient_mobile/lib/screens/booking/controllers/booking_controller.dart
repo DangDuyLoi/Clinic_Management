@@ -35,7 +35,10 @@ class BookingController extends GetxController {
   /// Giá khám nhà nước theo quy định BYT (Thông tư 22/2023 & 39/2024 TT-BYT)
   static const int GIA_KHAM_NHA_NUOC = 42100;
 
-  /// Giới hạn tối đa tiền công khám BHYT thanh toán trong 1 ngày (tuyệt đối không vượt quá 2 lần mức giá 1 chuyên khoa)
+  /// Giới hạn số lượng chuyên khoa BHYT tối đa trên 1 ngày khám
+  static const int MAX_BHYT_PER_DATE = 2;
+
+  /// Giới hạn tối đa tiền công khám BHYT thanh toán trong 1 ngày (tương thích ngược)
   static const int MAX_BHYT_DAILY_CAP = 2 * GIA_KHAM_NHA_NUOC; // 84.200đ
 
   /// Ngưỡng hóa đơn nhỏ: Nếu tổng chi phí < 379.500đ (15% lương cơ sở) → Miễn đồng chi trả (BHYT trả 100%)
@@ -57,21 +60,21 @@ class BookingController extends GetxController {
   // ================= STATE (BookingState) =================
   final selectedProfile = Rxn<Map<String, dynamic>>();
   final bookingMethod = Rxn<BookingMethod>();
-  
+
   // Dữ liệu đặt khám hiện tại (tạm thời)
   final selectedSpecialty = Rxn<Map<String, dynamic>>();
   final selectedDoctor = Rxn<Map<String, dynamic>>();
   final selectedDate = Rxn<DateTime>();
   final selectedTimeSlot = Rxn<Map<String, dynamic>>();
-  
+
   // Danh sách các chuyên khoa đã thêm (Giỏ đặt khám đa chuyên khoa)
   final bookedItems = <Map<String, dynamic>>[].obs;
-  
+
   final availableTimeSlots = <String>[].obs;
   final isLoadingSlots = false.obs;
-  
+
   var isLoading = false.obs;
-  
+
   // ================= GIAI ĐOẠN 3: KHAI BÁO ƯU TIÊN THÔNG MINH =================
   /// Checkbox tự khai báo cho Thai phụ (nếu là Nữ 16-50 tuổi)
   final isPregnant = false.obs;
@@ -93,14 +96,19 @@ class BookingController extends GetxController {
       } else if (dobStr.contains('/')) {
         final parts = dobStr.split('/');
         if (parts.length == 3) {
-          dob = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+          dob = DateTime(
+            int.parse(parts[2]),
+            int.parse(parts[1]),
+            int.parse(parts[0]),
+          );
         }
       }
       if (dob == null) return null;
 
       final now = DateTime.now();
       int age = now.year - dob.year;
-      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+      if (now.month < dob.month ||
+          (now.month == dob.month && now.day < dob.day)) {
         age--;
       }
       return age;
@@ -114,7 +122,11 @@ class BookingController extends GetxController {
     final profile = selectedProfile.value;
     if (profile == null) return false;
     final gender = profile['gioi_tinh'];
-    if (gender == 0 || gender == '0' || gender == 'Nữ' || gender == 'Nu' || gender == 'nu') {
+    if (gender == 0 ||
+        gender == '0' ||
+        gender == 'Nữ' ||
+        gender == 'Nu' ||
+        gender == 'nu') {
       return true;
     }
     return false;
@@ -154,12 +166,13 @@ class BookingController extends GetxController {
     if (isChild) return 'Ưu tiên: Trẻ em (<6 tuổi)';
     if (isElderly) return 'Ưu tiên: Người cao tuổi (≥75 tuổi)';
     if (isPregnant.value) return 'Ưu tiên: Thai phụ';
-    if (isDisabledOrVeteran.value) return 'Ưu tiên: Khuyết tật / Thương bệnh binh';
+    if (isDisabledOrVeteran.value)
+      return 'Ưu tiên: Khuyết tật / Thương bệnh binh';
     return '';
   }
 
   bool get hasPriority => calculatedPriorityLevel < 4;
-  
+
   // ================= PHÂN LUỒNG: KHÁM DỊCH VỤ vs KHÁM BHYT =================
   /// null = chưa chọn; dichVu = Khám Dịch vụ; bhyt = Khám BHYT
   final bookingType = Rxn<BookingType>();
@@ -178,10 +191,10 @@ class BookingController extends GetxController {
 
   // ================= THÔNG TIN BẢO HIỂM (TƯƠNG THÍCH NGƯỢC) =================
   final selectedInsurance = Rxn<InsuranceOption>();
-  final hasHealthInsurance = false.obs;       // BHYT
-  final healthInsuranceType = RxnString();    // Đúng tuyến, Trái tuyến...
-  final hasPrivateInsurance = false.obs;      // BH Tư nhân
-  
+  final hasHealthInsurance = false.obs; // BHYT
+  final healthInsuranceType = RxnString(); // Đúng tuyến, Trái tuyến...
+  final hasPrivateInsurance = false.obs; // BH Tư nhân
+
   // Phương thức thanh toán
   final paymentMethod = RxnString(); // VNPay, Tiền mặt, v.v.
 
@@ -199,7 +212,8 @@ class BookingController extends GetxController {
       for (final code in potentialCodes) {
         if (code != null && code.trim().isNotEmpty) {
           final clean = code.trim().toUpperCase();
-          if (clean.length == 15 && RegExp(r'^[A-Z]{2}[1-5][0-9]{12}$').hasMatch(clean)) {
+          if (clean.length == 15 &&
+              RegExp(r'^[A-Z]{2}[1-5][0-9]{12}$').hasMatch(clean)) {
             validateBhytCard(clean);
             return;
           }
@@ -224,7 +238,8 @@ class BookingController extends GetxController {
     }
 
     if (clean.length != 15) {
-      bhytCardError.value = 'Mã thẻ BHYT phải đúng 15 ký tự (hiện có ${clean.length}/15)';
+      bhytCardError.value =
+          'Mã thẻ BHYT phải đúng 15 ký tự (hiện có ${clean.length}/15)';
       isBhytCardValid.value = false;
       return false;
     }
@@ -234,7 +249,8 @@ class BookingController extends GetxController {
       final prefix = clean.substring(0, 2);
       final char3 = clean[2];
       if (!RegExp(r'^[A-Z]{2}$').hasMatch(prefix)) {
-        bhytCardError.value = '2 ký tự đầu phải là chữ cái (mã đối tượng: DN, TE, CN...)';
+        bhytCardError.value =
+            '2 ký tự đầu phải là chữ cái (mã đối tượng: DN, TE, CN...)';
       } else if (!RegExp(r'^[1-5]$').hasMatch(char3)) {
         bhytCardError.value = 'Ký tự thứ 3 phải là mức hưởng từ 1 đến 5';
       } else {
@@ -255,7 +271,8 @@ class BookingController extends GetxController {
     ];
     final prefix = clean.substring(0, 2);
     final tail4 = clean.substring(clean.length - 4);
-    final isBlacklistedImmediate = ['CB', 'TL', 'BL'].contains(prefix) ||
+    final isBlacklistedImmediate =
+        ['CB', 'TL', 'BL'].contains(prefix) ||
         blacklistedCodes.contains(clean) ||
         tail4 == '9999' ||
         clean.contains('TRUCLOI');
@@ -263,7 +280,8 @@ class BookingController extends GetxController {
     if (isBlacklistedImmediate) {
       isBhytBlacklisted.value = true;
       isBhytCardValid.value = false;
-      bhytCardError.value = 'Thẻ bị CẢNH BÁO ĐEN: Phát hiện trục lợi gom thuốc liên tục!';
+      bhytCardError.value =
+          'Thẻ bị CẢNH BÁO ĐEN: Phát hiện trục lợi gom thuốc liên tục!';
       bhytBlacklistReason.value =
           'Hệ thống Giám định BHYT Quốc gia phát hiện bệnh nhân đi khám liên tục nhiều ngày tại nhiều cơ sở để gom thuốc. Thẻ BHYT bị đưa vào danh sách cảnh báo đen và TỪ CHỐI THANH TOÁN BHYT.';
       _showBlacklistWarningDialog();
@@ -282,8 +300,11 @@ class BookingController extends GetxController {
   Future<void> _verifyBhytWithBhxhServer(String card) async {
     try {
       isCheckingBhytWithBhxh.value = true;
-      final maHoSoStr = selectedProfile.value?['ma_ho_so'] ?? selectedProfile.value?['id'];
-      final maHoSo = maHoSoStr != null ? int.tryParse(maHoSoStr.toString()) : null;
+      final maHoSoStr =
+          selectedProfile.value?['ma_ho_so'] ?? selectedProfile.value?['id'];
+      final maHoSo = maHoSoStr != null
+          ? int.tryParse(maHoSoStr.toString())
+          : null;
 
       final res = await BookingApiService.checkBhytFraudWarning(
         maThe: card,
@@ -293,12 +314,15 @@ class BookingController extends GetxController {
       if (res['is_blacklisted'] == true || res['canh_bao_truc_loi'] == true) {
         isBhytBlacklisted.value = true;
         isBhytCardValid.value = false;
-        bhytCardError.value = 'Thẻ bị CẢNH BÁO ĐEN: Phát hiện trục lợi gom thuốc!';
+        bhytCardError.value =
+            'Thẻ bị CẢNH BÁO ĐEN: Phát hiện trục lợi gom thuốc!';
         final data = res['data'] as Map<String, dynamic>?;
-        bhytBlacklistReason.value = data?['ly_do_tu_choi'] ??
+        bhytBlacklistReason.value =
+            data?['ly_do_tu_choi'] ??
             res['message'] ??
             'Thẻ BHYT bị đưa vào danh sách cảnh báo đen do trục lợi gom thuốc liên tục.';
-        bhytFraudDetails.value = data?['chi_tiet_canh_bao'] as Map<String, dynamic>?;
+        bhytFraudDetails.value =
+            data?['chi_tiet_canh_bao'] as Map<String, dynamic>?;
         _showBlacklistWarningDialog();
       }
     } catch (_) {
@@ -321,7 +345,11 @@ class BookingController extends GetxController {
                 color: Color(0xFFFEE2E2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.gpp_bad_rounded, color: Color(0xFFDC2626), size: 28),
+              child: const Icon(
+                Icons.gpp_bad_rounded,
+                color: Color(0xFFDC2626),
+                size: 28,
+              ),
             ),
             const SizedBox(width: 10),
             const Expanded(
@@ -351,7 +379,11 @@ class BookingController extends GetxController {
                 bhytBlacklistReason.value.isNotEmpty
                     ? bhytBlacklistReason.value
                     : 'Hệ thống Giám định BHYT Quốc gia phát hiện bệnh nhân đi khám liên tục nhiều ngày tại nhiều cơ sở để gom thuốc. Thẻ BHYT bị đưa vào danh sách cảnh báo đen và TỪ CHỐI THANH TOÁN BHYT.',
-                style: const TextStyle(color: Color(0xFF991B1B), fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                  color: Color(0xFF991B1B),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -370,31 +402,22 @@ class BookingController extends GetxController {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0284C7),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('Chuyển sang Khám Dịch Vụ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Chuyển sang Khám Dịch Vụ',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
       barrierDismissible: false,
     );
-  }
-
-  /// Cập nhật loại hình khám: Dịch vụ hoặc BHYT
-  void setBookingType(BookingType type) {
-    bookingType.value = type;
-    if (type == BookingType.bhyt) {
-      hasHealthInsurance.value = true;
-      selectedInsurance.value = InsuranceOption.dungTuyen;
-      healthInsuranceType.value = 'Khám BHYT (Giá nhà nước)';
-      autoFillBhytFromProfile();
-    } else {
-      hasHealthInsurance.value = false;
-      selectedInsurance.value = InsuranceOption.khongCoBHYT;
-      healthInsuranceType.value = 'Khám Dịch vụ';
-      bhytCardError.value = null;
-      isBhytBlacklisted.value = false;
-    }
   }
 
   /// Đọc ký tự thứ 3 của mã thẻ để lấy mức hưởng gốc:
@@ -403,7 +426,6 @@ class BookingController extends GetxController {
   /// - 4 → 80%
   /// - 5 → 100%
   double get cardBenefitRate {
-    if (!isBhyt) return 0.0;
     final card = bhytCardNumber.value.trim().toUpperCase();
     if (card.length >= 3) {
       final char3 = card[2];
@@ -423,136 +445,327 @@ class BookingController extends GetxController {
     return '$rate%';
   }
 
-  /// ================= BỘ TÍNH PHÍ BHYT ĐA CHUYÊN KHOA & GIỚI HẠN TỐI ĐA =================
-  /// Quy định:
-  /// 1. Chuyên khoa thứ 1: Quỹ BHYT thanh toán 100% mức giá khám bệnh (42.100đ).
-  /// 2. Từ chuyên khoa thứ 2 trở đi: BHYT chỉ thanh toán bằng 30% mức giá của 1 lần khám (12.630đ).
-  /// 3. Giới hạn tối đa (Cap): Tổng chi phí tiền công khám BHYT thanh toán trong 1 ngày tuyệt đối
-  ///    không vượt quá 2 lần mức giá khám 1 chuyên khoa (84.200đ).
-  ///    Nếu khám thêm khoa thứ 4, thứ 5..., phần vượt trần phòng khám không thu thêm được từ BHYT (0đ).
-  List<Map<String, dynamic>> get itemCostBreakdown {
-    final items = bookedItems.isNotEmpty
-        ? bookedItems
-        : (selectedSpecialty.value != null ? [{'specialty': selectedSpecialty.value}] : []);
+  /// Đếm số chuyên khoa BHYT đã thêm cho một ngày khám cụ thể (không tính theo thời gian thực)
+  int bhytCountForDate(DateTime? date) {
+    if (date == null) return 0;
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    return bookedItems.where((item) {
+      if (item['isBhyt'] != true) return false;
+      final itemDate = item['date'] as DateTime?;
+      if (itemDate == null) return false;
+      return DateFormat('yyyy-MM-dd').format(itemDate) == dateKey;
+    }).length;
+  }
 
-    final List<Map<String, dynamic>> result = [];
-    int accumulatedBhytCovered = 0; // Lũy kế số tiền công khám BHYT chấp thuận thanh toán trong ngày
+  /// Kiểm tra xem một ngày khám đã đạt giới hạn tối đa 2 chuyên khoa BHYT chưa
+  bool isBhytLimitReachedForDate(DateTime? date) {
+    if (date == null) return false;
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+
+    final doctor = selectedDoctor.value;
+    final doctorId = doctor?['id'] ?? doctor?['ma_bac_si'];
+    final replacingIndex = doctorId == null
+        ? -1
+        : bookedItems.indexWhere((item) {
+            final itemDoctor = item['doctor'] as Map<String, dynamic>?;
+            return (itemDoctor?['id'] ?? itemDoctor?['ma_bac_si']) == doctorId;
+          });
+
+    bool replacingSameDateBhyt = false;
+    if (replacingIndex >= 0 && bookedItems[replacingIndex]['isBhyt'] == true) {
+      final repDate = bookedItems[replacingIndex]['date'] as DateTime?;
+      if (repDate != null &&
+          DateFormat('yyyy-MM-dd').format(repDate) == dateKey) {
+        replacingSameDateBhyt = true;
+      }
+    }
+
+    final currentCount =
+        bhytCountForDate(date) - (replacingSameDateBhyt ? 1 : 0);
+    return currentCount >= MAX_BHYT_PER_DATE;
+  }
+
+  /// Kiểm tra có thể chọn BHYT cho chuyên khoa và ngày khám đang chọn hay không
+  bool get canSelectBhytForCurrentItem {
+    final targetDate = selectedDate.value;
+    if (targetDate == null) {
+      return bookedItems.where((item) => item['isBhyt'] == true).length < 2;
+    }
+    return !isBhytLimitReachedForDate(targetDate);
+  }
+
+  int get bhytBookingCount =>
+      bookedItems.where((item) => item['isBhyt'] == true).length;
+
+  bool get hasBhytBookings =>
+      itemCostBreakdown.any((item) => item['isBhyt'] == true);
+
+  bool get hasServiceBookings =>
+      itemCostBreakdown.any((item) => item['isBhyt'] != true);
+
+  /// Cập nhật loại hình khám: Dịch vụ hoặc BHYT
+  void setBookingType(BookingType type) {
+    if (type == BookingType.bhyt && !canSelectBhytForCurrentItem) {
+      final dateStr = selectedDate.value != null
+          ? 'ngày ${DateFormat('dd/MM/yyyy').format(selectedDate.value!)}'
+          : 'ngày khám này';
+      Get.defaultDialog(
+        title: 'Đã đạt giới hạn BHYT trong ngày',
+        middleText:
+            'Bệnh nhân đã đăng ký tối đa 2 chuyên khoa BHYT trong $dateStr.\n\nTheo quy định BHYT, quý khách vui lòng chọn Khám Dịch Vụ cho chuyên khoa tiếp theo.',
+        textConfirm: 'Chuyển sang Khám Dịch Vụ',
+        confirmTextColor: Colors.white,
+        buttonColor: const Color(0xFF0284C7),
+        onConfirm: () {
+          Get.back();
+          setBookingType(BookingType.dichVu);
+        },
+      );
+      return;
+    }
+
+    bookingType.value = type;
+    if (type == BookingType.bhyt) {
+      hasHealthInsurance.value = true;
+      selectedInsurance.value = InsuranceOption.dungTuyen;
+      healthInsuranceType.value = 'Khám BHYT (Giá nhà nước)';
+      autoFillBhytFromProfile();
+    } else {
+      hasHealthInsurance.value = false;
+      selectedInsurance.value = InsuranceOption.khongCoBHYT;
+      healthInsuranceType.value = 'Khám Dịch vụ';
+      bhytCardError.value = null;
+      isBhytBlacklisted.value = false;
+    }
+  }
+
+  List<Map<String, dynamic>> get _itemsForCost {
+    final items = bookedItems.toList();
+    final doctor = selectedDoctor.value;
+    if (doctor == null ||
+        selectedDate.value == null ||
+        selectedTimeSlot.value == null ||
+        bookingType.value == null) {
+      if (items.isEmpty && selectedSpecialty.value != null) {
+        return [
+          {
+            'specialty': selectedSpecialty.value,
+            'isBhyt': isBhyt,
+            'date': selectedDate.value,
+            'price': isBhyt
+                ? GIA_KHAM_NHA_NUOC
+                : (selectedSpecialty.value?['gia_kham'] as int? ?? 150000),
+          },
+        ];
+      }
+      return items;
+    }
+
+    final doctorId = doctor['id'] ?? doctor['ma_bac_si'];
+    final existingIndex = items.indexWhere((item) {
+      final itemDoctor = item['doctor'] as Map<String, dynamic>?;
+      return (itemDoctor?['id'] ?? itemDoctor?['ma_bac_si']) == doctorId;
+    });
+    final specialty = selectedSpecialty.value ??
+        (doctor['chuyen_khoa'] is Map<String, dynamic>
+            ? doctor['chuyen_khoa'] as Map<String, dynamic>
+            : null);
+    final draft = {
+      'specialty': specialty,
+      'doctor': doctor,
+      'date': selectedDate.value,
+      'timeSlot': selectedTimeSlot.value,
+      'isBhyt': isBhyt,
+      'price': isBhyt
+          ? GIA_KHAM_NHA_NUOC
+          : (specialty?['gia_kham'] as int? ?? 150000),
+    };
+
+    if (existingIndex >= 0) {
+      items[existingIndex] = draft;
+    } else {
+      items.add(draft);
+    }
+    return items;
+  }
+
+  /// Bảng phân rã chi phí chi tiết từng chuyên khoa:
+  /// - Khám Dịch Vụ: LUÔN tính 100% giá niêm yết phòng khám (KHÔNG giảm 30% ở bất kỳ lượt nào)
+  /// - Khám BHYT: Tối đa 2 chuyên khoa / ngày khám (Lượt 1: 100% giá nhà nước 42.100đ, Lượt 2: 30% giá nhà nước 12.630đ)
+  /// - Miễn đồng chi trả nếu tổng BHYT < 379.500đ
+  List<Map<String, dynamic>> get itemCostBreakdown {
+    final items = _itemsForCost;
+    final result = <Map<String, dynamic>>[];
+
+    // Đếm số lượt BHYT theo từng ngày khám cụ thể (dateKey -> count)
+    final Map<String, int> bhytSlotByDate = {};
+    int serviceIndex = 0;
 
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
       final spec = item['specialty'] as Map<String, dynamic>?;
-      final name = spec?['name'] ?? spec?['ten_chuyen_khoa'] ?? 'Chuyên khoa ${i + 1}';
+      final name =
+          spec?['name'] ?? spec?['ten_chuyen_khoa'] ?? 'Chuyên khoa ${i + 1}';
+      final itemIsBhyt = item['isBhyt'] == true;
+      final itemDate = item['date'] as DateTime? ?? selectedDate.value;
+      final dateKey = itemDate != null
+          ? DateFormat('yyyy-MM-dd').format(itemDate)
+          : 'common';
+      final dateStr = itemDate != null
+          ? DateFormat('dd/MM/yyyy').format(itemDate)
+          : '';
 
-      if (!isBhyt) {
+      if (!itemIsBhyt) {
         // --- KHÁM DỊCH VỤ ---
-        final int basePrice = (spec?['gia_kham'] as int? ?? (item['price'] as int? ?? 150000));
-        // Quy tắc dịch vụ: Khoa đầu tiên 100%, từ khoa thứ 2 tính 30%
-        final double rate = (i == 0) ? 1.0 : 0.30;
-        final int cost = (basePrice * rate).round();
+        // Người dùng yêu cầu: Lần 2 của khám dịch vụ KHÔNG tính 30% lần 1! LUÔN 100% giá niêm yết!
+        serviceIndex++;
+        final int basePrice =
+            (spec?['gia_kham'] as int? ?? (item['price'] as int? ?? 150000));
+        final double rate = 1.0;
+        final int cost = basePrice;
 
         result.add({
           'index': i + 1,
           'name': name,
+          'isBhyt': false,
+          'date': itemDate,
+          'dateStr': dateStr,
           'basePrice': basePrice,
           'rate': rate,
-          'isFirst': (i == 0),
+          'isFirst': serviceIndex == 1,
           'cost': cost,
+          'patientPayable': cost,
           'isCapped': false,
-          'capNote': (i == 0) ? 'Khoa 1 (100% giá dịch vụ)' : 'Khoa ${i + 1} (30% giá dịch vụ)',
+          'capNote': 'Khám Dịch vụ (100% giá phòng khám)',
         });
       } else {
-        // --- KHÁM BHYT (ÁP GIÁ NHÀ NƯỚC: 42.100đ) ---
+        // --- KHÁM BHYT (ÁP GIÁ NHÀ NƯỚC: 42.100đ THEO NGÀY KHÁM) ---
+        // Chuyên khoa thứ 1: Quỹ BHYT thanh toán 100% mức giá khám bệnh (42.100đ).
+        // Từ chuyên khoa thứ 2 trở đi: BHYT chỉ thanh toán bằng 30% mức giá 1 lần khám (12.630đ).
+        // Tối đa 2 chuyên khoa BHYT / ngày khám.
+        final currentSlot = (bhytSlotByDate[dateKey] ?? 0) + 1;
+        bhytSlotByDate[dateKey] = currentSlot;
+
         final int basePrice = GIA_KHAM_NHA_NUOC;
-
-        // Định mức theo Thông tư BYT: Khoa 1 hưởng 100%, từ khoa 2 hưởng 30%
-        final double rate = (i == 0) ? 1.0 : 0.30;
-        final int standardCost = (basePrice * rate).round();
-
-        // Kiểm tra Giới hạn tối đa: không quá 2 lần mức giá (84.200đ)
-        final int remainingBhytCap = MAX_BHYT_DAILY_CAP - accumulatedBhytCovered;
-        int approvedCost = 0;
+        double rate;
+        int approvedCost;
         bool isCapped = false;
         String capNote = '';
 
-        if (remainingBhytCap <= 0) {
-          // Hoàn toàn vượt trần 2 lần công khám -> BHYT thanh toán = 0đ!
+        if (currentSlot == 1) {
+          rate = 1.0;
+          approvedCost = basePrice; // 42.100đ
+          capNote = dateStr.isNotEmpty
+              ? 'BHYT - Lượt 1 ngày $dateStr (100% giá nhà nước: ${NumberFormat('#,###', 'vi_VN').format(approvedCost)}đ)'
+              : 'BHYT - Lượt 1 (100% giá nhà nước: ${NumberFormat('#,###', 'vi_VN').format(approvedCost)}đ)';
+        } else if (currentSlot == 2) {
+          rate = 0.30;
+          approvedCost = (basePrice * rate).round(); // 12.630đ
+          capNote = dateStr.isNotEmpty
+              ? 'BHYT - Lượt 2 ngày $dateStr (30% giá nhà nước: ${NumberFormat('#,###', 'vi_VN').format(approvedCost)}đ)'
+              : 'BHYT - Lượt 2 (30% giá nhà nước: ${NumberFormat('#,###', 'vi_VN').format(approvedCost)}đ)';
+        } else {
+          rate = 0.0;
           approvedCost = 0;
           isCapped = true;
-          capNote = 'Khoa ${i + 1}: Vượt trần BHYT 2 lần công khám (BHYT thanh toán 0đ)';
-        } else if (standardCost > remainingBhytCap) {
-          // Chạm trần -> chỉ duyệt phần còn lại để tổng đúng bằng 84.200đ
-          approvedCost = remainingBhytCap;
-          isCapped = true;
-          capNote = 'Khoa ${i + 1}: Chạm trần BHYT tối đa (84.200đ)';
-        } else {
-          approvedCost = standardCost;
-          isCapped = false;
-          capNote = (i == 0)
-              ? 'Khoa 1: BHYT thanh toán 100% mức giá (${NumberFormat('#,###', 'vi_VN').format(approvedCost)}đ)'
-              : 'Khoa ${i + 1}: BHYT thanh toán 30% mức giá (${NumberFormat('#,###', 'vi_VN').format(approvedCost)}đ)';
+          capNote = dateStr.isNotEmpty
+              ? 'Đã đủ 2 lượt BHYT ngày $dateStr (Tối đa theo quy định)'
+              : 'Đã đủ 2 lượt BHYT trong ngày (Tối đa theo quy định)';
         }
-
-        accumulatedBhytCovered += approvedCost;
 
         result.add({
           'index': i + 1,
           'name': name,
+          'isBhyt': true,
+          'date': itemDate,
+          'dateStr': dateStr,
           'basePrice': basePrice,
           'rate': rate,
-          'isFirst': (i == 0),
+          'isFirst': currentSlot == 1,
+          'bhytSlot': currentSlot,
           'cost': approvedCost,
-          'standardCost': standardCost,
+          'patientPayable': 0, // Sẽ tính bên dưới sau khi xét tổng hóa đơn nhỏ
+          'standardCost': approvedCost,
           'isCapped': isCapped,
           'capNote': capNote,
         });
       }
     }
+
+    // Nhóm chi phí BHYT để xét miễn đồng chi trả (Hóa đơn nhỏ < 379.500đ)
+    final bhytSubtotal = result
+        .where((item) => item['isBhyt'] == true)
+        .fold<int>(0, (sum, item) => sum + (item['cost'] as int));
+    final bhytInvoiceIsSmall = bhytSubtotal < NGUONG_HOA_DON_NHO;
+
+    for (final item in result.where((item) => item['isBhyt'] == true)) {
+      final cost = item['cost'] as int;
+      item['patientPayable'] = bhytInvoiceIsSmall
+          ? 0
+          : (cost * (1 - cardBenefitRate)).round();
+    }
+
     return result;
   }
 
-  /// Kiểm tra xem giỏ khám có khoa nào chạm hoặc vượt trần BHYT (2 lần mức giá) không
+  /// Kiểm tra xem có chuyên khoa BHYT nào vượt trần 2 lượt/ngày khám không
   bool get hasExceededBhytCap {
-    if (!isBhyt) return false;
+    if (!hasBhytBookings) return false;
     return itemCostBreakdown.any((item) => item['isCapped'] == true);
   }
 
   /// Thông điệp cảnh báo trần BHYT hiển thị trên giao diện
   String get bhytCapWarningText {
-    return 'Quy định BHYT (Thông tư 22/2023/TT-BYT): Tổng chi phí tiền công khám BHYT thanh toán trong 1 ngày tối đa không vượt quá 2 lần mức giá 1 chuyên khoa (tối đa 84.200đ). Từ chuyên khoa vượt trần, phòng khám không thu thêm được từ BHYT.';
+    return 'Quy định BHYT (Thông tư 22/2023/TT-BYT): Bệnh nhân được hưởng BHYT tối đa 2 chuyên khoa trong cùng 1 ngày khám (lượt 1 hưởng 100%, lượt 2 hưởng 30% giá nhà nước). Các chuyên khoa thêm trong ngày sẽ được tính theo giá Khám Dịch Vụ.';
   }
 
   /// Tổng chi phí trước khi xét miễn đồng chi trả BHYT
   int get totalCostBeforeInsurance {
     final breakdown = itemCostBreakdown;
-    if (breakdown.isEmpty) {
+    if (breakdown.isEmpty && bookingType.value != null) {
       return isBhyt ? GIA_KHAM_NHA_NUOC : 150000;
     }
-    return breakdown.fold<int>(0, (sum, item) => sum + (item['cost'] as int));
+    return breakdown.fold<int>(
+      0,
+      (sum, item) => sum + (item['cost'] as int),
+    );
   }
 
-  /// Quy tắc Hóa đơn nhỏ: Nếu tổng chi phí < 379.500đ (15% lương cơ sở) → Tự động miễn đồng chi trả (BHYT trả 100%)
-  bool get isSmallInvoice => isBhyt && totalCostBeforeInsurance < NGUONG_HOA_DON_NHO;
+  int get bhytCostBeforeInsurance => itemCostBreakdown
+      .where((item) => item['isBhyt'] == true)
+      .fold<int>(0, (sum, item) => sum + (item['cost'] as int));
+
+  int get serviceCostBeforeInsurance => itemCostBreakdown
+      .where((item) => item['isBhyt'] != true)
+      .fold<int>(0, (sum, item) => sum + (item['cost'] as int));
+
+  bool get isSmallInvoice =>
+      hasBhytBookings && bhytCostBeforeInsurance < NGUONG_HOA_DON_NHO;
 
   /// Tỷ lệ BHYT thực tế chi trả
   double get effectiveInsuranceRate {
-    if (!isBhyt) return 0.0;
+    if (!hasBhytBookings) return 0.0;
     if (isSmallInvoice) return 1.0; // Miễn đồng chi trả
     return cardBenefitRate;
   }
 
   /// Số tiền BHYT chi trả
   int get insuranceDiscount {
-    if (!isBhyt) return 0;
-    return (totalCostBeforeInsurance * effectiveInsuranceRate).round();
+    if (!hasBhytBookings) return 0;
+    final bhytPayable = itemCostBreakdown
+        .where((item) => item['isBhyt'] == true)
+        .fold<int>(0, (sum, item) => sum + (item['patientPayable'] as int));
+    return bhytCostBeforeInsurance - bhytPayable;
   }
 
   /// Tổng tiền BN phải thanh toán thực tế
   /// Khám Dịch vụ: trả 100% qua VNPay
   /// Khám BHYT: chỉ trả phần đồng chi trả (0đ nếu hóa đơn nhỏ < 379.500đ)
   int get totalBookingCost {
-    if (!isBhyt) return totalCostBeforeInsurance;
-    final payable = totalCostBeforeInsurance - insuranceDiscount;
-    return payable < 0 ? 0 : payable;
+    return itemCostBreakdown.fold<int>(
+      0,
+      (sum, item) => sum + (item['patientPayable'] as int),
+    );
   }
 
   /// Tương thích ngược với các getter cũ
@@ -561,7 +774,7 @@ class BookingController extends GetxController {
 
   /// Label hiển thị trên UI cho lựa chọn BHYT hiện tại
   String get insuranceLabel {
-    if (isBhyt) {
+    if (hasBhytBookings) {
       if (isSmallInvoice) {
         return 'BHYT (Hóa đơn nhỏ: Miễn đồng chi trả 100%)';
       }
@@ -582,11 +795,38 @@ class BookingController extends GetxController {
 
   /// Thêm chuyên khoa vừa chọn vào danh sách giỏ khám
   void addCurrentBookingToItems() {
-    if (selectedDate.value == null || selectedTimeSlot.value == null || selectedDoctor.value == null) {
+    if (selectedDate.value == null ||
+        selectedTimeSlot.value == null ||
+        selectedDoctor.value == null) {
       return;
     }
 
-    final int giaKham = isBhyt ? GIA_KHAM_NHA_NUOC : (selectedSpecialty.value?['gia_kham'] as int? ?? 150000);
+    if (bookingType.value == null) {
+      Get.snackbar('Chưa chọn hình thức khám', 'Vui lòng chọn BHYT hoặc Khám Dịch vụ.');
+      return;
+    }
+
+    bool itemIsBhyt = isBhyt;
+    if (itemIsBhyt && !canSelectBhytForCurrentItem) {
+      // Tự động chuyển thành Dịch vụ nếu ngày khám này đã đủ 2 lượt BHYT
+      itemIsBhyt = false;
+      bookingType.value = BookingType.dichVu;
+      final dateStr = selectedDate.value != null
+          ? 'ngày ${DateFormat('dd/MM/yyyy').format(selectedDate.value!)}'
+          : 'ngày khám này';
+      Get.snackbar(
+        'Tự động chuyển Khám Dịch Vụ',
+        'Đã đủ 2 chuyên khoa BHYT trong $dateStr. Chuyên khoa này được chuyển sang Khám Dịch Vụ.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.amber.shade800,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
+    }
+
+    final int giaKham = itemIsBhyt
+        ? GIA_KHAM_NHA_NUOC
+        : (selectedSpecialty.value?['gia_kham'] as int? ?? 150000);
 
     final newItem = {
       'specialty': selectedSpecialty.value,
@@ -594,11 +834,13 @@ class BookingController extends GetxController {
       'date': selectedDate.value,
       'timeSlot': selectedTimeSlot.value,
       'price': giaKham,
-      'isBhyt': isBhyt,
-      'bhytCardNumber': bhytCardNumber.value,
-      'hasHealthInsurance': isBhyt,
-      'healthInsuranceType': isBhyt ? 'Khám BHYT ($cardBenefitRateLabel)' : 'Khám Dịch vụ',
-      'insuranceOption': selectedInsurance.value,
+      'isBhyt': itemIsBhyt,
+      'bhytCardNumber': itemIsBhyt ? bhytCardNumber.value : null,
+      'hasHealthInsurance': itemIsBhyt,
+      'healthInsuranceType': itemIsBhyt
+          ? 'Khám BHYT ($cardBenefitRateLabel)'
+          : 'Khám Dịch vụ',
+      'insuranceOption': itemIsBhyt ? selectedInsurance.value : InsuranceOption.khongCoBHYT,
       'priority_level': calculatedPriorityLevel,
       'priority_label': priorityBadgeText,
     };
@@ -627,6 +869,7 @@ class BookingController extends GetxController {
     selectedDate.value = null;
     selectedTimeSlot.value = null;
     availableTimeSlots.clear();
+    bookingType.value = null;
 
     // Mở màn hình chọn Chuyên khoa
     Get.to(() => const SpecialtyScreen());
@@ -668,8 +911,42 @@ class BookingController extends GetxController {
     });
   }
 
+  /// Xóa sạch hoàn toàn giỏ khám và trạng thái phiên đặt khám (Chống rò rỉ sang phiên khám tiếp theo)
+  void resetBookingSession() {
+    _resetBookingDraft();
+  }
+
+  void _resetBookingDraft() {
+    bookedItems.clear();
+    bookingMethod.value = null;
+    selectedSpecialty.value = null;
+    selectedDoctor.value = null;
+    selectedDate.value = null;
+    selectedTimeSlot.value = null;
+    availableTimeSlots.clear();
+    isLoadingSlots.value = false;
+
+    isPregnant.value = false;
+    isDisabledOrVeteran.value = false;
+    bookingType.value = null;
+    bhytCardNumber.value = '';
+    bhytCardError.value = null;
+    isBhytCardValid.value = false;
+    isBhytBlacklisted.value = false;
+    bhytBlacklistReason.value = '';
+    bhytFraudDetails.value = null;
+    isCheckingBhytWithBhxh.value = false;
+
+    selectedInsurance.value = null;
+    hasHealthInsurance.value = false;
+    healthInsuranceType.value = null;
+    hasPrivateInsurance.value = false;
+    paymentMethod.value = null;
+  }
+
   // ================= ĐIỀU HƯỚNG THEO NHÁNH =================
   void setBookingMethod(BookingMethod method) {
+    _resetBookingDraft();
     bookingMethod.value = method;
     switch (method) {
       case BookingMethod.bySpecialty:
@@ -697,6 +974,19 @@ class BookingController extends GetxController {
 
   void onDateSelected(DateTime date) {
     selectedDate.value = date;
+    // Nếu trước đó đang chọn BHYT nhưng ngày vừa chọn đã đạt tối đa 2 chuyên khoa BHYT
+    if (isBhyt && isBhytLimitReachedForDate(date)) {
+      setBookingType(BookingType.dichVu);
+      Get.snackbar(
+        'Đạt 2 lượt BHYT ngày ${DateFormat('dd/MM/yyyy').format(date)}',
+        'Ngày khám này đã có đủ 2 chuyên khoa BHYT. Hệ thống tự động chuyển sang Khám Dịch Vụ.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.amber.shade800,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
+    }
+
     // Nếu đi từ nhánh "Khám theo Ngày", bước tiếp là Chọn Bác sĩ
     if (bookingMethod.value == BookingMethod.byDate) {
       Get.to(() => DoctorListScreen());
@@ -722,14 +1012,16 @@ class BookingController extends GetxController {
     if (isBhyt && !isBhytCardValid.value) {
       Get.defaultDialog(
         title: "Mã thẻ BHYT chưa hợp lệ",
-        middleText: bhytCardError.value ?? "Vui lòng nhập đúng mã thẻ BHYT 15 ký tự để hưởng quyền lợi BHYT.",
+        middleText:
+            bhytCardError.value ??
+            "Vui lòng nhập đúng mã thẻ BHYT 15 ký tự để hưởng quyền lợi BHYT.",
         textConfirm: "Đóng",
         confirmTextColor: Colors.white,
         onConfirm: () => Get.back(),
       );
       return false;
     }
-    
+
     Get.toNamed('/booking/summary');
     return true;
   }
@@ -742,7 +1034,8 @@ class BookingController extends GetxController {
     }
 
     // Chặn nếu thẻ BHYT bị cảnh báo đen từ Hệ thống Giám định BHYT Quốc gia
-    if (isBhyt && isBhytBlacklisted.value) {
+    if (bookedItems.any((item) => item['isBhyt'] == true) &&
+        isBhytBlacklisted.value) {
       _showBlacklistWarningDialog();
       Get.snackbar(
         'Từ chối BHYT',
@@ -767,17 +1060,44 @@ class BookingController extends GetxController {
       }
 
       if (bookedItems.isEmpty) {
-        throw Exception("Vui lòng hoàn tất việc chọn Lịch khám và Bác sĩ trước khi thanh toán.");
+        throw Exception(
+          "Vui lòng hoàn tất việc chọn Lịch khám và Bác sĩ trước khi thanh toán.",
+        );
       }
 
-      final maHoSoStr = (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id']).toString();
+      // Kiểm tra giới hạn BHYT: Tối đa 2 chuyên khoa BHYT trên cùng 1 ngày khám
+      final Map<String, int> bhytCountByDate = {};
+      for (final item in bookedItems) {
+        if (item['isBhyt'] == true) {
+          final d = item['date'] as DateTime?;
+          final dateKey =
+              d != null ? DateFormat('yyyy-MM-dd').format(d) : 'none';
+          bhytCountByDate[dateKey] = (bhytCountByDate[dateKey] ?? 0) + 1;
+          if (bhytCountByDate[dateKey]! > MAX_BHYT_PER_DATE) {
+            final dateStr =
+                d != null ? DateFormat('dd/MM/yyyy').format(d) : '';
+            throw Exception(
+              'Ngày khám $dateStr đã vượt quá 2 chuyên khoa BHYT. Vui lòng chuyển các chuyên khoa vượt quá sang Khám Dịch Vụ.',
+            );
+          }
+        }
+      }
+      final bhytTotalCount =
+          bookedItems.where((item) => item['isBhyt'] == true).length;
+      if (bhytTotalCount > 0 && !isBhytCardValid.value) {
+        throw Exception(
+          'Vui lòng nhập mã thẻ BHYT hợp lệ cho các chuyên khoa đã chọn.',
+        );
+      }
+
+      final maHoSoStr =
+          (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id'])
+              .toString();
       final maHoSo = int.parse(maHoSoStr);
 
       List<int> createdIds = [];
       Map<String, dynamic>? lastResult;
       final breakdown = itemCostBreakdown;
-      final bool isFree = totalBookingCost == 0;
-      final String initialStatus = isFree ? 'da_thanh_toan' : 'cho_thanh_toan';
 
       // Duyệt qua tất cả chuyên khoa đã chọn để tạo lịch khám
       for (int i = 0; i < bookedItems.length; i++) {
@@ -799,17 +1119,22 @@ class BookingController extends GetxController {
         final maBacSi = int.parse(maBacSiStr);
 
         // Giá của từng chuyên khoa theo bảng tính chi phí (không gửi tổng gộp cho từng khoa)
-        final int perItemCost = (i < breakdown.length) ? (breakdown[i]['cost'] as int) : (isBhyt ? GIA_KHAM_NHA_NUOC : 150000);
+        final int perItemCost = i < breakdown.length
+            ? (breakdown[i]['patientPayable'] as int)
+            : 150000;
+        final bool itemIsBhyt = item['isBhyt'] == true;
+        final String itemInitialStatus =
+            perItemCost == 0 ? 'da_thanh_toan' : 'cho_thanh_toan';
 
         final result = await BookingApiService.createBooking(
           maHoSo: maHoSo,
           maBacSi: maBacSi,
           thoiGianDenKham: thoiGian,
           priorityLevel: calculatedPriorityLevel,
-          trangThai: initialStatus,
-          soTien: isFree ? 0 : perItemCost,
-          maTheBhyt: isBhyt ? bhytCardNumber.value : null,
-          isBhyt: isBhyt,
+          trangThai: itemInitialStatus,
+          soTien: perItemCost,
+          maTheBhyt: itemIsBhyt ? bhytCardNumber.value : null,
+          isBhyt: itemIsBhyt,
         );
         lastResult = result;
 
@@ -831,7 +1156,8 @@ class BookingController extends GetxController {
         lastResult['priority_label'] = priorityBadgeText;
         lastResult['tong_tien'] = totalBookingCost;
         lastResult['so_luong_khoa'] = bookedItems.length;
-        lastResult['is_bhyt'] = isBhyt;
+        lastResult['is_bhyt'] =
+            bookedItems.every((item) => item['isBhyt'] == true);
         if (createdIds.isNotEmpty) {
           lastResult['danh_sach_ma_luot_kham'] = createdIds;
         }
@@ -839,7 +1165,11 @@ class BookingController extends GetxController {
           final s = item['specialty'] as Map<String, dynamic>?;
           final d = item['doctor'] as Map<String, dynamic>?;
           return {
-            'ten_chuyen_khoa': s?['name'] ?? s?['ten_chuyen_khoa'] ?? d?['chuyen_khoa'] ?? 'Khám chuyên khoa',
+            'ten_chuyen_khoa':
+                s?['name'] ??
+                s?['ten_chuyen_khoa'] ??
+                d?['chuyen_khoa'] ??
+                'Khám chuyên khoa',
             'ten_bac_si': d?['name'] ?? d?['ho_ten'] ?? 'Bác sĩ chuyên khoa',
             'phong_kham': d?['room'] ?? d?['phong_kham'] ?? 'Phòng Khám',
           };
@@ -866,14 +1196,18 @@ class BookingController extends GetxController {
 
   Future<void> fetchAvailableTimeSlots() async {
     if (selectedDoctor.value == null || selectedDate.value == null) return;
-    
+
     isLoadingSlots.value = true;
     try {
-      final docIdRaw = selectedDoctor.value!['id'] ?? selectedDoctor.value!['ma_bs'];
+      final docIdRaw =
+          selectedDoctor.value!['id'] ?? selectedDoctor.value!['ma_bs'];
       final doctorId = int.parse(docIdRaw.toString());
       final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate.value!);
-      
-      final slots = await BookingApiService.getAvailableTimeSlots(doctorId, dateStr);
+
+      final slots = await BookingApiService.getAvailableTimeSlots(
+        doctorId,
+        dateStr,
+      );
       availableTimeSlots.value = slots;
     } catch (e) {
       Get.snackbar('Lỗi', 'Không thể tải giờ trống: $e');
