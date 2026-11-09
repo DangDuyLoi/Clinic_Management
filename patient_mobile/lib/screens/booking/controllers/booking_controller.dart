@@ -70,6 +70,9 @@ class BookingController extends GetxController {
   // Danh sách các chuyên khoa đã thêm (Giỏ đặt khám đa chuyên khoa)
   final bookedItems = <Map<String, dynamic>>[].obs;
 
+  /// Đánh dấu người dùng đang thực sự bấm nút "Thêm chuyên khoa" mới
+  final isAddingNewSpecialty = false.obs;
+
   final availableTimeSlots = <String>[].obs;
   final isLoadingSlots = false.obs;
 
@@ -464,12 +467,27 @@ class BookingController extends GetxController {
 
     final doctor = selectedDoctor.value;
     final doctorId = doctor?['id'] ?? doctor?['ma_bac_si'];
-    final replacingIndex = doctorId == null
-        ? -1
-        : bookedItems.indexWhere((item) {
-            final itemDoctor = item['doctor'] as Map<String, dynamic>?;
-            return (itemDoctor?['id'] ?? itemDoctor?['ma_bac_si']) == doctorId;
-          });
+    final currentSpec = selectedSpecialty.value;
+    final currentSpecId = currentSpec?['id'] ?? currentSpec?['ma_chuyen_khoa'];
+    final currentSpecName = currentSpec?['name'] ?? currentSpec?['ten_chuyen_khoa'];
+
+    final replacingIndex = bookedItems.indexWhere((item) {
+      final itemDoctor = item['doctor'] as Map<String, dynamic>?;
+      final itemDocId = itemDoctor?['id'] ?? itemDoctor?['ma_bac_si'];
+      if (doctorId != null && itemDocId != null && itemDocId.toString() == doctorId.toString()) {
+        return true;
+      }
+      final itemSpec = item['specialty'] as Map<String, dynamic>?;
+      final itemSpecId = itemSpec?['id'] ?? itemSpec?['ma_chuyen_khoa'];
+      final itemSpecName = itemSpec?['name'] ?? itemSpec?['ten_chuyen_khoa'];
+      if (currentSpecId != null && itemSpecId != null && itemSpecId.toString() == currentSpecId.toString()) {
+        return true;
+      }
+      if (currentSpecName != null && itemSpecName != null && currentSpecName == itemSpecName) {
+        return true;
+      }
+      return false;
+    });
 
     bool replacingSameDateBhyt = false;
     if (replacingIndex >= 0 && bookedItems[replacingIndex]['isBhyt'] == true) {
@@ -489,7 +507,9 @@ class BookingController extends GetxController {
   bool get canSelectBhytForCurrentItem {
     final targetDate = selectedDate.value;
     if (targetDate == null) {
-      return bookedItems.where((item) => item['isBhyt'] == true).length < 2;
+      // Nếu chưa chọn ngày, cho phép chọn BHYT.
+      // Giới hạn sẽ được kiểm tra lại khi có ngày cụ thể.
+      return true;
     }
     return !isBhytLimitReachedForDate(targetDate);
   }
@@ -542,10 +562,12 @@ class BookingController extends GetxController {
   List<Map<String, dynamic>> get _itemsForCost {
     final items = bookedItems.toList();
     final doctor = selectedDoctor.value;
+
+    // Nếu thiếu dữ liệu draft, vẫn cố gắng cập nhật ngày mới cho bác sĩ
+    // đã có trong giỏ (khi user quay lại đổi ngày khám).
     if (doctor == null ||
         selectedDate.value == null ||
-        selectedTimeSlot.value == null ||
-        bookingType.value == null) {
+        selectedTimeSlot.value == null) {
       if (items.isEmpty && selectedSpecialty.value != null) {
         return [
           {
@@ -561,28 +583,57 @@ class BookingController extends GetxController {
       return items;
     }
 
+    // Có đủ doctor + date + timeSlot → tạo draft để merge vào danh sách
     final doctorId = doctor['id'] ?? doctor['ma_bac_si'];
+    final currentSpec = selectedSpecialty.value;
+    final currentSpecId = currentSpec?['id'] ?? currentSpec?['ma_chuyen_khoa'];
+    final currentSpecName = currentSpec?['name'] ?? currentSpec?['ten_chuyen_khoa'];
+
     final existingIndex = items.indexWhere((item) {
       final itemDoctor = item['doctor'] as Map<String, dynamic>?;
-      return (itemDoctor?['id'] ?? itemDoctor?['ma_bac_si']) == doctorId;
+      final itemDocId = itemDoctor?['id'] ?? itemDoctor?['ma_bac_si'];
+      if (doctorId != null && itemDocId != null && itemDocId.toString() == doctorId.toString()) {
+        return true;
+      }
+      final itemSpec = item['specialty'] as Map<String, dynamic>?;
+      final itemSpecId = itemSpec?['id'] ?? itemSpec?['ma_chuyen_khoa'];
+      final itemSpecName = itemSpec?['name'] ?? itemSpec?['ten_chuyen_khoa'];
+      if (currentSpecId != null && itemSpecId != null && itemSpecId.toString() == currentSpecId.toString()) {
+        return true;
+      }
+      if (currentSpecName != null && itemSpecName != null && currentSpecName == itemSpecName) {
+        return true;
+      }
+      return false;
     });
     final specialty = selectedSpecialty.value ??
         (doctor['chuyen_khoa'] is Map<String, dynamic>
             ? doctor['chuyen_khoa'] as Map<String, dynamic>
             : null);
+
+    // Nếu bookingType chưa chọn lại, kế thừa từ item cũ (user quay lại đổi ngày)
+    final bool draftIsBhyt = bookingType.value != null
+        ? isBhyt
+        : (existingIndex >= 0
+            ? (items[existingIndex]['isBhyt'] == true)
+            : isBhyt);
+
     final draft = {
       'specialty': specialty,
       'doctor': doctor,
       'date': selectedDate.value,
       'timeSlot': selectedTimeSlot.value,
-      'isBhyt': isBhyt,
-      'price': isBhyt
+      'isBhyt': draftIsBhyt,
+      'price': draftIsBhyt
           ? GIA_KHAM_NHA_NUOC
           : (specialty?['gia_kham'] as int? ?? 150000),
     };
 
     if (existingIndex >= 0) {
       items[existingIndex] = draft;
+    } else if (!isAddingNewSpecialty.value && items.length <= 1) {
+      items.clear();
+      items.add(draft);
     } else {
       items.add(draft);
     }
@@ -847,22 +898,44 @@ class BookingController extends GetxController {
 
     final doc2 = selectedDoctor.value;
     final docId2 = doc2?['id'] ?? doc2?['ma_bac_si'];
+    final currentSpec = selectedSpecialty.value;
+    final currentSpecId = currentSpec?['id'] ?? currentSpec?['ma_chuyen_khoa'];
+    final currentSpecName = currentSpec?['name'] ?? currentSpec?['ten_chuyen_khoa'];
 
     final existingIndex = bookedItems.indexWhere((item) {
       final doc1 = item['doctor'] as Map<String, dynamic>?;
       final docId1 = doc1?['id'] ?? doc1?['ma_bac_si'];
-      return docId1 != null && docId1 == docId2;
+      if (docId1 != null && docId2 != null && docId1.toString() == docId2.toString()) {
+        return true;
+      }
+      final spec1 = item['specialty'] as Map<String, dynamic>?;
+      final specId1 = spec1?['id'] ?? spec1?['ma_chuyen_khoa'];
+      final specName1 = spec1?['name'] ?? spec1?['ten_chuyen_khoa'];
+      if (specId1 != null && currentSpecId != null && specId1.toString() == currentSpecId.toString()) {
+        return true;
+      }
+      if (specName1 != null && currentSpecName != null && specName1 == currentSpecName) {
+        return true;
+      }
+      return false;
     });
 
     if (existingIndex >= 0) {
       bookedItems[existingIndex] = newItem;
+    } else if (!isAddingNewSpecialty.value && bookedItems.length <= 1) {
+      // Đang ở luồng đặt 1 lịch đơn, user quay lại đổi ngày/đổi bác sĩ -> thay thế
+      bookedItems.clear();
+      bookedItems.add(newItem);
     } else {
       bookedItems.add(newItem);
     }
+
+    isAddingNewSpecialty.value = false;
   }
 
   /// Khởi tạo quá trình thêm chuyên khoa mới
   void startAddingNewSpecialty() {
+    isAddingNewSpecialty.value = true;
     // Reset các biến tạm để chọn chuyên khoa tiếp theo
     selectedSpecialty.value = null;
     selectedDoctor.value = null;
@@ -918,6 +991,7 @@ class BookingController extends GetxController {
 
   void _resetBookingDraft() {
     bookedItems.clear();
+    isAddingNewSpecialty.value = false;
     bookingMethod.value = null;
     selectedSpecialty.value = null;
     selectedDoctor.value = null;
