@@ -151,7 +151,7 @@ class LuotKhamController extends Controller
             'thoi_gian_den_kham' => 'required|date_format:Y-m-d H:i:s|after:now',
             'priority_level' => 'nullable|integer',
             'trang_thai' => 'nullable|string',
-            'so_tien' => 'nullable|numeric',
+            'so_tien' => 'nullable|numeric|min:0',
         ], [
             'thoi_gian_den_kham.after' => 'Thời gian khám phải lớn hơn thời gian hiện tại.',
             'thoi_gian_den_kham.date_format' => 'Định dạng thời gian không hợp lệ (Chuẩn: YYYY-MM-DD HH:MM:SS).'
@@ -169,6 +169,7 @@ class LuotKhamController extends Controller
                 // Kiểm tra chống trục lợi BHYT từ Hệ thống Giám định BHYT Quốc gia
                 $maTheBhyt = $request->input('ma_the_bhyt');
                 $isBhyt = $request->boolean('is_bhyt') || !empty($maTheBhyt);
+                $cleanCard = null;
                 if ($isBhyt && !empty($maTheBhyt)) {
                     $cleanCard = strtoupper(trim($maTheBhyt));
                     $blacklistedCodes = ['DN4010123456789', 'DN4019999999999', 'GD4019999999999', 'TE1019999999999', 'HN2019999999999'];
@@ -205,6 +206,21 @@ class LuotKhamController extends Controller
                 }
 
                 $ngayKham = Carbon::parse($request->thoi_gian_den_kham)->toDateString();
+
+                // Kiểm tra giới hạn BHYT: Tối đa 2 chuyên khoa dùng BHYT trên cùng 1 ngày khám
+                if ($isBhyt) {
+                    $soLuotBhytTrongNgay = LuotKham::where('ma_ho_so', $request->ma_ho_so)
+                        ->whereDate('thoi_gian_den_kham', $ngayKham)
+                        ->where('is_bhyt', true)
+                        ->where('trang_thai', '!=', 'huy')
+                        ->count();
+
+                    if ($soLuotBhytTrongNgay >= 2) {
+                        $ngayFormatted = Carbon::parse($ngayKham)->format('d/m/Y');
+                        throw new Exception("Bệnh nhân đã đăng ký tối đa 2 lượt khám BHYT trong ngày {$ngayFormatted}. Vui lòng chọn Khám Dịch Vụ cho chuyên khoa này.");
+                    }
+                }
+
                 $soThuTu = LuotKham::where('ma_bac_si', $request->ma_bac_si)
                     ->whereDate('thoi_gian_den_kham', $ngayKham)
                     ->where('trang_thai', '!=', 'huy')
@@ -225,6 +241,9 @@ class LuotKhamController extends Controller
                     'priority_level' => $request->input('priority_level', 4),
                     'thoi_gian_den_kham' => $request->thoi_gian_den_kham,
                     'trang_thai' => $trangThaiBanDau,
+                    'is_bhyt' => $isBhyt,
+                    'ma_the_bhyt' => $isBhyt ? $cleanCard : null,
+                    'so_tien' => $request->input('so_tien'),
                     'chan_doan' => null
                 ]);
 

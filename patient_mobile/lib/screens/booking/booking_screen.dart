@@ -437,11 +437,11 @@ class _BookingScreenState extends State<BookingScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Quy tắc BHYT: Khoa 1 (100%), từ khoa 2+ (30%), Giới hạn tối đa không quá 2 lần mức giá (84.200đ)
+                      // BHYT: Tối đa 2 chuyên khoa / ngày khám (Lượt 1: 100%, Lượt 2: 30% giá nhà nước). Dịch vụ: 100% giá niêm yết
                       ...breakdown.map((item) {
-                        final bool isFirst = item['isFirst'] == true;
                         final bool isCapped = item['isCapped'] == true;
-                        final String note = item['capNote'] ?? (isFirst ? '100% công khám' : 'Khoa thứ 2+: chỉ tính 30%');
+                        final String note = item['capNote'] ??
+                            (item['isBhyt'] == true ? 'Khám BHYT' : 'Khám Dịch vụ');
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Row(

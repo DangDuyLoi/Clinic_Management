@@ -157,6 +157,37 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                   },
                 )),
 
+            Obx(() {
+              if (controller.canSelectBhytForCurrentItem) {
+                return const SizedBox.shrink();
+              }
+              final targetDate = controller.selectedDate.value;
+              final dateStr = targetDate != null
+                  ? 'ngày ${DateFormat('dd/MM/yyyy').format(targetDate)}'
+                  : 'ngày khám này';
+              return Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Đã đủ 2 chuyên khoa BHYT trong $dateStr. Chuyên khoa này vui lòng chọn Khám Dịch Vụ.',
+                        style: const TextStyle(color: Color(0xFF92400E), fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
             const SizedBox(height: 20),
 
             // =================== KHỐI NHẬP MÃ THẺ BHYT (KHI CHỌN KHÁM BHYT) ===================
@@ -464,15 +495,30 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: controller.isBhyt ? Colors.green.shade50 : Colors.blue.shade50,
+                            color: controller.hasBhytBookings &&
+                                    controller.hasServiceBookings
+                                ? Colors.purple.shade50
+                                : controller.hasBhytBookings
+                                    ? Colors.green.shade50
+                                    : Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            controller.isBhyt ? 'Giá Nhà Nước' : 'Giá Nội Bộ',
+                            controller.hasBhytBookings &&
+                                    controller.hasServiceBookings
+                                ? 'BHYT + Dịch vụ'
+                                : controller.hasBhytBookings
+                                    ? 'Giá Nhà Nước'
+                                    : 'Giá Nội Bộ',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: controller.isBhyt ? const Color(0xFF059669) : const Color(0xFF0056D2),
+                              color: controller.hasBhytBookings &&
+                                      controller.hasServiceBookings
+                                  ? Colors.purple.shade700
+                                  : controller.hasBhytBookings
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFF0056D2),
                             ),
                           ),
                         ),
@@ -557,7 +603,7 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                     _buildCostRow('Tổng chi phí ban đầu', '${formatter.format(totalBefore)}đ'),
 
                     // Mức giảm BHYT
-                    if (controller.isBhyt) ...[
+                    if (controller.hasBhytBookings) ...[
                       const SizedBox(height: 8),
                       _buildCostRow(
                         controller.isSmallInvoice
@@ -581,7 +627,8 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                               'Bệnh nhân thanh toán',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             ),
-                            if (controller.isBhyt && controller.isSmallInvoice)
+                            if (controller.hasBhytBookings &&
+                                controller.isSmallInvoice)
                               const Text(
                                 'Được miễn đồng chi trả 100%',
                                 style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
@@ -599,7 +646,7 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
                       ],
                     ),
 
-                    if (controller.isBhyt) ...[
+                    if (controller.hasBhytBookings) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -634,6 +681,8 @@ class _InsuranceScreenState extends State<InsuranceScreen> {
               width: double.infinity,
               child: Obx(() {
                 final bool isReady = controller.bookingType.value != null &&
+                    (!controller.isBhyt ||
+                        controller.canSelectBhytForCurrentItem) &&
                     (!controller.isBhyt || (controller.isBhytCardValid.value && !controller.isBhytBlacklisted.value));
 
                 String buttonText = 'Tiếp tục';

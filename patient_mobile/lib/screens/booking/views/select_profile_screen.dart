@@ -18,6 +18,8 @@ class _SelectProfileScreenState extends State<SelectProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // Bắt đầu phiên đặt khám mới: xóa sạch dữ liệu và giỏ khám cũ
+    controller.resetBookingSession();
     PatientProfileService.loadProfiles().then((_) {
       if (mounted) setState(() {});
     });

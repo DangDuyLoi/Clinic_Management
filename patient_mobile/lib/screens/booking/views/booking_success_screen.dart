@@ -7,6 +7,7 @@ import '../../../services/booking_api_service.dart';
 import '../../../services/fcm_service.dart';
 import '../../../widgets/live_queue_tracker_widget.dart';
 import '../../main/main_screen.dart';
+import '../controllers/booking_controller.dart';
 
 class BookingSuccessScreen extends StatefulWidget {
   final Map<String, dynamic> bookingData;
@@ -51,6 +52,13 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
     }
 
     _qrUrl = '${ApiConstants.baseUrl}/luot-kham/$_maLuotKham/tiep-nhan';
+
+    // Xóa sạch giỏ khám và trạng thái phiên cũ để phiên khám tiếp theo bắt đầu hoàn toàn mới
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.isRegistered<BookingController>()) {
+        Get.find<BookingController>().resetBookingSession();
+      }
+    });
 
     // Bắt đầu lắng nghe trạng thái check-in thời gian thực (Polling mỗi 3 giây)
     _startPollingCheckIn();
@@ -109,6 +117,9 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
+        if (Get.isRegistered<BookingController>()) {
+          Get.find<BookingController>().resetBookingSession();
+        }
         Get.offAll(() => const MainScreen());
         return false;
       },
@@ -428,6 +439,9 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    if (Get.isRegistered<BookingController>()) {
+                      Get.find<BookingController>().resetBookingSession();
+                    }
                     Get.offAll(() => const MainScreen());
                   },
                   style: ElevatedButton.styleFrom(

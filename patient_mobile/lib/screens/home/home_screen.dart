@@ -5,6 +5,7 @@ import 'widgets/upcoming_appointment_card.dart';
 import 'widgets/feature_grid.dart';
 import 'controllers/home_controller.dart';
 import '../booking/views/select_profile_screen.dart';
+import '../booking/controllers/booking_controller.dart';
 import '../emr/emr_screen.dart';
 import '../profile/profile_empty_screen.dart';
 import '../../services/patient_profile_service.dart';
@@ -114,6 +115,10 @@ class HomeScreen extends StatelessWidget {
                         }),
                         FeatureGrid(
                           onBookAppointment: () {
+                            // Reset giỏ khám và trạng thái phiên trước đó
+                            if (Get.isRegistered<BookingController>()) {
+                              Get.find<BookingController>().resetBookingSession();
+                            }
                             // LOGIC KIỂM TRA HỒ SƠ
                             if (PatientProfileService.cachedProfiles.isEmpty) {
                               // Chưa có hồ sơ => Chuyển đến màn hình tạo hồ sơ (Empty Screen)
