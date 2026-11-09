@@ -151,4 +151,35 @@ void main() {
     expect(controller.bookingType.value, isNull);
     expect(controller.paymentMethod.value, isNull);
   });
+
+  test('Changing date or doctor in single-booking replaces previous draft without ghost accumulation', () {
+    final dateA = DateTime(2026, 12, 1);
+    final dateB = DateTime(2026, 12, 5);
+
+    // Bắt đầu đặt chuyên khoa 1 với Bác sĩ 1 vào ngày A
+    controller.selectedSpecialty.value = {'name': 'Nội khoa', 'gia_kham': 150000};
+    controller.selectedDoctor.value = {'id': 1, 'name': 'Bác sĩ A'};
+    controller.selectedDate.value = dateA;
+    controller.selectedTimeSlot.value = {'time': '08:00:00'};
+    controller.bookingType.value = BookingType.bhyt;
+    controller.addCurrentBookingToItems();
+
+    expect(controller.bookedItems.length, 1);
+    expect(controller.bookedItems.first['date'], dateA);
+    expect((controller.bookedItems.first['doctor'] as Map)['id'], 1);
+
+    // Người dùng bấm quay lại (Back) đổi sang ngày B với Bác sĩ 2
+    controller.selectedDoctor.value = {'id': 2, 'name': 'Bác sĩ B'};
+    controller.selectedDate.value = dateB;
+    controller.selectedTimeSlot.value = {'time': '09:00:00'};
+    controller.bookingType.value = BookingType.bhyt;
+    controller.addCurrentBookingToItems();
+
+    // Phải thay thế, KHÔNG được cộng dồn thành 2 lượt
+    expect(controller.bookedItems.length, 1);
+    expect(controller.bookedItems.first['date'], dateB);
+    expect((controller.bookedItems.first['doctor'] as Map)['id'], 2);
+    expect(controller.canSelectBhytForCurrentItem, isTrue);
+    expect(controller.hasExceededBhytCap, isFalse);
+  });
 }
