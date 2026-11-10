@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // added for kIsWeb
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
+import '../profile/controllers/patient_profile_controller.dart';
 import 'verify_otp_screen.dart';
 import 'login_screen.dart';
 
@@ -19,12 +20,16 @@ class _RegisterPhoneScreenState extends State<RegisterPhoneScreen> {
   String? _errorMessage;
 
   Future<void> _sendOtp() async {
-    String phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _errorMessage = 'Vui lòng nhập số điện thoại');
+    final rawPhone = _phoneController.text.trim();
+
+    // 1. Kiểm tra tính hợp lệ của số điện thoại theo chuẩn viễn thông Việt Nam
+    final phoneValidationError = MedicalValidators.validatePhone(rawPhone, isRequired: true);
+    if (phoneValidationError != null) {
+      setState(() => _errorMessage = phoneValidationError);
       return;
     }
-    
+
+    String phone = rawPhone;
     // Format to E.164 if starts with 0
     if (phone.startsWith('0')) {
       phone = '+84${phone.substring(1)}';
@@ -113,10 +118,17 @@ class _RegisterPhoneScreenState extends State<RegisterPhoneScreen> {
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
+              onChanged: (_) {
+                if (_errorMessage != null) {
+                  setState(() => _errorMessage = null);
+                }
+              },
               decoration: InputDecoration(
                 labelText: 'Số điện thoại',
                 errorText: _errorMessage,
+                errorMaxLines: 3,
                 border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.phone_android),
               ),
             ),
             const SizedBox(height: 24),

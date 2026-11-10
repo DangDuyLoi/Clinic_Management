@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\VietnamesePhoneRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -23,7 +24,7 @@ class SendOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone_number' => ['required', 'string', 'regex:/^(0|\+84)[3|5|7|8|9][0-9]{8}$/', 'unique:users,phone_number'],
+            'phone_number' => ['required', 'string', new VietnamesePhoneRule(), 'unique:users,phone_number'],
         ];
     }
 }

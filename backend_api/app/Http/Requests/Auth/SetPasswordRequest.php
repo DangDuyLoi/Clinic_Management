@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\VietnamesePhoneRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -23,7 +24,7 @@ class SetPasswordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'phone_number' => ['required', 'string'],
+            'phone_number' => ['required', 'string', new VietnamesePhoneRule()],
             'password' => [
                 'required',
                 'string',

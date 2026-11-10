@@ -12,8 +12,8 @@ class HoSoBenhAn extends Model
     protected $fillable = [
         'ma_benh_nhan', 'tien_su_benh', 'nhom_mau',
         'ho_chu_lot', 'ten', 'ngay_sinh', 'dan_toc', 'gioi_tinh',
-        'nghe_nghiep', 'quan_he', 'so_dien_thoai', 'email',
-        'cccd', 'ho_chieu', 'so_dinh_danh', 'quoc_gia',
+        'nghe_nghiep', 'quan_he', 'so_dien_thoai', 'nguoi_lien_he_khan_cap', 'email',
+        'cccd', 'ho_chieu', 'so_dinh_danh', 'so_the_bhyt', 'quoc_gia',
         'tinh_thanh', 'quan_huyen', 'phuong_xa', 'so_nha'
     ];
 
