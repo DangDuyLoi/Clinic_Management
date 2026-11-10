@@ -7,13 +7,14 @@ use Illuminate\Http\Request;
 use App\Models\HoSoBenhAn;
 use App\Models\BenhNhan;
 use App\Http\Requests\PatientProfileRequest;
+use App\Http\Requests\StoreBenhNhanRequest;
 
 class PatientProfileController extends Controller
 {
     /**
      * Store a newly created patient profile.
      */
-    public function store(PatientProfileRequest $request)
+    public function store(StoreBenhNhanRequest $request)
     {
         $data = $request->validated();
         
