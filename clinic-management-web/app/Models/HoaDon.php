@@ -12,7 +12,8 @@ class HoaDon extends Model
 
     protected $fillable = [
         'ma_phien_kham', 'tien_kham_benh', 'tien_dich_vu', 'tien_thuoc',
-        'tong_cong', 'phuong_thuc', 'trang_thai', 'ngay_tao', 'ngay_thanh_toan',
+        'tong_cong','tien_bhyt_tra', 'tien_benh_nhan_tra',
+         'phuong_thuc', 'trang_thai', 'ngay_tao', 'ngay_thanh_toan',
     ];
 
     public function phienKham()

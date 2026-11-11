@@ -260,7 +260,12 @@ async function processQRContent(content) {
     return;
   }
 
-  const res = await api.post('/lich-kham/scan-qr', { qr_content: content });
+  // Cắt lấy token và xóa sạch các ký tự rác
+  let token = content.replace('LICHKHAM:', '');
+  token = token.replace(/[^a-zA-Z0-9]/g, ''); // Xóa dấu ", khoảng trắng...
+
+  // Gửi token đã làm sạch lên API
+  const res = await api.post('/lich-kham/scan-qr', { qr_token: token });
 
   if (res.status !== 'success') {
     api.toast(res.message || 'Không tìm thấy lịch khám', 'error');
@@ -269,8 +274,6 @@ async function processQRContent(content) {
 
   // Lưu thông tin lịch
   currentLich = res.data;
-
-  // Hiện modal xác nhận
   showConfirmModal(res.data);
 }
 
@@ -288,9 +291,20 @@ function submitManualQR() {
    MODAL XÁC NHẬN
    ============================================================ */
 function showConfirmModal(data) {
-  const bn = data.benh_nhan;
-  const bs = data.bac_si;
-  const kg = data.khung_gio;
+  const bn = data.ho_so?.benh_nhan || data.benh_nhan || {};
+  const bs = data.bac_si || {};
+
+  let gioKhamStr = '—';
+  if (data.thoi_gian_den_kham) {
+      const time = new Date(data.thoi_gian_den_kham);
+      gioKhamStr = time.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
+  } else if (data.khung_gio) {
+      gioKhamStr = `${data.khung_gio.gio_bat_dau.slice(0,5)} - ${data.khung_gio.gio_ket_thuc.slice(0,5)}`;
+  }
+  let ngayKhamStr = '—';
+  if (data.thoi_gian_den_kham) {
+      ngayKhamStr = api.formatDate(data.thoi_gian_den_kham);
+  }
 
   document.getElementById('confirmContent').innerHTML = `
     <div style="background:#d1e7dd;padding:14px;border-radius:8px;margin-bottom:16px;text-align:center">
@@ -301,18 +315,18 @@ function showConfirmModal(data) {
     </div>
 
     <div class="grid grid-2" style="gap:12px">
-      <div><b>Mã lịch:</b> #${data.ma_lich_dat}</div>
-      <div><b>Ngày khám:</b> ${api.formatDate(data.ngay_kham)}</div>
-      <div><b>Giờ:</b> ${kg.gio_bat_dau.slice(0,5)} - ${kg.gio_ket_thuc.slice(0,5)}</div>
-      <div><b>Bác sĩ:</b> ${bs.ho_ten}</div>
+      <div><b>Mã lịch:</b> #${data.ma_luot_kham || data.ma_lich_dat}</div>
+      <div><b>Ngày khám:</b> ${ngayKhamStr}</div>
+      <div><b>Giờ:</b> ${gioKhamStr}</div>
+      <div><b>Bác sĩ:</b> ${bs.ho_ten || 'Chưa phân bổ'}</div>
     </div>
 
     <hr style="margin:16px 0">
 
     <h4 style="margin-bottom:12px">👤 Thông tin bệnh nhân</h4>
     <div class="grid grid-2" style="gap:12px">
-      <div><b>Họ tên:</b> ${bn.ho_ten}</div>
-      <div><b>Giới tính:</b> ${bn.gioi_tinh === 'Nam' ? 'Nam' : bn.gioi_tinh === 'Nu' ? 'Nữ' : 'Khác'}</div>
+      <div><b>Họ tên:</b> ${bn.ho_ten || '—'}</div>
+      <div><b>Giới tính:</b> ${bn.gioi_tinh == 1 ? 'Nam' : (bn.gioi_tinh == 0 ? 'Nữ' : '—')}</div>
       <div><b>Ngày sinh:</b> ${bn.ngay_sinh ? api.formatDate(bn.ngay_sinh) : '—'}</div>
       <div><b>SĐT:</b> ${bn.so_dien_thoai || '—'}</div>
     </div>
@@ -333,7 +347,7 @@ async function confirmCheckIn() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Đang xử lý...';
 
-  const res = await api.post(`/lich-kham/${currentLich.ma_lich_dat}/checkin-by-qr`);
+  const res = await api.post(`/lich-kham/${currentLich.ma_luot_kham}/checkin-by-qr`);
 
   if (res.status === 'success') {
     api.toast('✅ Check-in thành công! Bệnh nhân đã vào hàng đợi.', 'success', 3000);

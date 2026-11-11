@@ -15,7 +15,7 @@ class HoaDonController extends Controller
        ============================================================ */
     public function index(Request $request)
     {
-        $query = HoaDon::with(['phienKham.lichKham.benhNhan', 'phienKham.lichKham.bacSi']);
+        $query = HoaDon::with(['phienKham.lichKham.hoSo.benhNhan', 'phienKham.lichKham.bacSi']);
 
         if ($tt = $request->query('trang_thai')) {
             $query->where('trang_thai', $tt);
@@ -50,7 +50,7 @@ class HoaDonController extends Controller
     public function show($id)
     {
         $hd = HoaDon::with([
-            'phienKham.lichKham.benhNhan',
+            'phienKham.lichKham.HoSo.benhNhan',
             'phienKham.lichKham.bacSi.chuyenKhoa',
             'phienKham.chiDinh.dichVu',
             'phienKham.donThuoc.chiTiet.thuoc',
@@ -160,12 +160,12 @@ public function pay(Request $request, $id)
 
                 // 3. Cập nhật lịch khám → Hoàn thành (giờ mới xong)
                 if ($hd->phienKham->lichKham) {
-                    $hd->phienKham->lichKham->trang_thai = 'HoanThanh';
+                    $hd->phienKham->lichKham->trang_thai = 'hoan_thanh';
                     $hd->phienKham->lichKham->save();
                 }
             }
         });
-        // ⭐ SỰ KIỆN 3: Thông báo cho ADMIN
+        //Thông báo cho ADMIN
             try {
                 $hd->load('phienKham.lichKham.benhNhan', 'phienKham.lichKham.bacSi');
                 $tenBn = $hd->phienKham->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';

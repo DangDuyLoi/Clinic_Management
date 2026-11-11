@@ -4,29 +4,29 @@ namespace App\Http\Controllers;
 
 use App\Models\PhienKham;
 use App\Models\LichKham;
+use App\Models\HoaDon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\HoaDon;
+use Carbon\Carbon;
 
 class PhienKhamController extends Controller
 {
     /* ============================================================
        GET /api/phien-kham
-       Query: ?ngay=2026-09-21&ma_bs=1
        ============================================================ */
     public function index(Request $request)
     {
-        $query = PhienKham::with(['lichKham.benhNhan', 'lichKham.bacSi', 'chiDinh.dichVu']);
+        $query = PhienKham::with(['lichKham.hoSo.benhNhan', 'lichKham.bacSi', 'chiDinh.dichVu']);
 
         if ($ngay = $request->query('ngay')) {
             $query->whereHas('lichKham', function ($q) use ($ngay) {
-                $q->where('ngay_kham', $ngay);
+                $q->whereDate('thoi_gian_den_kham', $ngay);
             });
         }
 
         if ($maBs = $request->query('ma_bs')) {
             $query->whereHas('lichKham', function ($q) use ($maBs) {
-                $q->where('ma_bs', $maBs);
+                $q->where('ma_bac_si', $maBs);
             });
         }
 
@@ -38,11 +38,10 @@ class PhienKhamController extends Controller
 
     /* ============================================================
        GET /api/phien-kham/by-lich/{maLich}
-       Lấy phiên khám theo lịch khám — nếu chưa có, tự tạo mới
        ============================================================ */
     public function getByLichKham($maLich)
     {
-        $lich = LichKham::with(['benhNhan', 'bacSi.chuyenKhoa', 'khungGio'])->find($maLich);
+        $lich = LichKham::with(['hoSo.benhNhan', 'bacSi.chuyenKhoa'])->find($maLich);
 
         if (!$lich) {
             return response()->json([
@@ -57,14 +56,15 @@ class PhienKhamController extends Controller
             'hoaDon',
         ])->where('ma_lich_dat', $maLich)->first();
 
-        // Nếu chưa có → tạo mới + đổi trạng thái lịch thành 'DangKham'
+        // Nếu chưa có phiên khám → tạo mới + đổi trạng thái lịch thành 'dang_kham'
         if (!$phienKham) {
             $phienKham = PhienKham::create([
                 'ma_lich_dat' => $maLich,
                 'trang_thai'  => 'ChoCanLamSang',
             ]);
-
-            $lich->trang_thai = 'DangKham';
+        }
+        if ($lich->trang_thai !== 'hoan_thanh') {
+            $lich->trang_thai = 'dang_kham';
             $lich->save();
         }
 
@@ -83,7 +83,7 @@ class PhienKhamController extends Controller
     public function show($id)
     {
         $pk = PhienKham::with([
-            'lichKham.benhNhan',
+            'lichKham.hoSo.benhNhan',
             'lichKham.bacSi.chuyenKhoa',
             'chiDinh.dichVu',
             'donThuoc.chiTiet.thuoc',
@@ -106,7 +106,6 @@ class PhienKhamController extends Controller
     /* ============================================================
        PUT /api/phien-kham/{id}
        Cập nhật chẩn đoán
-       Body: { chan_doan_so_bo?, chan_doan_cuoi_cung?, ghi_chu_y_te? }
        ============================================================ */
     public function update(Request $request, $id)
     {
@@ -137,114 +136,98 @@ class PhienKhamController extends Controller
 
     /* ============================================================
        POST /api/phien-kham/{id}/finish
-       Hoàn thành phiên khám — đổi trạng thái cả LichKham
+       Hoàn thành phiên khám — Tính tiền & Tạo hóa đơn
        ============================================================ */
-    public function finish($id)
+            public function finish($id)
     {
-        $pk = PhienKham::with([
-            'lichKham',
-            'chiDinh.dichVu',
-            'donThuoc.chiTiet',
-        ])->find($id);
-
-        if (!$pk) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Không tìm thấy phiên khám',
-            ], 404);
-        }
-
-        // Chặn finish 2 lần
-        if ($pk->trang_thai === 'HoanThanh') {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Phiên khám đã hoàn thành trước đó',
-            ], 400);
-        }
+        $pk = PhienKham::with(['lichKham.hoSo.benhNhan', 'chiDinh.dichVu', 'donThuoc.chiTiet'])->find($id);
+        if (!$pk) return response()->json(['status' => 'error', 'message' => 'Không tìm thấy phiên khám'], 404);
+        if (in_array($pk->trang_thai, ['HoanThanh', 'ChoThanhToan'])) return response()->json(['status' => 'error', 'message' => 'Đã hoàn thành trước đó'], 400);
 
         try {
             $result = DB::transaction(function () use ($pk) {
-
-                // 1. Cập nhật trạng thái phiên khám
                 $pk->trang_thai = 'ChoThanhToan';
                 $pk->save();
 
-                // 2. Cập nhật trạng thái lịch khám
-                if ($pk->lichKham) {
-                    $pk->lichKham->trang_thai = 'ChoThanhToan';
-                    $pk->lichKham->save();
+                $lich = $pk->lichKham;
+                $hinhThuc = $lich->hinh_thuc_kham ?? 'DichVu';
+                
+                if ($lich) {
+                    $lich->trang_thai = 'hoan_tat_hoa_don'; 
+                    $lich->save();
                 }
 
-                // 3. Tính tiền
-                $tienKhamBenh = 100000; // Phí khám cố định
+                // 1. Tính tiền dịch vụ & thuốc
+                $tienDichVuGoc = 0;
+                foreach ($pk->chiDinh as $cd) { if ($cd->dichVu) $tienDichVuGoc += (float) $cd->dichVu->don_gia; }
+                
+                $tienThuocGoc = 0;
+                if ($pk->donThuoc) $tienThuocGoc = (float) $pk->donThuoc->tong_tien;
 
-                // Tiền dịch vụ = tổng đơn giá dịch vụ đã chỉ định
-                $tienDichVu = 0;
-                foreach ($pk->chiDinh as $cd) {
-                    if ($cd->dichVu) {
-                        $tienDichVu += (float) $cd->dichVu->don_gia;
+                // TỔNG CỘNG = Dịch vụ + Thuốc
+                $tongCong = $tienDichVuGoc + $tienThuocGoc;
+
+                // 2. Tính BHYT (nếu có)
+                $tienBhytTra = 0;
+                if ($hinhThuc === 'BHYT') {
+                    $benhNhan = $lich->hoSo->benhNhan ?? null;
+                    if ($benhNhan && $benhNhan->ma_bhyt && strlen($benhNhan->ma_bhyt) === 15) {
+                        
+                        $maDoiTuong = substr($benhNhan->ma_bhyt, 0, 2);
+                        $kyTu3 = substr($benhNhan->ma_bhyt, 2, 1);
+                        
+                        // Tìm thông tin trong bảng danh mục
+                        $loaiDoiTuong = \DB::table('LoaiDoiTuongBHYT')->where('ma_doi_tuong', $maDoiTuong)->first();
+                        
+                        // Nếu không tìm thấy, báo lỗi ngay, không tự đoán mức hưởng
+                        if (!$loaiDoiTuong) {
+                            throw new \Exception("Lỗi dữ liệu BHYT: Mã đối tượng '{$maDoiTuong}' không có trong danh mục quy định. Vui lòng kiểm tra lại thẻ BHYT của bệnh nhân.");
+                        }
+
+                        $mucHuong = $loaiDoiTuong->ty_le_huong;
+
+                        // QUY TẮC ĐỒNG CHI TRẢ: Tổng tiền < 379.500đ thì BHYT trả 100%
+                        if ($tongCong < 379500) {
+                            $mucHuong = 100;
+                        }
+
+                        $tienBhytTra = $tongCong * ($mucHuong / 100);
                     }
                 }
 
-                // Tiền thuốc = tổng tiền đơn thuốc
-                $tienThuoc = 0;
-                if ($pk->donThuoc) {
-                    $tienThuoc = (float) $pk->donThuoc->tong_tien;
-                }
-
-                $tongCong = $tienKhamBenh + $tienDichVu + $tienThuoc;
-
-                // 4. Tạo hóa đơn (nếu chưa có)
-                $hoaDon = HoaDon::firstOrCreate(
+                // 3. Tính tiền bệnh nhân thực trả
+                $tienBenhNhanTra = $tongCong - $tienBhytTra;
+                
+                \Log::info("Finish Exam PK#{$pk->ma_phien_kham} - DichVu: {$tienDichVuGoc}, Thuoc: {$tienThuocGoc}, Tong: {$tongCong}");
+                // 4. LƯU HÓA ĐƠN
+                return HoaDon::updateOrCreate(
                     ['ma_phien_kham' => $pk->ma_phien_kham],
                     [
-                        'tien_kham_benh' => $tienKhamBenh,
-                        'tien_dich_vu'   => $tienDichVu,
-                        'tien_thuoc'     => $tienThuoc,
+                        'tien_kham_benh' => 0,
+                        'tien_dich_vu'   => $tienDichVuGoc, 
+                        'tien_thuoc'     => $tienThuocGoc,  
                         'tong_cong'      => $tongCong,
+                        'tien_bhyt_tra'  => $tienBhytTra,
+                        'tien_benh_nhan_tra' => $tienBenhNhanTra,
                         'trang_thai'     => 'ChuaThanhToan',
+                        'ngay_tao'       => now(),
                     ]
                 );
-
-                return $hoaDon;
             });
-            // ⭐ SỰ KIỆN 2: Thông báo cho LỄ TÂN
-            try {
-                $pk->load('lichKham.benhNhan', 'lichKham.bacSi');
-                $tenBn = $pk->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';
-                $tenBs = $pk->lichKham->bacSi->ho_ten ?? 'bác sĩ';
 
-                \App\Models\ThongBao::guiTheoVaiTro(
-                    'LeTan',
-                    "✅ Phiên khám đã hoàn thành",
-                    "BS {$tenBs} đã khám xong cho {$tenBn}. Vui lòng thu tiền.",
-                    'hoan_thanh',
-                    '/views/receptionist/payments.html'
-                );
-            } catch (\Exception $notiErr) {
-                \Log::warning('[ThongBao] Sự kiện hoan_thanh: ' . $notiErr->getMessage());
-            }
-            
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Đã hoàn thành khám. Vui lòng chờ lễ tân thanh toán.',
-                'data'    => [
-                    'phien_kham' => $pk->fresh(),
-                    'hoa_don'    => $result->load('phienKham.lichKham.benhNhan'),
-                ],
-            ]);
+            return response()->json(['status' => 'success', 'message' => 'Đã hoàn thành khám.', 'data' => $result]);
         } catch (\Exception $e) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Lỗi: ' . $e->getMessage(),
+                'status' => 'error', 
+                'message' => 'Lỗi lưu DB: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
             ], 500);
         }
     }
 
     /* ============================================================
        POST /api/phien-kham/{id}/chi-dinh
-       Bác sĩ chỉ định dịch vụ cận lâm sàng
-       Body: { ma_dich_vu, ket_qua_chi_tiet? }
        ============================================================ */
     public function addChiDinh(Request $request, $id)
     {

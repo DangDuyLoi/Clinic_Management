@@ -16,6 +16,7 @@ class TaiKhoan extends Authenticatable implements JWTSubject
         'mat_khau',
         'vai_tro',
         'trang_thai',
+        'ho_ten'
     ];
 
     protected $hidden = [

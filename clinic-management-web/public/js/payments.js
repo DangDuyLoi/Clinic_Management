@@ -1,114 +1,151 @@
-/* ============================================================
-   PAYMENTS — Quản lý thanh toán (Lễ tân)
-   ============================================================ */
-let qrCountdownTimer = null;     // Interval đếm ngược
-const QR_DURATION = 300;         // Thời gian QR sống (giây) — 5 phút
-let qrCountdownValue = QR_DURATION;      // Số giây còn lại
-let qrRefreshCount = 0;          // Số lần đã reset (để log)
-let currentPaymentMethod = null;
+let invoicesMap = {};
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
   auth.renderUserInfo();
 
-  const dateInput = document.getElementById('filterDate');
-  if (dateInput) {
-    dateInput.value = todayStr();
-    dateInput.addEventListener('change', loadInvoices);
-  }
+  const statusSelect = document.getElementById('filterStatus');
+  if (statusSelect) statusSelect.addEventListener('change', loadBills);
 
-  document.getElementById('filterStatus').addEventListener('change', loadInvoices);
-
-  loadInvoices();
+  loadBills();
   loadStats();
 });
 
 /* ---------- LOAD DANH SÁCH ---------- */
-async function loadInvoices() {
-  const status = document.getElementById('filterStatus').value;
-  const date   = document.getElementById('filterDate').value;
-
-  let url = '/hoa-don?per_page=100';
-
-  if (status === 'ChuaThanhToan') {
-    // Không filter ngày → thấy tất cả hóa đơn chưa thanh toán
-    url += `&trang_thai=${status}`;
-  } else if (status) {
-    url += `&trang_thai=${status}`;
-    if (date) url += `&ngay=${date}`;
-  } else if (date) {
-    url += `&ngay=${date}`;
-  }
-
+async function loadBills() {
   const tbody = document.getElementById('invoiceTable');
-  tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
 
-  const res = await api.get(url);
+  const filterEl = document.getElementById('filterStatus');
+  const statusFilter = filterEl ? filterEl.value : '';
+  
+  let allBills = [];
 
-  if (res.status !== 'success') {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi: ${res.message}</td></tr>`;
+  // 1. LẤY LƯỢT KHÁM CHỜ THU 150K (Chưa vào khám)
+  if (!statusFilter || statusFilter === 'ChuaThanhToan') {
+    const resLK = await api.get(`/lich-kham?trang_thai=cho_thanh_toan&per_page=100`);
+    if (resLK.status === 'success') {
+      const luotKhams = resLK.data?.data || [];
+      allBills = allBills.concat(luotKhams.map(lk => {
+        const bn = lk.ho_so?.benh_nhan || {};
+        
+        const giaKham = 150000;
+        let tienBhytTra = 0;
+        let tienBenhNhanTra = giaKham;
+        let hinhThuc = lk.hinh_thuc_kham || 'DichVu';
+
+        if (hinhThuc === 'BHYT' && bn.ma_bhyt) {
+            let mucHuong = 80; 
+            if (giaKham < 379500) mucHuong = 100;
+            else {
+                const kyTu3 = bn.ma_bhyt.substring(2, 3);
+                if (kyTu3 === '1' || kyTu3 === '2') mucHuong = 100;
+                else if (kyTu3 === '3') mucHuong = 95;
+                else if (kyTu3 === '4') mucHuong = 80;
+            }
+            tienBhytTra = giaKham * (mucHuong / 100);
+            tienBenhNhanTra = giaKham - tienBhytTra;
+        }
+
+        return {
+          key: `luot_kham_${lk.ma_luot_kham}`,
+          raw_id: lk.ma_luot_kham,
+          loai: 'luot_kham',
+          ten_benh_nhan: bn.ho_ten || 'Khách vãng lai',
+          so_dien_thoai: bn.so_dien_thoai || '',
+          tien_kham: giaKham,
+          tien_dich_vu: 0,
+          tien_thuoc: 0,
+          tong_cong: giaKham,
+          tien_bhyt_tra: tienBhytTra,
+          tien_benh_nhan_tra: tienBenhNhanTra, 
+          hinh_thuc_kham: hinhThuc,
+          trang_thai: 'Chờ thanh toán (Phí khám)',
+          raw_status: 'cho_thanh_toan'
+        };
+      }));
+    }
+  }
+
+  // 2. LẤY HÓA ĐƠN DỊCH VỤ/THUỐC (Không lọc theo ngày để tránh bị ẩn)
+  let hdUrl = `/hoa-don?per_page=100`;
+  if (statusFilter) hdUrl += `&trang_thai=${statusFilter}`;
+  
+  const resHD = await api.get(hdUrl);
+  if (resHD.status === 'success') {
+    const hoaDons = resHD.data?.data || [];
+    allBills = allBills.concat(hoaDons.map(hd => {
+      const bn = hd.phien_kham?.lich_kham?.ho_so?.benh_nhan || {};
+      const tongCong = Number(hd.tong_cong) || 0;
+      const bhytTra = Number(hd.tien_bhyt_tra) || 0;
+      const benhNhanTra = hd.tien_benh_nhan_tra !== null && hd.tien_benh_nhan_tra !== undefined 
+                            ? Number(hd.tien_benh_nhan_tra) 
+                            : tongCong; 
+      return {
+        key: `hoa_don_${hd.ma_hoa_don}`,
+        raw_id: hd.ma_hoa_don,
+        loai: 'hoa_don',
+        ten_benh_nhan: bn.ho_ten || 'Khách vãng lai',
+        so_dien_thoai: bn.so_dien_thoai || '',
+        tien_kham: 0, // Hóa đơn này không cộng 150k
+        tien_dich_vu: hd.tien_dich_vu || 0,
+        tien_thuoc: hd.tien_thuoc || 0,
+        tong_cong: hd.tong_cong || 0,
+        tien_bhyt_tra: hd.tien_bhyt_tra || 0,
+        tien_benh_nhan_tra: (hd.tien_benh_nhan_tra !== null && hd.tien_benh_nhan_tra !== undefined) ? Number(hd.tien_benh_nhan_tra) : Number(hd.tong_cong),
+        hinh_thuc_kham: hd.tien_bhyt_tra > 0 ? 'BHYT' : 'DichVu',
+        trang_thai: hd.trang_thai === 'ChuaThanhToan' ? 'Chờ thanh toán (Hóa đơn)' : 'Đã thanh toán',
+        raw_status: hd.trang_thai
+      };
+    }));
+  }
+
+  invoicesMap = {};
+  allBills.forEach(hd => { invoicesMap[hd.key] = hd; });
+
+  if (allBills.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted" style="padding:32px">Không có hóa đơn</td></tr>';
     return;
   }
 
-  const data = res.data?.data || [];
-
-  if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:32px">Không có hóa đơn</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = data.map(hd => {
-    const bn = hd.phien_kham?.lich_kham?.benh_nhan;
-    const cls = statusBadgeClassHD(hd.trang_thai);
-    const canPay = hd.trang_thai === 'ChuaThanhToan';
+  tbody.innerHTML = allBills.map(hd => {
+    const isPending = hd.raw_status === 'cho_thanh_toan' || hd.raw_status === 'ChuaThanhToan';
+    const badgeClass = isPending ? 'badge-wait' : 'badge-done';
+    
+    const loaiBadge = hd.loai === 'luot_kham' 
+      ? '<span class="badge" style="background:#fff3cd;color:#856404;">Phí khám</span>' 
+      : '<span class="badge" style="background:#e2e3e5;color:#383d41;">Hóa đơn</span>';
 
     return `
-      <tr>
-        <td><b>#${hd.ma_hoa_don}</b></td>
-        <td>${bn?.ho_ten || '—'}<br><small>${bn?.so_dien_thoai || ''}</small></td>
-        <td>${api.formatMoney(hd.tien_kham_benh)}</td>
+      <tr data-key="${hd.key}">
+        <td><b>#${hd.raw_id}</b><br>${loaiBadge}</td>
+        <td>${hd.ten_benh_nhan}<br><small>${hd.so_dien_thoai}</small></td>
+        <td>${hd.hinh_thuc_kham === 'BHYT' ? '<span class="badge bg-success text-white">BHYT</span>' : 'Dịch vụ'}</td>
+        <td>${api.formatMoney(hd.tien_kham)}</td>
         <td>${api.formatMoney(hd.tien_dich_vu)}</td>
         <td>${api.formatMoney(hd.tien_thuoc)}</td>
-        <td><b class="text-primary">${api.formatMoney(hd.tong_cong)}</b></td>
-        <td><span class="badge ${cls}">${statusLabelHD(hd.trang_thai)}</span></td>
-        <td>
-          ${canPay ? `<button class="btn btn-success btn-sm" onclick="openPayModal(${hd.ma_hoa_don}, ${hd.tong_cong})">💳 Thanh toán</button>` : ''}
-          ${canPay ? `<button class="btn btn-danger btn-sm" onclick="cancelInvoice(${hd.ma_hoa_don})">✕</button>` : ''}
-        </td>
+        <td><b class="text-primary">${api.formatMoney(hd.tien_benh_nhan_tra)}</b></td>
+        <td><span class="badge ${badgeClass}">${hd.trang_thai}</span></td>
+        <td>${isPending ? `<button class="btn btn-success btn-sm" onclick="openPayModal('${hd.key}')">💳 Thu tiền</button>` : ''}</td>
       </tr>
     `;
   }).join('');
 }
 
-function statusBadgeClassHD(s) {
-  return {
-    'ChuaThanhToan': 'badge-wait',
-    'DaThanhToan':   'badge-done',
-    'DaHuy':         'badge-cancel',
-  }[s] || 'badge-wait';
-}
+function loadInvoices() { loadBills(); }
 
-function statusLabelHD(s) {
-  return {
-    'ChuaThanhToan': 'Chưa thanh toán',
-    'DaThanhToan':   'Đã thanh toán',
-    'DaHuy':         'Đã hủy',
-  }[s] || s;
-}
-
-/* ---------- THỐNG KÊ ---------- */
 async function loadStats() {
-  const today = todayStr();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
-  const res = await api.get(`/hoa-don?ngay=${today}&per_page=100`);
+  const res = await api.get(`/hoa-don?per_page=200`);
   if (res.status !== 'success') return;
-
   const data = res.data?.data || [];
 
   const chuaTT = data.filter(h => h.trang_thai === 'ChuaThanhToan').length;
   const daTT   = data.filter(h => h.trang_thai === 'DaThanhToan').length;
   const doanhThu = data
-    .filter(h => h.trang_thai === 'DaThanhToan')
+    .filter(h => h.trang_thai === 'DaThanhToan' && h.ngay_thanh_toan && h.ngay_thanh_toan.startsWith(todayStr))
     .reduce((sum, h) => sum + parseFloat(h.tong_cong || 0), 0);
 
   document.getElementById('chuaTT').textContent   = chuaTT;
@@ -116,276 +153,201 @@ async function loadStats() {
   document.getElementById('doanhThu').textContent = api.formatMoney(doanhThu);
 }
 
-/* ---------- MODAL THANH TOÁN ---------- */
-function openPayModal(id, tongCong) {
-  // Lưu thông tin vào biến toàn cục
-  window.currentInvoice = {
-    id: id,
-    amount: parseFloat(tongCong) || 0,
-  };
+/* ---------- MODAL THANH TOÁN (Giữ nguyên như cũ) ---------- */
+function openPayModal(key) {
+  const hd = invoicesMap[key];
+  if (!hd) return api.toast('Không tìm thấy dữ liệu!', 'error');
 
-  document.getElementById('pay_hoa_don_id').value = id;
+  window.currentInvoice = { key: hd.key, loai: hd.loai, id: hd.raw_id, amount: hd.tien_benh_nhan_tra };
+  document.getElementById('pay_hoa_don_id').value = hd.key;
 
-  // Hiển thị thông tin hóa đơn
   document.getElementById('payInfo').innerHTML = `
-    <div class="card" style="background:#f8f9fa;margin:0">
-      <div class="d-flex flex-between align-center">
-        <span>Hóa đơn <b>#${id}</b></span>
-        <span style="font-size:20px;font-weight:700;color:#0d6efd">
-          ${api.formatMoney(tongCong)}
-        </span>
+    <div class="card" style="background:#fff;margin:0; border:1px solid #dee2e6; box-shadow:none;">
+      <div style="padding:10px 12px; background:#f8f9fa; font-weight:bold; border-bottom:1px solid #dee2e6; border-radius: 8px 8px 0 0;">
+        Chi tiết ${hd.loai === 'luot_kham' ? 'phí khám' : 'hóa đơn'} #${hd.raw_id}
+      </div>
+      <div style="padding:12px;">
+        ${hd.loai === 'luot_kham' ? `
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px;">
+            <span>Tiền khám bệnh:</span> <b>${api.formatMoney(hd.tien_kham)}</b>
+          </div>
+        ` : `
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px;">
+            <span>Tiền dịch vụ:</span> <b>${api.formatMoney(hd.tien_dich_vu)}</b>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px;">
+            <span>Tiền thuốc:</span> <b>${api.formatMoney(hd.tien_thuoc)}</b>
+          </div>
+        `}
+        <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px dashed #ccc; font-size:15px; font-weight:bold;">
+          <span>Tổng cộng:</span> <span style="color:#0d6efd">${api.formatMoney(hd.tong_cong)}</span>
+        </div>
+        ${hd.hinh_thuc_kham === 'BHYT' ? `
+          <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:14px; font-weight:bold; color:#2e7d32;">
+            <span>BHYT chi trả:</span> <span>- ${api.formatMoney(hd.tien_bhyt_tra)}</span>
+          </div>
+        ` : ''}
+        <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:2px solid #dc3545; font-size:16px; font-weight:bold; color:#dc3545;">
+          <span>Bệnh nhân thực trả:</span> <span>${api.formatMoney(hd.tien_benh_nhan_tra)}</span>
+        </div>
       </div>
     </div>
   `;
 
-  // Reset về Tiền mặt
   document.getElementById('pay_phuong_thuc').value = 'TienMat';
-
-  // Ẩn cả 2 QR
-  const vnpaySec = document.getElementById('vnpayQRSection');
-  const momoSec = document.getElementById('momoQRSection');
-  if (vnpaySec) vnpaySec.style.display = 'none';
-  if (momoSec) momoSec.style.display = 'none';
-
-  // Reset biến
-  currentPaymentMethod = null;
-  qrRefreshCount = 0;
-
-  // Hiện modal
+  document.getElementById('vnpayQRSection').style.display = 'none';
+  document.getElementById('momoQRSection').style.display = 'none';
   document.getElementById('payModal').classList.remove('hidden');
 }
 
 function closePayModal() {
-  // ⭐ Dừng timer QR
-  stopQRCountdown();
-  qrRefreshCount = 0;
-  currentPaymentMethod = null;
-  currentVnpayTxnRef = null;
-
   document.getElementById('payModal').classList.add('hidden');
-
-// Reset VNPay QR
-  const vnpaySec = document.getElementById('vnpayQRSection');
-  const vnpayImg = document.getElementById('vnpayQRImage');
-  if (vnpaySec) vnpaySec.style.display = 'none';
-  if (vnpayImg) vnpayImg.src = '';
-
-  // Reset Momo QR
-  const momoSec = document.getElementById('momoQRSection');
-  const momoImg = document.getElementById('momoQRImage');
-  if (momoSec) momoSec.style.display = 'none';
-  if (momoImg) momoImg.src = '';
-
-  document.getElementById('pay_phuong_thuc').value = 'TienMat';
-
   window.currentInvoice = null;
 }
 
 async function confirmPay() {
-  const id = document.getElementById('pay_hoa_don_id').value;
+  const key = document.getElementById('pay_hoa_don_id').value;
   const pt = document.getElementById('pay_phuong_thuc').value;
-  stopQRCountdown();
-  // Nếu VNPay → yêu cầu xác nhận thêm (giả lập khách đã quét QR)
-  if (pt === 'VNPay'|| pt === 'Momo') {
-    const walletName = pt === 'VNPay' ? 'VNPay' : 'Momo';
-    const emoji = pt === 'VNPay' ? '💳' : '📱';
-    const confirmed = confirm(
-      '${emoji} Xác nhận khách đã thanh toán qua ${walletName}?\n\n' +
-      'Sau khi xác nhận, hệ thống sẽ đánh dấu hóa đơn là ĐÃ THANH TOÁN.'
-    );
-    if (!confirmed) return;
+  const hd = invoicesMap[key];
+  
+  if (!hd) return api.toast('Không tìm thấy dữ liệu', 'error');
+
+  if (pt === 'VNPay') {
+    if (hd.loai === 'hoa_don') {
+      window.currentInvoice = hd;
+      return redirectToVNPay(hd.raw_id);
+    } else {
+      return api.toast('Lượt khám chưa có hóa đơn, không thể dùng VNPay!', 'warning', 4000);
+    }
   }
 
   const btn = document.getElementById('btnConfirmPay');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Đang xử lý...';
 
-  const res = await api.put(`/hoa-don/${id}/pay`, { phuong_thuc: pt });
-
-  if (res.status === 'success') {
-    let msg = '✅ Xác nhận thanh toán thành công!';
-    if (pt === 'VNPay') {
-      msg = '✅ Thanh toán VNPay thành công! Hóa đơn đã được đánh dấu hoàn thành.';
-    } else if (pt === 'Momo') {
-      msg = '✅ Thanh toán Momo thành công! Hóa đơn đã được đánh dấu hoàn thành.';
+  try {
+    let res;
+    if (hd.loai === 'hoa_don') {
+      res = await api.put(`/hoa-don/${hd.raw_id}/pay`, { phuong_thuc: pt });
+    } else {
+      res = await api.put(`/lich-kham/${hd.raw_id}/pay`, { phuong_thuc: pt });
     }
-    api.toast(msg, 'success', 4000);
 
-    closePayModal();
-    loadInvoices();
-    loadStats();
-  } else {
-    api.toast(res.message || 'Lỗi thanh toán', 'error');
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '✓ Xác nhận thanh toán';
-}
-
-/* ---------- HỦY HÓA ĐƠN ---------- */
-async function cancelInvoice(id) {
-  if (!confirm('Bạn chắc chắn muốn hủy hóa đơn này?')) return;
-
-  const res = await api.put(`/hoa-don/${id}/cancel`);
-  if (res.status === 'success') {
-    api.toast('Đã hủy hóa đơn', 'success');
-    loadInvoices();
-    loadStats();
-  } else {
-    api.toast(res.message || 'Không thể hủy', 'error');
+    if (res.status === 'success') {
+      api.toast('✅ Xác nhận thanh toán thành công!', 'success', 3000);
+      closePayModal();
+      loadBills(); 
+      loadStats();
+    } else {
+      api.toast(res.message || 'Lỗi thanh toán', 'error');
+    }
+  } catch (error) {
+    api.toast('Không thể kết nối đến server', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✓ Xác nhận thanh toán';
   }
 }
 
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+/* ---------- CHUYỂN HƯỚNG VNPAY SANDBOX THẬT ---------- */
+async function redirectToVNPay(hoaDonId) {
+  const btn = document.getElementById('btnConfirmPay');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Đang kết nối VNPay...';
+
+  try {
+    const res = await api.post(`/vnpay/create-payment/${hoaDonId}`);
+    const paymentUrl = res.payment_url || (res.data && res.data.payment_url);
+
+    if (paymentUrl) {
+      api.toast('Đang chuyển hướng sang cổng VNPay...', 'info');
+      window.location.href = paymentUrl;
+    } else {
+      api.toast('Không lấy được link thanh toán VNPay', 'error');
+    }
+  } catch (error) {
+    console.error(error);
+    api.toast('Lỗi kết nối VNPay', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✓ Xác nhận thanh toán';
+  }
 }
-/* ============================================================
-   XỬ LÝ ĐỔI PHƯƠNG THỨC THANH TOÁN
-   ============================================================ */
+/* ---------- XỬ LÝ ĐỔI PHƯƠNG THỨC THANH TOÁN ---------- */
+let qrCountdownTimer = null;
+const QR_DURATION = 300; // 5 phút
+let qrCountdownValue = QR_DURATION;
+
 function onPaymentMethodChange() {
   const method = document.getElementById('pay_phuong_thuc').value;
-  const qrSection = document.getElementById('vnpayQRSection');
-
-  if (method === 'VNPay') {
-    showVNPayQR();                  // Tạo QR + bắt đầu timer
-    qrSection.style.display = 'block';
-  } else {
-    // ⭐ Dừng timer khi đổi sang phương thức khác
-    stopQRCountdown();
-    qrSection.style.display = 'none';
-    qrRefreshCount = 0;
-  }
-}
-/* ============================================================
-   QR ĐA PHƯƠNG THỨC — VNPAY + MOMO
-   ============================================================ */
-
-/* ---------- XỬ LÝ ĐỔI PHƯƠNG THỨC ---------- */
-function onPaymentMethodChange() {
-  const method = document.getElementById('pay_phuong_thuc').value;
-
-  // Ẩn cả 2 QR trước
-  document.getElementById('vnpayQRSection').style.display = 'none';
-  document.getElementById('momoQRSection').style.display = 'none';
-
-  // Dừng timer nếu có
+  const vnpaySec = document.getElementById('vnpayQRSection');
+  const momoSec = document.getElementById('momoQRSection');
+  
+  // Ẩn cả 2 vùng QR trước
+  if (vnpaySec) vnpaySec.style.display = 'none';
+  if (momoSec) momoSec.style.display = 'none';
+  
+  // Dừng đếm ngược nếu có
   stopQRCountdown();
 
-  if (method === 'VNPay' || method === 'Momo') {
-    // Lưu method hiện tại
-    currentPaymentMethod = method;
-
-    // Hiện QR tương ứng
-    if (method === 'VNPay') {
-      document.getElementById('vnpayQRSection').style.display = 'block';
-    } else {
-      document.getElementById('momoQRSection').style.display = 'block';
-    }
-
-    // Tạo QR + bắt đầu countdown
-    refreshPaymentQR(false);
-    startQRCountdown();
-  } else {
-    // Tiền mặt / Chuyển khoản → không cần QR
-    currentPaymentMethod = null;
+  if (method === 'VNPay') {
+    if (vnpaySec) vnpaySec.style.display = 'block';
+  } else if (method === 'Momo') {
+    if (momoSec) momoSec.style.display = 'block';
+    generateMomoQR();      // Tạo QR
+    startQRCountdown();    // Bắt đầu đếm ngược
   }
 }
 
-/* ---------- TẠO / LÀM MỚI QR ---------- */
-function refreshPaymentQR(isManual = false) {
-  if (!currentPaymentMethod) return;
-
-  const inv = window.currentInvoice || {};
-  if (!inv.id) return;
-
-  qrRefreshCount++;
+// Hàm tạo mã QR và điền thông tin
+function generateMomoQR() {
+  const inv = window.currentInvoice;
+  if (!inv) return;
 
   const invoiceCode = `HD${String(inv.id).padStart(6, '0')}`;
   const amount = inv.amount || 0;
   const content = `Thanh toan ${invoiceCode}`;
+  
+  // Điền thông tin vào các thẻ HTML
+  const elCode = document.getElementById('momoInvoiceCode');
+  const elAmount = document.getElementById('momoAmount');
+  const elContent = document.getElementById('momoContent');
+  
+  if (elCode) elCode.textContent = invoiceCode;
+  if (elAmount) elAmount.textContent = api.formatMoney(amount);
+  if (elContent) elContent.textContent = content;
 
-  // Tạo nonce + timestamp mỗi lần reset
-  const nonce = Math.random().toString(36).substring(2, 12).toUpperCase();
-  const timestamp = Date.now();
-
-  // Cấu hình theo phương thức
-  const config = {
-    VNPay: {
-      wallet: 'VNPAY_SANDBOX',
-      invoiceCodeEl: 'vnpayInvoiceCode',
-      amountEl: 'vnpayAmount',
-      contentEl: 'vnpayContent',
-      qrImgEl: 'vnpayQRImage',
-      logoEmoji: '💳'
-    },
-    Momo: {
-      wallet: 'MOMO_SANDBOX',
-      invoiceCodeEl: 'momoInvoiceCode',
-      amountEl: 'momoAmount',
-      contentEl: 'momoContent',
-      qrImgEl: 'momoQRImage',
-      logoEmoji: '📱'
-    }
-  }[currentPaymentMethod];
-
-  if (!config) return;
-
-  // Cập nhật thông tin hiển thị
-  document.getElementById(config.invoiceCodeEl).textContent = invoiceCode;
-  document.getElementById(config.amountEl).textContent = api.formatMoney(amount);
-  document.getElementById(config.contentEl).textContent = content;
-
-  // Dữ liệu QR
+  // Tạo dữ liệu QR
   const qrData = JSON.stringify({
-    wallet: config.wallet,
+    wallet: 'MOMO_SANDBOX',
     invoice: invoiceCode,
     amount: amount,
-    content: content,
-    nonce: nonce,
-    timestamp: timestamp,
-    expiry: timestamp + (QR_DURATION * 1000),
+    content: content
   });
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&_t=${timestamp}`;
-
-  const qrImg = document.getElementById(config.qrImgEl);
-  qrImg.style.opacity = '0.5';
-  qrImg.onload = () => { qrImg.style.opacity = '1'; };
-  qrImg.src = qrUrl;
-  qrImg.alt = `QR ${currentPaymentMethod} - ${invoiceCode} - ${nonce}`;
-
-  // Xóa pulse cũ, thêm hiệu ứng reset
-  qrImg.classList.remove('qr-about-to-reset');
-  qrImg.classList.add('qr-just-reset');
-  setTimeout(() => qrImg.classList.remove('qr-just-reset'), 400);
-
-  // Log
-  const method = isManual ? 'thủ công' : 'tự động';
-  console.log(
-    `🔄 [${currentPaymentMethod} - ${method}] QR #${qrRefreshCount}\n` +
-    `   Hóa đơn: ${invoiceCode}\n` +
-    `   Số tiền: ${api.formatMoney(amount)}\n` +
-    `   Nonce: ${nonce}\n` +
-    `   Timestamp: ${new Date(timestamp).toLocaleTimeString('vi-VN')}`
-  );
+  // Gọi API tạo ảnh QR
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
+  const qrImg = document.getElementById('momoQRImage');
+  if (qrImg) {
+    qrImg.src = qrUrl;
+    qrImg.alt = "QR Code Momo " + invoiceCode;
+  }
 }
 
-/* ---------- COUNTDOWN TIMER (DÙNG CHUNG) ---------- */
+// Hàm đếm ngược thời gian
 function startQRCountdown() {
   stopQRCountdown();
-
   qrCountdownValue = QR_DURATION;
-  updateQRCountdownUI();
+  updateCountdownUI();
 
   qrCountdownTimer = setInterval(() => {
     qrCountdownValue--;
-    updateQRCountdownUI();
+    updateCountdownUI();
 
     if (qrCountdownValue <= 0) {
-      refreshPaymentQR(false);
+      generateMomoQR(); // Hết 5 phút tự động làm mới QR
       qrCountdownValue = QR_DURATION;
-      updateQRCountdownUI();
+      updateCountdownUI();
     }
   }, 1000);
 }
@@ -397,221 +359,18 @@ function stopQRCountdown() {
   }
 }
 
-/* ---------- CẬP NHẬT UI COUNTDOWN ---------- */
-function updateQRCountdownUI() {
-  if (!currentPaymentMethod) return;
-
-  // Chọn element theo phương thức
-  const prefix = currentPaymentMethod === 'VNPay' ? 'vnpay' : 'momo';
-  const countdownEl = document.getElementById(`${prefix}Countdown`);
-  const progressEl = document.getElementById(`${prefix}ProgressBar`);
-  const qrImgEl = document.getElementById(`${prefix}QRImage`);
-
-  if (!countdownEl) return;
-
-  // Format MM:SS
-  if (qrCountdownValue >= 60) {
+function updateCountdownUI() {
+  const countdownEl = document.getElementById('momoCountdown');
+  const progressEl = document.getElementById('momoProgressBar');
+  
+  if (countdownEl) {
     const min = Math.floor(qrCountdownValue / 60);
     const sec = qrCountdownValue % 60;
     countdownEl.textContent = `${min}:${String(sec).padStart(2, '0')}`;
-  } else {
-    countdownEl.textContent = qrCountdownValue;
   }
-
-  // Ngưỡng cảnh báo
-  const warningThreshold = Math.floor(QR_DURATION * 0.17);
-  const cautionThreshold = Math.floor(QR_DURATION * 0.33);
-
-  // Đổi màu số đếm
-  if (qrCountdownValue <= warningThreshold) {
-    countdownEl.style.color = '#dc3545';
-    countdownEl.style.fontWeight = '700';
-    qrImgEl?.classList.add('qr-about-to-reset');
-  } else if (qrCountdownValue <= cautionThreshold) {
-    countdownEl.style.color = '#fd7e14';
-    qrImgEl?.classList.remove('qr-about-to-reset');
-  } else {
-    countdownEl.style.color = currentPaymentMethod === 'VNPay' ? '#0d6efd' : '#A50064';
-    countdownEl.style.fontWeight = '600';
-    qrImgEl?.classList.remove('qr-about-to-reset');
-  }
-
-  // Progress bar
+  
   if (progressEl) {
     const percent = (qrCountdownValue / QR_DURATION) * 100;
     progressEl.style.width = percent + '%';
-
-    if (qrCountdownValue <= warningThreshold) {
-      progressEl.style.background = '#dc3545';
-    } else if (qrCountdownValue <= cautionThreshold) {
-      progressEl.style.background = '#fd7e14';
-    } else {
-      progressEl.style.background = currentPaymentMethod === 'VNPay' ? '#0d6efd' : '#A50064';
-    }
   }
 }
-
-/* ============================================================
-   REALTIME POLLING cho Thanh toán — Cập nhật mỗi 20s
-   ============================================================ */
-let paymentsRealtimeInterval = null;
-
-function startPaymentsPolling() {
-  if (paymentsRealtimeInterval) clearInterval(paymentsRealtimeInterval);
-
-  paymentsRealtimeInterval = setInterval(async () => {
-    if (document.hidden) return;
-    if (!document.getElementById('payModal').classList.contains('hidden')) return;
-
-    try {
-      if (document.getElementById('invoiceTable')) {
-        await loadInvoices();
-        await loadStats();
-        console.log('🔄 [Payments auto-refresh]', new Date().toLocaleTimeString('vi-VN'));
-      }
-    } catch (e) {
-      console.warn('Payments polling lỗi:', e);
-    }
-  }, 20000);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(startPaymentsPolling, 3000);
-});
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && document.getElementById('invoiceTable')) {
-    if (document.getElementById('payModal').classList.contains('hidden')) {
-      loadInvoices();
-      loadStats();
-    }
-  }
-});
-/* ============================================================
-   VNPAY MOCK — Tạo QR giả lập và xử lý callback
-   ============================================================ */
-
-let currentVnpayTxnRef = null;
-
-/**
- * Tạo QR VNPay giả lập — gọi khi lễ tân chọn "VNPay"
- */
-async function createVnpayMockQR() {
-  const maHoaDon = window.currentInvoice?.id;
-  if (!maHoaDon) return;
-
-  console.log('🎭 Tạo QR VNPay MOCK cho hóa đơn #' + maHoaDon);
-
-  const res = await api.post(`/vnpay/mock-payment/${maHoaDon}`);
-
-  if (res.status !== 'success') {
-    api.toast('Không tạo được QR VNPay: ' + res.message, 'error');
-    return;
-  }
-
-  const d = res.data;
-  currentVnpayTxnRef = d.txn_ref;
-
-  // Hiển thị thông tin
-  document.getElementById('vnpayQRImage').src = d.qr_url;
-  document.getElementById('vnpayInvoiceCode').textContent = 'HD' + String(d.ma_hoa_don).padStart(6, '0');
-  document.getElementById('vnpayTxnRef').textContent = d.txn_ref;
-  document.getElementById('vnpayAmount').textContent = api.formatMoney(d.amount);
-  document.getElementById('vnpayExpired').textContent = d.expired_at;
-
-  console.log('✅ QR VNPay MOCK hiển thị:', d);
-}
-
-/**
- * Giả lập thanh toán thành công
- */
-async function simulatePaymentSuccess() {
-  if (!currentVnpayTxnRef) {
-    api.toast('Chưa có giao dịch để giả lập', 'error');
-    return;
-  }
-
-  if (!confirm('Giả lập VNPay callback THÀNH CÔNG?\n\nHóa đơn sẽ được đánh dấu ĐÃ THANH TOÁN.')) {
-    return;
-  }
-
-  const res = await api.post('/vnpay/simulate-callback', {
-    txn_ref: currentVnpayTxnRef,
-    response_code: '00',
-  });
-
-  if (res.status === 'success') {
-    api.toast('✅ Thanh toán VNPay giả lập thành công!', 'success', 3000);
-
-    // Đóng modal
-    closePayModal();
-
-    // Reload danh sách
-    loadInvoices();
-    loadStats();
-
-    // Reset biến
-    currentVnpayTxnRef = null;
-  } else {
-    api.toast(res.message || 'Lỗi giả lập', 'error');
-  }
-}
-
-/**
- * Giả lập thanh toán thất bại
- */
-async function simulatePaymentFailed() {
-  if (!currentVnpayTxnRef) {
-    api.toast('Chưa có giao dịch để giả lập', 'error');
-    return;
-  }
-
-  if (!confirm('Giả lập VNPay callback THẤT BẠI?')) {
-    return;
-  }
-
-  const res = await api.post('/vnpay/simulate-callback', {
-    txn_ref: currentVnpayTxnRef,
-    response_code: '24',   // Mã lỗi VNPay (giao dịch bị hủy)
-  });
-
-  api.toast('❌ Giao dịch bị hủy (giả lập)', 'warning', 3000);
-
-  // Không đóng modal — user có thể thử lại
-  currentVnpayTxnRef = null;
-}
-
-/**
- * Override hàm onPaymentMethodChange để dùng mock VNPay
- */
-const originalOnPaymentMethodChange = window.onPaymentMethodChange;
-
-window.onPaymentMethodChange = function() {
-  const method = document.getElementById('pay_phuong_thuc').value;
-
-  // Ẩn cả 2 QR
-  document.getElementById('vnpayQRSection').style.display = 'none';
-  document.getElementById('momoQRSection').style.display = 'none';
-
-  stopQRCountdown();
-
-  if (method === 'VNPay') {
-    currentPaymentMethod = 'VNPay';
-    document.getElementById('vnpayQRSection').style.display = 'block';
-
-    // ⭐ Tạo QR VNPay MOCK từ backend
-    createVnpayMockQR();
-
-  } else if (method === 'Momo') {
-    currentPaymentMethod = 'Momo';
-    document.getElementById('momoQRSection').style.display = 'block';
-    refreshPaymentQR(false);
-    startQRCountdown();
-
-  } else {
-    currentPaymentMethod = null;
-    currentVnpayTxnRef = null;
-  }
-};
-
-console.log('✅ VNPay MOCK handlers đã đăng ký');

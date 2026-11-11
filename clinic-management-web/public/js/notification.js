@@ -27,11 +27,10 @@ function initNotificationBell() {
         return;
     }
 
-    // ⭐ Tạo wrapper bao quanh bell + user-info (fix chuông nằm giữa)
     const headerActions = document.createElement('div');
     headerActions.className = 'header-actions';
     userInfo.parentNode.insertBefore(headerActions, userInfo);
-    headerActions.appendChild(userInfo);   // Di chuyển user-info vào wrapper
+    headerActions.appendChild(userInfo);
 
     // Tạo notification wrapper
     const notiWrap = document.createElement('div');

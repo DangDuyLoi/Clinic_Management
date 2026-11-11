@@ -1,173 +1,183 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <title>Check-in bệnh nhân — Lễ tân</title>
   <link rel="stylesheet" href="/css/common.css">
   <link rel="stylesheet" href="/css/receptionist.css">
 </head>
+
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <h2>Phòng Khám</h2>
-    <nav>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="checkin.html" class="active">Check-in bệnh nhân</a>
-      <a href="checkin-qr.html">Quét QR Check-in</a>
-      <a href="appointment.html">Đặt lịch khám</a>
-      <a href="patients.html">Hồ sơ bệnh nhân</a>
-      <a href="payments.html">Thanh toán</a>
-    </nav>
-  </aside>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Phòng Khám</h2>
+      <nav>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="checkin.html" class="active">Check-in bệnh nhân</a>
+        <a href="checkin-qr.html">Quét QR Check-in</a>
+        <a href="appointment.html">Đặt lịch khám</a>
+        <a href="patients.html">Hồ sơ bệnh nhân</a>
+        <a href="payments.html">Thanh toán</a>
+      </nav>
+    </aside>
 
-  <main class="main">
-    <div class="header-bar">
-      <h1>Check-in bệnh nhân</h1>
-      <div class="user-info"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <h3>🔍 Tìm bệnh nhân chờ đến khám</h3>
-        <div class="d-flex gap-1" style="align-items: center; flex-wrap: wrap;">
-          <input type="text" id="qrInput" placeholder="📷 Quét / Nhập mã QR..."
-                 style="padding:8px 12px;border:2px solid #0056D2;border-radius:6px;width:200px;font-weight:600"
-                 onkeydown="if(event.key==='Enter') quickCheckInByQr()">
-          <button class="btn btn-success btn-sm" onclick="quickCheckInByQr()" style="font-weight:600">⚡ Check-in QR</button>
-          <input type="text" id="searchInput" placeholder="🔍 Tên hoặc SĐT..."
-                 style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:180px">
-          <button class="btn btn-primary btn-sm" onclick="loadPendingList()">🔄 Làm mới</button>
-        </div>
+    <main class="main">
+      <div class="header-bar">
+        <h1>Check-in bệnh nhân</h1>
+        <div class="user-info"></div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>STT</th>
-            <th>Bệnh nhân</th>
-            <th>Bác sĩ</th>
-            <th>Giờ</th>
-            <th>Trạng thái</th>
-            <th>Hành động</th>
-          </tr>
-        </thead>
-        <tbody id="pendingTable">
-          <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
-</div>
+      <div class="card">
+        <div class="card-header">
+          <h3>🔍 Tìm bệnh nhân chờ đến khám</h3>
+          <div class="d-flex gap-1" style="align-items: center; flex-wrap: wrap;">
+            <input type="text" id="qrInput" placeholder="📷 Quét / Nhập mã QR..."
+              style="padding:8px 12px;border:2px solid #0056D2;border-radius:6px;width:200px;font-weight:600"
+              onkeydown="if(event.key==='Enter') quickCheckInByQr()">
+            <button class="btn btn-success btn-sm" onclick="quickCheckInByQr()" style="font-weight:600">⚡ Check-in
+              QR</button>
+            <input type="text" id="searchInput" placeholder="🔍 Tên hoặc SĐT..."
+              style="padding:8px 12px;border:1px solid #dee2e6;border-radius:6px;width:180px">
+            <button class="btn btn-primary btn-sm" onclick="loadPendingList()">🔄 Làm mới</button>
+          </div>
+        </div>
 
-<script src="/js/config.js"></script>
-<script src="/js/api.js"></script>
-<script src="/js/auth.js"></script>
-<script src="/js/receptionist.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
-    auth.renderUserInfo();
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Bệnh nhân</th>
+              <th>Bác sĩ</th>
+              <th>Giờ</th>
+              <th>Trạng thái</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="pendingTable">
+            <tr>
+              <td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
 
-    document.getElementById('searchInput').addEventListener('input', debounce(loadPendingList, 400));
-    loadPendingList();
-  });
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/receptionist.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
+      auth.renderUserInfo();
 
-  async function loadPendingList() {
-    const q = document.getElementById('searchInput')?.value?.trim() || '';
-    const tbody = document.getElementById('pendingTable');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
+      document.getElementById('searchInput').addEventListener('input', debounce(loadPendingList, 400));
+      loadPendingList();
+    });
 
-    const today = todayStr();
-    const res = await api.get(`/lich-kham?ngay=${today}&per_page=100`);
+    async function loadPendingList() {
+      const q = document.getElementById('searchInput')?.value?.trim() || '';
+      const tbody = document.getElementById('pendingTable');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
 
-    if (res.status !== 'success') {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Lỗi: ${res.message}</td></tr>`;
-      return;
-    }
+      const today = todayStr();
+      const res = await api.get(`/lich-kham?ngay=${today}&per_page=100`);
 
-    let data = res.data?.data || [];
-    // Chỉ hiển thị lịch chờ check-in
-    data = data.filter(l => ['ChoXacNhan', 'ChoDenKham'].includes(l.trang_thai));
+      if (res.status !== 'success') {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Lỗi: ${res.message}</td></tr>`;
+        return;
+      }
 
-    // Lọc theo search
-    if (q) {
-      const lower = q.toLowerCase();
-      data = data.filter(l =>
-        (l.benh_nhan?.ho_ten || '').toLowerCase().includes(lower) ||
-        (l.benh_nhan?.so_dien_thoai || '').includes(q)
-      );
-    }
+      let data = res.data?.data || [];
+      // Chỉ hiển thị lịch chờ check-in
+      data = data.filter(l => ['cho_thanh_toan', 'da_thanh_toan'].includes(l.trang_thai));
 
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Không có bệnh nhân chờ check-in</td></tr>';
-      return;
-    }
+      // Lọc theo search
+      if (q) {
+        const lower = q.toLowerCase();
+        data = data.filter(l =>
+          (l.ho_so?.benh_nhan?.ho_ten || '').toLowerCase().includes(lower) ||
+          (l.ho_so?.benh_nhan?.so_dien_thoai || '').includes(q)
+        );
+      }
 
-    tbody.innerHTML = data.map((item, i) => {
-      const hoTenBn = item.benh_nhan?.ho_ten || '—';
-      const sdtBn   = item.benh_nhan?.so_dien_thoai || '';
-      const hoTenBs = item.bac_si?.ho_ten || '—';
-      const gio     = item.khung_gio?.gio_bat_dau?.slice(0,5) || '—';
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Không có bệnh nhân chờ check-in</td></tr>';
+        return;
+      }
 
-      return `
+      tbody.innerHTML = data.map((item, i) => {
+        const hoTenBn = item.ho_so?.benh_nhan?.ho_ten || '—';
+        const sdtBn = item.ho_so?.benh_nhan?.so_dien_thoai || '';
+        const hoTenBs = item.bac_si?.ho_ten || '—';
+        const gio = item.thoi_gian_den_kham ? new Date(item.thoi_gian_den_kham) : null;
+        const gioKham = gio ? gio.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—';
+        return `
         <tr>
-          <td>${i+1}</td>
+          <td>${i + 1}</td>
           <td><b>${hoTenBn}</b>${sdtBn ? `<small>${sdtBn}</small>` : ''}</td>
           <td>${hoTenBs}</td>
-          <td><b>${gio}</b></td>
+          <td><b>${gioKham}</b></td>
           <td><span class="badge badge-wait">${statusLabel(item.trang_thai)}</span></td>
           <td>
-            <button class="btn btn-success btn-sm" onclick="checkIn(${item.ma_lich_dat})">
+            <button class="btn btn-success btn-sm" onclick="checkIn(${item.ma_luot_kham || item.ma_lich_dat})">
               ✓ Check-in
             </button>
           </td>
         </tr>
       `;
-    }).join('');
-  }
-
-  function debounce(fn, wait) {
-    let t;
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
-  }
-
-  async function quickCheckInByQr() {
-    let val = document.getElementById('qrInput')?.value?.trim();
-    if (!val) {
-      alert('Vui lòng quét hoặc nhập mã QR');
-      return;
-    }
-    // Hỗ trợ nếu mã QR là URL http://192.168.1.58:8000/api/luot-kham/123/tiep-nhan hoặc JSON hoặc số nguyên
-    let id = val;
-    let match = val.match(/luot-kham\/(\d+)\/tiep-nhan/);
-    if (match) {
-      id = match[1];
-    } else {
-      let numMatch = val.match(/\d+/);
-      if (numMatch) id = numMatch[0];
+      }).join('');
     }
 
-    try {
-      const apiHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-        ? 'http://127.0.0.1:8000' 
-        : `http://${window.location.hostname}:8000`;
-      const res = await fetch(`${apiHost}/api/luot-kham/${id}/tiep-nhan`, {
-        method: 'PUT',
-        headers: { 'Accept': 'application/json' }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`✅ Check-in thành công cho lượt khám #${id}!\nĐã đẩy thông báo tới điện thoại của bệnh nhân.`);
-        document.getElementById('qrInput').value = '';
-        loadPendingList();
-      } else {
-        alert(`❌ Lỗi: ${data.message || 'Không thể check-in'}`);
+    function debounce(fn, wait) {
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+    }
+
+    async function quickCheckInByQr() {
+      let val = document.getElementById('qrInput')?.value?.trim();
+      if (!val) {
+        alert('Vui lòng quét hoặc nhập mã QR');
+        return;
       }
-    } catch (e) {
-      alert(`❌ Lỗi kết nối API check-in: ${e.message}`);
+      let id = val;
+      let match = val.match(/luot-kham\/(\d+)\/tiep-nhan/);
+      if (match) {
+        id = match[1];
+      } else {
+        let numMatch = val.match(/\d+/);
+        if (numMatch) id = numMatch[0];
+      }
+
+      try {
+        const apiHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? 'http://127.0.0.1:8000'
+          : `http://${window.location.hostname}:8000`;
+        const res = await api.put(`/lich-kham/${id}/checkin-by-qr`);
+
+        if (res.status === 'success') {
+          (`✅ Check-in thành công cho lượt khám #${id}!`);
+          document.getElementById('qrInput').value = '';
+          loadPendingList();
+        } else {
+          alert(`❌ Lỗi: ${res.message}`);
+        }
+        const data = await res.json();
+        if (res.ok) {
+          alert(`✅ Check-in thành công cho lượt khám #${id}!\nĐã đẩy thông báo tới điện thoại của bệnh nhân.`);
+          document.getElementById('qrInput').value = '';
+          loadPendingList();
+        } else {
+          alert(`❌ Lỗi: ${data.message || 'Không thể check-in'}`);
+        }
+      } catch (e) {
+        alert(`❌ Lỗi kết nối API check-in: ${e.message}`);
+      }
     }
-  }
-</script>
+  </script>
   <script src="/js/notification.js"></script>
 </body>
+
 </html>

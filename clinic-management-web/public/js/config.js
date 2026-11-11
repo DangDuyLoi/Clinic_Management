@@ -4,7 +4,7 @@
 
 const CONFIG = {
   /* ---------- URL Backend ---------- */
-  API_BASE: window.location.origin + '/api',
+  API_BASE: 'http://huitclinic.test/api',
 
   /* ---------- Local Storage Keys ---------- */
   TOKEN_KEY: 'clinic_token',
@@ -12,7 +12,7 @@ const CONFIG = {
   TOKEN_EXPIRY_KEY: 'clinic_token_expiry',
 
   /* ---------- Timeout request (ms) ---------- */
-  REQUEST_TIMEOUT: 15000,
+  REQUEST_TIMEOUT: 60000,
 
   /* ---------- Trang chủ theo vai trò sau đăng nhập ---------- */
   ROLE_HOME: {

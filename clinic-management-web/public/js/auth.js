@@ -8,7 +8,7 @@ const auth = {
   async login(ten_dang_nhap, mat_khau) {
     const res = await api.post('/auth/login', {
       ten_dang_nhap,
-      mat_khau
+      password:mat_khau
     });
 
     if (res.status === 'success' && res.data?.token) {

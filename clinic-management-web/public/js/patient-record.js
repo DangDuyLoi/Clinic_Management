@@ -75,11 +75,11 @@ async function loadRecord() {
 
   const { lich_kham, phien_kham } = res.data;
   maPhienKham = phien_kham.ma_phien_kham;
-  maBenhNhan  = lich_kham.ma_bn;
+  maBenhNhan  = lich_kham.ho_so?.ma_benh_nhan; 
 
   renderPatientInfo(lich_kham);
 
-  // Điền chẩn đoán
+  // Điền thông tin
   document.getElementById('chanDoanSoBo').value     = phien_kham.chan_doan_so_bo || '';
   document.getElementById('chanDoanCuoiCung').value = phien_kham.chan_doan_cuoi_cung || '';
   document.getElementById('ghiChuYTe').value        = phien_kham.ghi_chu_y_te || '';
@@ -89,17 +89,85 @@ async function loadRecord() {
 
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('content').classList.remove('hidden');
+
+  const isFinishedCompletely = phien_kham.trang_thai === 'HoanThanh';
+  if (isFinishedCompletely) {
+      lockExamUI();
+  }
+}
+
+// Hàm khóa giao diện
+function lockExamUI() {
+  // 1. Hiển thị thông báo
+  const contentEl = document.getElementById('content');
+  const alertHTML = `
+    <div style="background:#f8d7da;color:#842029;padding:15px;border-radius:8px;margin-bottom:20px;border:1px solid #f5c2c7;font-weight:bold;text-align:center">
+      🔒 Phiên khám này đã hoàn thành (Chờ thanh toán hoặc Đã xong). Bạn chỉ có thể xem, không thể chỉnh sửa.
+    </div>
+  `;
+  contentEl.insertAdjacentHTML('afterbegin', alertHTML);
+
+  // 2. Vô hiệu hóa các ô nhập liệu
+  document.getElementById('chanDoanSoBo').disabled = true;
+  document.getElementById('chanDoanCuoiCung').disabled = true;
+  document.getElementById('ghiChuYTe').disabled = true;
+  document.getElementById('chonDichVu').disabled = true;
+  document.getElementById('chonThuoc').disabled = true;
+
+  // 3. Ẩn các nút thao tác
+  document.querySelectorAll('button').forEach(btn => {
+      const text = btn.textContent.trim();
+      if (text.includes('Lưu chẩn đoán') || 
+          text.includes('Thêm chỉ định') || 
+          text.includes('Thêm thuốc') || 
+          text.includes('Lưu đơn thuốc') || 
+          text.includes('Lưu nháp') || 
+          text.includes('Hoàn thành phiên khám')) {
+          btn.style.display = 'none';
+      }
+  });
+
+  // 4. Ẩn các nút xóa (thùng rác) trong bảng dịch vụ và đơn thuốc
+  document.querySelectorAll('table .btn-danger').forEach(btn => {
+      btn.style.display = 'none';
+  });
 }
 
 function renderPatientInfo(lich) {
-  const bn = lich.benh_nhan || {};
+
+  // Lấy bn thông qua ho_so
+  const bn = lich.ho_so?.benh_nhan || {};
+  const hs = lich.ho_so || {};
+  const hinhThuc = lich.hinh_thuc_kham === 'BHYT' 
+    ? '<span class="badge" style="background:#d4edda;color:#155724;font-size:14px;padding:6px 12px">🛡️ Khám BHYT</span>' 
+    : '<span class="badge" style="background:#e2e3e5;color:#383d41;font-size:14px;padding:6px 12px">💳 Khám Dịch vụ</span>';
+  // Fallback nếu trống
+  
+  const nhomMau = bn.nhom_mau || hs.nhom_mau || '—';
+  const cccd = bn.cccd || hs.cccd || '—';
+  let gioiTinhText = '—';
+  const gt = bn.gioi_tinh;
+  if (gt === 1 || gt === '1' || gt === 'Nam') gioiTinhText = 'Nam';
+  else if (gt === 0 || gt === '0' || gt === 'Nu') gioiTinhText = 'Nữ';
+
+
+  // Địa chỉ
+  let diaChi = bn.dia_chi;
+  if (!diaChi) {
+      const parts = [hs.so_nha, hs.phuong_xa, hs.quan_huyen, hs.tinh_thanh].filter(Boolean);
+      diaChi = parts.length > 0 ? parts.join(', ') : '—';
+  }
+
   document.getElementById('patientInfo').innerHTML = `
+  <div style="grid-column: span 4; margin-bottom: 10px;">
+        ${hinhThuc}
+    </div>
     <div><b>Họ tên:</b> ${bn.ho_ten || '—'}</div>
     <div><b>SĐT:</b> ${bn.so_dien_thoai || '—'}</div>
     <div><b>Ngày sinh:</b> ${bn.ngay_sinh ? api.formatDate(bn.ngay_sinh) : '—'}</div>
-    <div><b>Giới tính:</b> ${bn.gioi_tinh === 'Nam' ? 'Nam' : bn.gioi_tinh === 'Nu' ? 'Nữ' : '—'}</div>
-    <div><b>Nhóm máu:</b> ${bn.nhom_mau || '—'}</div>
-    <div><b>CCCD:</b> ${bn.cccd || '—'}</div>
+    <div><b>Giới tính:</b> ${gioiTinhText}</div>
+    <div><b>Nhóm máu:</b> ${nhomMau}</div>
+    <div><b>CCCD:</b> ${cccd}</div>
     <div style="grid-column: span 2"><b>Địa chỉ:</b> ${bn.dia_chi || '—'}</div>
     <div style="grid-column: span 4;background:#fff3cd;padding:10px;border-radius:6px;margin-top:8px">
       <b>⚠️ Dị ứng:</b> ${bn.di_ung || 'Không có'}
@@ -137,7 +205,6 @@ async function showPatientHistory() {
         <div><b>Họ tên:</b> ${bn.ho_ten}</div>
         <div><b>SĐT:</b> ${bn.so_dien_thoai || '—'}</div>
         <div><b>Ngày sinh:</b> ${bn.ngay_sinh ? api.formatDate(bn.ngay_sinh) : '—'}</div>
-        <div><b>Nhóm máu:</b> ${bn.nhom_mau || '—'}</div>
       </div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid #dee2e6">
         <div><b>⚠️ Dị ứng:</b> ${bn.di_ung || 'Không'}</div>
@@ -472,20 +539,46 @@ async function saveDraft() {
 async function finishExam() {
   if (!confirm('Xác nhận hoàn thành phiên khám? Sau khi hoàn thành không thể sửa.')) return;
 
-  // Lưu chẩn đoán trước
-  await saveDiagnosis();
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Đang xử lý...';
 
-  // Lưu đơn thuốc nếu có
-  if (dsChiTietDonThuoc.length > 0) {
-    await savePrescription();
-  }
+  try {
+    // 1. Lưu chẩn đoán
+    await saveDiagnosis();
 
-  const res = await api.post(`/phien-kham/${maPhienKham}/finish`);
+    // 2. Lưu đơn thuốc (nếu có) VÀ KIỂM TRA LỖI
+    if (dsChiTietDonThuoc.length > 0) {
+      const resThuoc = await api.post('/don-thuoc', {
+          ma_phien_kham: maPhienKham,
+          chi_tiet: dsChiTietDonThuoc.map(ct => ({
+              ma_thuoc: ct.ma_thuoc,
+              so_luong: ct.so_luong,
+              lieu_luong: ct.lieu_luong,
+          })),
+      });
 
-  if (res.status === 'success') {
-    api.toast('✅ Đã hoàn thành phiên khám!', 'success');
-    setTimeout(() => window.location.href = 'dashboard.html', 1500);
-  } else {
-    api.toast(res.message, 'error');
+      // NẾU LƯU ĐƠN THUỐC THẤT BẠI -> DỪNG NGAY, KHÔNG CHẠY TIẾP
+      if (resThuoc.status !== 'success') {
+          api.toast('Lỗi lưu đơn thuốc: ' + resThuoc.message, 'error');
+          return; 
+      }
+    }
+
+    // 3. Gọi API hoàn thành
+    const resFinish = await api.post(`/phien-kham/${maPhienKham}/finish`);
+
+    if (resFinish.status === 'success') {
+      api.toast('✅ Đã hoàn thành phiên khám!', 'success');
+      setTimeout(() => window.location.href = 'dashboard.html', 1500);
+    } else {
+      api.toast(resFinish.message, 'error');
+    }
+  } catch (error) {
+    console.error(error);
+    api.toast('Có lỗi xảy ra trong quá trình hoàn thành', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✅ Hoàn thành phiên khám';
   }
 }

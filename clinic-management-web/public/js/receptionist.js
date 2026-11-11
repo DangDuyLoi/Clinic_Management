@@ -1,16 +1,17 @@
 /* ============================================================
-   RECEPTIONIST — Logic Lễ tân
+   RECEPTIONIST — Logic Lễ tân (Đã cập nhật DB mới)
    ============================================================ */
 
 /* ---------- KHỞI TẠO ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-  // Bảo vệ trang — chỉ LeTan hoặc QuanTri
   if (!auth.requireAuth(['LeTan', 'QuanTri'])) return;
-
-  // Hiển thị user ở header
   auth.renderUserInfo();
-
-  // Set ngày mặc định = hôm nay
+const user = auth.currentUser();
+  const greetingEl = document.getElementById('greetingText');
+  if (user && greetingEl) {
+    const hoTen = user.ho_ten || user.ten_dang_nhap || 'Lễ tân';
+    greetingEl.textContent = `Xin chào, ${hoTen}!`;
+  }
   const dateInput = document.getElementById('filterDate');
   if (dateInput) {
     dateInput.value = todayStr();
@@ -22,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     statusSelect.addEventListener('change', loadAppointments);
   }
 
-  // Load dữ liệu
   loadDashboard();
   loadAppointments();
 });
@@ -33,27 +33,26 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// Ánh xạ trạng thái chuẩn của Mobile (chữ thường)
 function statusBadgeClass(status) {
   return {
-    'ChoXacNhan': 'badge-wait',
-    'ChoDenKham': 'badge-wait',
-    'ChoKham':    'badge-doing',
-    'DangKham':   'badge-doing',
-    'ChoThanhToan': 'badge-info',
-    'HoanThanh':  'badge-done',
-    'DaHuy':      'badge-cancel',
+    'cho_thanh_toan': 'badge-warning',
+    'da_thanh_toan':  'badge-info',
+    'cho_kham':       'badge-doing',
+    'dang_kham':      'badge-doing',
+    'hoan_thanh':     'badge-done',
+    'huy':            'badge-cancel',
   }[status] || 'badge-wait';
 }
 
 function statusLabel(status) {
   return {
-    'ChoXacNhan': 'Chờ xác nhận',
-    'ChoDenKham': 'Chờ đến khám',
-    'ChoKham':    'Chờ khám',
-    'DangKham':   'Đang khám',
-    'ChoThanhToan': 'Chờ thanh toán',
-    'HoanThanh':  'Hoàn thành',
-    'DaHuy':      'Đã hủy',
+    'cho_thanh_toan': 'Chờ thanh toán',
+    'da_thanh_toan':  'Đã thanh toán',
+    'cho_kham':       'Chờ khám',
+    'dang_kham':      'Đang khám',
+    'hoan_thanh':     'Hoàn thành',
+    'huy':            'Đã hủy',
   }[status] || status;
 }
 
@@ -72,9 +71,9 @@ async function loadDashboard() {
   const data = res.data?.data || [];
 
   const total     = data.length;
-  const waiting   = data.filter(l => ['ChoXacNhan', 'ChoDenKham', 'ChoKham'].includes(l.trang_thai)).length;
-  const done      = data.filter(l => l.trang_thai === 'HoanThanh').length;
-  const cancelled = data.filter(l => l.trang_thai === 'DaHuy').length;
+  const waiting   = data.filter(l => ['cho_thanh_toan', 'cho_kham'].includes(l.trang_thai)).length;
+  const done      = data.filter(l => l.trang_thai === 'hoan_thanh').length;
+  const cancelled = data.filter(l => l.trang_thai === 'huy').length;
 
   const totalEl   = document.getElementById('totalToday');
   const waitEl    = document.getElementById('waitingCount');
@@ -103,9 +102,7 @@ async function loadAppointments() {
   const res = await api.get(endpoint);
 
   if (res.status !== 'success') {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger" style="padding:32px">
-      Lỗi: ${res.message}
-    </td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger" style="padding:32px">Lỗi: ${res.message}</td></tr>`;
     return;
   }
 
@@ -118,14 +115,19 @@ async function loadAppointments() {
 
   tbody.innerHTML = data.map((item, i) => {
     const cls = statusBadgeClass(item.trang_thai);
-    const canCheckIn = ['ChoXacNhan', 'ChoDenKham'].includes(item.trang_thai);
-    const canCancel  = !['HoanThanh', 'DaHuy'].includes(item.trang_thai);
+    
+    const canCheckIn = ['da_thanh_toan'].includes(item.trang_thai); 
+    const canCancel  = !['hoan_thanh', 'huy'].includes(item.trang_thai);
+    const canPay     = item.trang_thai === 'hoan_tat_hoa_don';
 
-    const hoTenBn = item.benh_nhan?.ho_ten || '—';
-    const sdtBn   = item.benh_nhan?.so_dien_thoai || '';
+    const hoTenBn = item.ho_so?.benh_nhan?.ho_ten || '—';
+    const sdtBn   = item.ho_so?.benh_nhan?.so_dien_thoai || '';
     const hoTenBs = item.bac_si?.ho_ten || '—';
-    const gioBd   = item.khung_gio?.gio_bat_dau?.slice(0, 5) || '—';
-    const gioKt   = item.khung_gio?.gio_ket_thuc?.slice(0, 5) || '—';
+    
+    const thoiGian = item.thoi_gian_den_kham ? new Date(item.thoi_gian_den_kham) : null;
+    const gioKham = thoiGian ? thoiGian.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '—';
+    
+    const maLuotKham = item.ma_luot_kham;
 
     return `
       <tr>
@@ -135,30 +137,32 @@ async function loadAppointments() {
           ${sdtBn ? `<small>${sdtBn}</small>` : ''}
         </td>
         <td>${hoTenBs}</td>
-        <td>${gioBd} - ${gioKt}</td>
+        <td><b>${gioKham}</b></td>
         <td><span class="badge ${cls}">${statusLabel(item.trang_thai)}</span></td>
         <td>
-          ${canCheckIn
-            ? `<button class="btn btn-success btn-sm" onclick="checkIn(${item.ma_lich_dat})">✓ Check-in</button>`
-            : ''}
-          ${canCancel
-            ? `<button class="btn btn-danger btn-sm" onclick="cancelAppt(${item.ma_lich_dat})">✕ Hủy</button>`
-            : ''}
+          ${canPay ? `<button class="btn btn-warning btn-sm" onclick="window.location.href='payments.html'">💳 Thanh toán</button>` : ''}
+          ${canCheckIn ? `<button class="btn btn-success btn-sm" onclick="checkIn(${maLuotKham})">✓ Check-in</button>` : ''}
+          ${canCancel ? `<button class="btn btn-danger btn-sm" onclick="cancelAppt(${maLuotKham})">✕ Hủy</button>` : ''}
         </td>
       </tr>
     `;
   }).join('');
 }
+
 /* ---------- CHECK-IN ---------- */
 async function checkIn(id) {
-  if (!confirm('Xác nhận check-in bệnh nhân này?')) return;
-
+  if (!id) {
+    return api.toast('Không tìm thấy mã lượt khám!', 'error');
+  }
   const res = await api.put(`/lich-kham/${id}/checkin`);
 
   if (res.status === 'success') {
     api.toast('✅ Check-in thành công!', 'success');
-    loadAppointments();
-    loadDashboard();
+
+    if (typeof loadAppointments === 'function') loadAppointments();
+    if (typeof loadDashboard === 'function') loadDashboard();
+    if (typeof loadPendingList === 'function') loadPendingList();
+
   } else {
     api.toast(res.message || 'Check-in thất bại', 'error');
   }
@@ -223,3 +227,4 @@ document.addEventListener('visibilitychange', () => {
     }
   }
 });
+
