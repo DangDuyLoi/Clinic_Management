@@ -115,7 +115,7 @@ class TaiKhoanController extends Controller
         $data = $request->validate([
             'ten_dang_nhap' => [
                 'sometimes', 'string', 'min:3', 'max:50',
-                Rule::unique('TaiKhoan', 'ten_dang_nhap')->ignore($id, 'ma_tk'),
+                Rule::unique('tai_khoan', 'ten_dang_nhap')->ignore($id, 'ma_tk'),
             ],
             'mat_khau'   => 'sometimes|string|min:6|max:255',
             'vai_tro'    => 'sometimes|in:QuanTri,BacSi,LeTan,BenhNhan',

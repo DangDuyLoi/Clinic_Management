@@ -15,35 +15,27 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class DashboardController extends Controller
 {
-    /**
-     * GET /api/dashboard/admin
-     * Thống kê tổng quan cho Admin
-     */
     public function admin(Request $request)
     {
         $today = now()->toDateString();
 
-        // Đếm các entity
         $totalUsers    = TaiKhoan::count();
         $totalDoctors  = BacSi::count();
         $totalPatients = BenhNhan::count();
         $totalSpecs    = ChuyenKhoa::count();
 
-        // Lịch khám hôm nay
-        $appointmentsToday = LichKham::where('ngay_kham', $today)->count();
-        $appointmentsPending = LichKham::where('ngay_kham', $today)
-            ->whereIn('trang_thai', ['ChoXacNhan', 'ChoKham'])
+        $appointmentsToday = LichKham::whereDate('thoi_gian_den_kham', $today)->count();
+        $appointmentsPending = LichKham::whereDate('thoi_gian_den_kham', $today)
+            ->whereIn('trang_thai', ['cho_thanh_toan', 'cho_kham'])
             ->count();
-        $appointmentsDone = LichKham::where('ngay_kham', $today)
-            ->where('trang_thai', 'HoanThanh')
+        $appointmentsDone = LichKham::whereDate('thoi_gian_den_kham', $today)
+            ->where('trang_thai', 'hoan_thanh')
             ->count();
 
-        // Doanh thu hôm nay (hóa đơn đã thanh toán)
         $revenueToday = HoaDon::whereDate('ngay_thanh_toan', $today)
             ->where('trang_thai', 'DaThanhToan')
             ->sum('tong_cong');
 
-        // Doanh thu 7 ngày gần đây
         $revenue7Days = HoaDon::where('trang_thai', 'DaThanhToan')
             ->where('ngay_thanh_toan', '>=', now()->subDays(6)->startOfDay())
             ->select(
@@ -55,15 +47,13 @@ class DashboardController extends Controller
             ->orderBy('ngay')
             ->get();
 
-        // Top 5 bác sĩ có nhiều lịch khám nhất
         $topDoctors = BacSi::withCount(['lichKham' => function ($q) {
-            $q->where('trang_thai', '!=', 'DaHuy');
+            $q->where('trang_thai', '!=', 'huy');
         }])
         ->orderBy('lich_kham_count', 'desc')
         ->limit(5)
         ->get(['ma_bs', 'ho_ten', 'ma_chuyen_khoa']);
 
-        // Top chuyên khoa có nhiều lịch khám
         $topSpecialties = ChuyenKhoa::withCount(['bacSi'])
             ->orderBy('bac_si_count', 'desc')
             ->get(['ma_chuyen_khoa', 'ten_chuyen_khoa']);
@@ -89,16 +79,12 @@ class DashboardController extends Controller
             ],
         ]);
     }
-        /* ============================================================
-       GET /api/dashboard/revenue
-       Query: ?from=2026-09-01&to=2026-09-30&group_by=day|month
-       Thống kê doanh thu theo khoảng thời gian
-       ============================================================ */
+
     public function revenue(Request $request)
     {
         $from = $request->query('from', now()->subDays(29)->toDateString());
         $to   = $request->query('to', now()->toDateString());
-        $groupBy = $request->query('group_by', 'day'); // day | month
+        $groupBy = $request->query('group_by', 'day');
 
         $query = HoaDon::where('trang_thai', 'DaThanhToan')
             ->whereBetween('ngay_thanh_toan', [$from . ' 00:00:00', $to . ' 23:59:59']);
@@ -147,31 +133,26 @@ class DashboardController extends Controller
         ]);
     }
 
-    /* ============================================================
-       GET /api/dashboard/doctor-performance
-       Hiệu suất bác sĩ: số lịch, số bệnh nhân, doanh thu
-       Query: ?from=2026-09-01&to=2026-09-30&limit=10
-       ============================================================ */
-    public function doctorPerformance(Request $request)
+        public function doctorPerformance(Request $request)
     {
         $from = $request->query('from', now()->subDays(29)->toDateString());
         $to   = $request->query('to', now()->toDateString());
         $limit = (int) $request->query('limit', 10);
 
-        $data = BacSi::with('chuyenKhoa')
+        $data = \App\Models\BacSi::with('chuyenKhoa')
             ->select(
                 'BacSi.*',
-                DB::raw('(SELECT COUNT(*) FROM LichKham
-                          WHERE LichKham.ma_bs = BacSi.ma_bs
-                          AND LichKham.trang_thai = "HoanThanh"
-                          AND LichKham.ngay_kham BETWEEN "' . $from . '" AND "' . $to . '") as so_lich_hoan_thanh'),
-                DB::raw('(SELECT COUNT(DISTINCT LichKham.ma_bn) FROM LichKham
-                          WHERE LichKham.ma_bs = BacSi.ma_bs
-                          AND LichKham.ngay_kham BETWEEN "' . $from . '" AND "' . $to . '") as so_benh_nhan'),
+                DB::raw('(SELECT COUNT(*) FROM LuotKham
+                          WHERE LuotKham.ma_bac_si = BacSi.ma_bs
+                          AND LuotKham.trang_thai = "hoan_thanh"
+                          AND DATE(LuotKham.thoi_gian_den_kham) BETWEEN "' . $from . '" AND "' . $to . '") as so_lich_hoan_thanh'),
+                DB::raw('(SELECT COUNT(DISTINCT LuotKham.ma_ho_so) FROM LuotKham
+                          WHERE LuotKham.ma_bac_si = BacSi.ma_bs
+                          AND DATE(LuotKham.thoi_gian_den_kham) BETWEEN "' . $from . '" AND "' . $to . '") as so_benh_nhan'),
                 DB::raw('(SELECT COALESCE(SUM(HoaDon.tong_cong), 0) FROM HoaDon
                           JOIN PhienKham ON HoaDon.ma_phien_kham = PhienKham.ma_phien_kham
-                          JOIN LichKham ON PhienKham.ma_lich_dat = LichKham.ma_lich_dat
-                          WHERE LichKham.ma_bs = BacSi.ma_bs
+                          JOIN LuotKham ON PhienKham.ma_lich_dat = LuotKham.ma_luot_kham
+                          WHERE LuotKham.ma_bac_si = BacSi.ma_bs
                           AND HoaDon.trang_thai = "DaThanhToan"
                           AND DATE(HoaDon.ngay_thanh_toan) BETWEEN "' . $from . '" AND "' . $to . '") as doanh_thu')
             )
@@ -179,31 +160,24 @@ class DashboardController extends Controller
             ->limit($limit)
             ->get();
 
-        return response()->json([
-            'status' => 'success',
-            'data'   => $data,
-        ]);
+        return response()->json(['status' => 'success', 'data' => $data]);
     }
 
-    /* ============================================================
-       GET /api/dashboard/specialty-stats
-       Thống kê theo chuyên khoa: số lịch, doanh thu
-       ============================================================ */
-    public function specialtyStats(Request $request)
+        public function specialtyStats(Request $request)
     {
         $from = $request->query('from', now()->subDays(29)->toDateString());
         $to   = $request->query('to', now()->toDateString());
 
-        $data = ChuyenKhoa::select(
+        $data = \App\Models\ChuyenKhoa::select(
                 'ChuyenKhoa.*',
-                DB::raw('(SELECT COUNT(*) FROM LichKham
-                          JOIN BacSi ON LichKham.ma_bs = BacSi.ma_bs
+                DB::raw('(SELECT COUNT(*) FROM LuotKham
+                          JOIN BacSi ON LuotKham.ma_bac_si = BacSi.ma_bs
                           WHERE BacSi.ma_chuyen_khoa = ChuyenKhoa.ma_chuyen_khoa
-                          AND LichKham.ngay_kham BETWEEN "' . $from . '" AND "' . $to . '") as so_lich'),
+                          AND DATE(LuotKham.thoi_gian_den_kham) BETWEEN "' . $from . '" AND "' . $to . '") as so_lich'),
                 DB::raw('(SELECT COALESCE(SUM(HoaDon.tong_cong), 0) FROM HoaDon
                           JOIN PhienKham ON HoaDon.ma_phien_kham = PhienKham.ma_phien_kham
-                          JOIN LichKham ON PhienKham.ma_lich_dat = LichKham.ma_lich_dat
-                          JOIN BacSi ON LichKham.ma_bs = BacSi.ma_bs
+                          JOIN LuotKham ON PhienKham.ma_lich_dat = LuotKham.ma_luot_kham
+                          JOIN BacSi ON LuotKham.ma_bac_si = BacSi.ma_bs
                           WHERE BacSi.ma_chuyen_khoa = ChuyenKhoa.ma_chuyen_khoa
                           AND HoaDon.trang_thai = "DaThanhToan"
                           AND DATE(HoaDon.ngay_thanh_toan) BETWEEN "' . $from . '" AND "' . $to . '") as doanh_thu')
@@ -211,37 +185,25 @@ class DashboardController extends Controller
             ->orderBy('doanh_thu', 'desc')
             ->get();
 
-        return response()->json([
-            'status' => 'success',
-            'data'   => $data,
-        ]);
+        return response()->json(['status' => 'success', 'data' => $data]);
     }
 
-    /* ============================================================
-       GET /api/dashboard/overview
-       Thống kê tổng quan: bệnh nhân mới, tỷ lệ hoàn thành, v.v.
-       ============================================================ */
     public function overview(Request $request)
     {
         $from = $request->query('from', now()->subDays(29)->toDateString());
         $to   = $request->query('to', now()->toDateString());
 
-        // Tổng số lịch theo trạng thái
-        $lichByStatus = LichKham::whereBetween('ngay_kham', [$from, $to])
+        $lichByStatus = LichKham::whereDate('thoi_gian_den_kham', '>=', $from)
+            ->whereDate('thoi_gian_den_kham', '<=', $to)
             ->select('trang_thai', DB::raw('COUNT(*) as so_luong'))
             ->groupBy('trang_thai')
             ->pluck('so_luong', 'trang_thai');
 
-        // Bệnh nhân mới — đếm tổng (bảng không có created_at)
         $benhNhanMoi = BenhNhan::count();
-
-        // Tỷ lệ hoàn thành
         $tongLich = $lichByStatus->sum();
-        $hoanThanh = $lichByStatus->get('HoanThanh', 0);
+        $hoanThanh = $lichByStatus->get('hoan_thanh', 0); 
         $tyLeHoanThanh = $tongLich > 0 ? round(($hoanThanh / $tongLich) * 100, 1) : 0;
-
-        // Tỷ lệ hủy
-        $daHuy = $lichByStatus->get('DaHuy', 0);
+        $daHuy = $lichByStatus->get('huy', 0); 
         $tyLeHuy = $tongLich > 0 ? round(($daHuy / $tongLich) * 100, 1) : 0;
 
         return response()->json([
@@ -257,16 +219,12 @@ class DashboardController extends Controller
             ],
         ]);
     }
-        /**
-     * GET /api/dashboard/export-excel?from=...&to=...&token=...
-     */
+
     public function exportExcel(Request $request)
     {
         $from = $request->query('from', now()->subDays(29)->toDateString());
         $to   = $request->query('to', now()->toDateString());
-
         $filename = "bao-cao-doanh-thu-{$from}-den-{$to}.xlsx";
-
         return Excel::download(new RevenueExport($from, $to), $filename);
     }
 }

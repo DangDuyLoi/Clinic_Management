@@ -6,11 +6,9 @@ use App\Models\HoaDon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+
 class VNPayController extends Controller
 {
-    /* ============================================================
-       TẠO URL THANH TOÁN
-       ============================================================ */
     public function createPayment(Request $request, $hoaDonId)
     {
         $hoaDon = HoaDon::findOrFail($hoaDonId);
@@ -18,17 +16,19 @@ class VNPayController extends Controller
         $vnp_TmnCode    = config('services.vnpay.tmn_code');
         $vnp_HashSecret = config('services.vnpay.hash_secret');
         $vnp_Url        = config('services.vnpay.url');
-        $vnp_ReturnUrl  = config('services.vnpay.return_url');
+        $vnp_ReturnUrl  = $request->getSchemeAndHttpHost() . '/api/vnpay/return';
 
         $vnp_TxnRef    = $hoaDon->ma_hoa_don . '_' . time();
-        $vnp_OrderInfo = 'Thanh toan hoa don ' . $hoaDon->ma_hoa_don;   // Không dấu #
-        $vnp_OrderType = 'other';                                         // Không dùng 'billpayment'
-        $vnp_Amount    = (int) ($hoaDon->tong_cong * 100);
-        $vnp_Locale    = 'vn';
-        $vnp_BankCode  = '';                                              // Để trống = user chọn bank
-        $vnp_IpAddr    = '127.0.0.1';                                     // Fix cứng IP
+        $vnp_OrderInfo = 'Thanh toan hoa don ' . $hoaDon->ma_hoa_don;
+        $vnp_OrderType = 'other';
 
-        // Fix timezone
+        $amountToPay = $hoaDon->tien_benh_nhan_tra ?? $hoaDon->tong_cong;
+        $vnp_Amount    = (int) ($amountToPay * 100);
+
+        $vnp_Locale    = 'vn';
+        $vnp_BankCode  = '';
+        $vnp_IpAddr    = '127.0.0.1';
+
         date_default_timezone_set('Asia/Ho_Chi_Minh');
         $vnp_CreateDate = date('YmdHis');
         $vnp_ExpireDate = date('YmdHis', strtotime('+15 minutes'));
@@ -49,15 +49,9 @@ class VNPayController extends Controller
             'vnp_ExpireDate' => $vnp_ExpireDate,
         ];
 
-        // Chỉ thêm BankCode nếu có
-        if (!empty($vnp_BankCode)) {
-            $inputData['vnp_BankCode'] = $vnp_BankCode;
-        }
+        if (!empty($vnp_BankCode)) $inputData['vnp_BankCode'] = $vnp_BankCode;
 
-        // ⭐ SẮP XẾP KEY ALPHABET (BẮT BUỘC)
         ksort($inputData);
-
-        // ⭐ BUILD HASH DATA — DÙNG rawurlencode
         $hashData = '';
         $query = '';
         $i = 0;
@@ -71,21 +65,7 @@ class VNPayController extends Controller
             $query .= urlencode($key) . '=' . urlencode($value) . '&';
         }
 
-        // Tạo hash
         $vnpSecureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
-
-        // ⭐ LOG ĐỂ DEBUG
-        \Log::info('[VNPay] createPayment', [
-            'hoa_don'       => $hoaDon->ma_hoa_don,
-            'hashData'      => $hashData,
-            'hash_md5'      => md5($hashData),
-            'hash_secret_5' => substr($vnp_HashSecret, 0, 5),
-            'hash_secret_5l'=> substr($vnp_HashSecret, -5),
-            'create_date'   => $vnp_CreateDate,
-            'expire_date'   => $vnp_ExpireDate,
-        ]);
-
-        // URL đầy đủ
         $paymentUrl = $vnp_Url . '?' . $query . 'vnp_SecureHash=' . $vnpSecureHash;
 
         return response()->json([
@@ -93,66 +73,74 @@ class VNPayController extends Controller
             'message'     => 'Tạo URL thanh toán thành công',
             'payment_url' => $paymentUrl,
             'txn_ref'     => $vnp_TxnRef,
-            'debug'       => [
-                'hash_md5'    => md5($hashData),
-                'create_date' => $vnp_CreateDate,
-            ],
         ]);
     }
+
     /* ============================================================
        RETURN URL — User quay về sau khi thanh toán
        ============================================================ */
-    public function return(Request $request)
+    public function vnpayReturn(Request $request)
     {
         $vnp_HashSecret = config('services.vnpay.hash_secret');
-
-        // 1. Lấy mã hash VNPay gửi đến
-        $vnp_SecureHash = $request->input('vnp_SecureHash');
-
-        // 2. Lấy nguyên chuỗi query string gốc (tránh bị Laravel tự động decode)
-        $queryString = $request->getQueryString();
-
-        // 3. Cắt bỏ phần vnp_SecureHash và vnp_SecureHashType ra khỏi chuỗi gốc
-        $hashData = preg_replace('/(&vnp_SecureHashType=[^&]*)/', '', $queryString);
-        $hashData = preg_replace('/(&vnp_SecureHash=[^&]*)/', '', $hashData);
-        $hashData = preg_replace('/(vnp_SecureHashType=[^&]*&)/', '', $hashData);
-        $hashData = preg_replace('/(vnp_SecureHash=[^&]*&)/', '', $hashData);
-        $hashData = str_replace('vnp_SecureHash=' . $vnp_SecureHash, '', $hashData);
-
-        // 4. Tính hash từ chuỗi gốc
-        $secureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
-
-        // Lấy dữ liệu mảng để xử lý logic phía dưới
+        
+        // Lấy tất cả tham số từ VNPay gửi về
         $inputData = $request->all();
+        
+        // Lấy mã Hash VNPay và xóa nó khỏi mảng dữ liệu để tính toán
+        $vnp_SecureHash = $inputData['vnp_SecureHash'] ?? '';
+        unset($inputData['vnp_SecureHash']);
+        unset($inputData['vnp_SecureHashType']);
+
+        // Sắp xếp các tham số theo alphabet
+        ksort($inputData);
+        
+        // Tạo chuỗi dữ liệu để hash
+        $hashData = '';
+        $i = 0;
+        foreach ($inputData as $key => $value) {
+            if ($i == 1) {
+                $hashData .= '&' . urlencode($key) . "=" . urlencode($value);
+            } else {
+                $hashData .= urlencode($key) . "=" . urlencode($value);
+                $i = 1;
+            }
+        }
+
+        // Tính mã hash
+        $secureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
+        
         $responseCode = $inputData['vnp_ResponseCode'] ?? '';
         $txnRef = $inputData['vnp_TxnRef'] ?? '';
+        $maHoaDon = explode('_', $txnRef)[0] ?? '';
 
-        Log::info('[VNPay] Return URL hit', [
-            'response_code' => $responseCode,
-            'txn_ref'       => $txnRef,
-            'amount'        => $inputData['vnp_Amount'] ?? 'N/A',
-            'signature_ok'  => ($secureHash === $vnp_SecureHash),
-        ]);
-
-        // Verify signature
+        // Kiểm tra chữ ký
         if ($secureHash !== $vnp_SecureHash) {
-            // Log thêm dữ liệu để debug nếu vẫn còn sai
-            Log::warning('[VNPay Return] Invalid signature', [
-                'hashData_Cua_Ban' => $hashData,
-                'Hash_Cua_VNPay'   => $vnp_SecureHash,
-                'Hash_Ban_Tinh'    => $secureHash
-            ]);
+            Log::warning('[VNPay Return] Invalid signature');
             return redirect('/views/receptionist/payments.html?status=invalid_signature');
         }
 
-        // Lấy mã hóa đơn từ txn_ref (format: HDxxx_timestamp)
-        $maHoaDon = explode('_', $txnRef)[0] ?? '';
-
         if ($responseCode === '00') {
-            // Thanh toán thành công
+            // Cập nhật trạng thái hóa đơn
+            $hoaDon = HoaDon::find($maHoaDon);
+            if ($hoaDon && $hoaDon->trang_thai !== 'DaThanhToan') {
+                $hoaDon->trang_thai = 'DaThanhToan';
+                $hoaDon->phuong_thuc = 'VNPay';
+                $hoaDon->ngay_thanh_toan = now();
+                $hoaDon->save();
+
+                // Cập nhật Phiên khám + Lịch khám
+                if ($hoaDon->phienKham) {
+                    $hoaDon->phienKham->trang_thai = 'HoanThanh';
+                    $hoaDon->phienKham->save();
+
+                    if ($hoaDon->phienKham->lichKham) {
+                        $hoaDon->phienKham->lichKham->trang_thai = 'hoan_thanh';
+                        $hoaDon->phienKham->lichKham->save();
+                    }
+                }
+            }
             return redirect("/views/receptionist/payments.html?status=success&hoa_don={$maHoaDon}");
         } else {
-            // Thanh toán thất bại / hủy
             return redirect("/views/receptionist/payments.html?status=failed&code={$responseCode}");
         }
     }
@@ -189,8 +177,9 @@ class VNPayController extends Controller
         if (!$hoaDon) {
             return response()->json(['RspCode' => '01', 'Message' => 'Order not found']);
         }
-
-        $expectedAmount = (int) ($hoaDon->tong_cong * 100);
+        
+        $amountToPay = $hoaDon->tien_benh_nhan_tra ?? $hoaDon->tong_cong;
+        $expectedAmount = (int) ($amountToPay * 100);
         if ((int) $amount !== $expectedAmount) {
             return response()->json(['RspCode' => '04', 'Message' => 'Invalid amount']);
         }
@@ -211,12 +200,12 @@ class VNPayController extends Controller
                 $hoaDon->phienKham->save();
 
                 if ($hoaDon->phienKham->lichKham) {
-                    $hoaDon->phienKham->lichKham->trang_thai = 'HoanThanh';
+                    $hoaDon->phienKham->lichKham->trang_thai = 'hoan_thanh';
                     $hoaDon->phienKham->lichKham->save();
                 }
             }
 
-            // ⭐ BỔ SUNG: Ghi nhật ký hệ thống (Không có ma_tk vì là hệ thống tự động)
+            // Ghi nhật ký hệ thống
             \App\Http\Controllers\NhatKyHeThongController::ghiLog(
                 null, // Hệ thống tự động
                 'UPDATE',
@@ -225,7 +214,7 @@ class VNPayController extends Controller
                 json_encode(['trang_thai' => 'DaThanhToan', 'phuong_thuc' => 'VNPay'])
             );
 
-            // ⭐ BỔ SUNG: Gửi thông báo cho Admin (Giống hệt hàm pay)
+           
             try {
                 $tenBn = $hoaDon->phienKham->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';
                 $soTien = number_format($hoaDon->tong_cong, 0, ',', '.') . 'đ';
@@ -350,12 +339,12 @@ class VNPayController extends Controller
                 $hoaDon->phienKham->save();
 
                 if ($hoaDon->phienKham->lichKham) {
-                    $hoaDon->phienKham->lichKham->trang_thai = 'HoanThanh';
+                    $hoaDon->phienKham->lichKham->trang_thai = 'hoan_thanh';
                     $hoaDon->phienKham->lichKham->save();
                 }
             }
 
-            // ⭐ Ghi nhật ký hệ thống
+            // Ghi nhật ký hệ thống
             \App\Http\Controllers\NhatKyHeThongController::ghiLog(
                 auth('api')->id(), // Có thể lấy ID lễ tân đang thao tác (nếu có)
                 'UPDATE',
@@ -364,7 +353,7 @@ class VNPayController extends Controller
                 json_encode(['trang_thai' => 'DaThanhToan', 'phuong_thuc' => 'VNPay'])
             );
 
-            // ⭐ Gửi thông báo cho Admin
+            // Gửi thông báo cho Admin
             try {
                 $tenBn = $hoaDon->phienKham->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';
                 $soTien = number_format($hoaDon->tong_cong, 0, ',', '.') . 'đ';

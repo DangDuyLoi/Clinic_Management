@@ -54,7 +54,7 @@ class CaLamViecController extends Controller
      */
     public function show($id)
     {
-        $ca = CaLamViec::with('khungGio')->find($id);
+        $ca = CaLamViec::with('tai_khoan')->find($id);
 
         if (!$ca) {
             return response()->json([

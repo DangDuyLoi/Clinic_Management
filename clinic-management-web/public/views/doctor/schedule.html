@@ -47,19 +47,45 @@
 <script src="/js/auth.js"></script>
 <script src="/js/doctor.js"></script>
 <script>
+
   document.addEventListener('DOMContentLoaded', async () => {
     if (!auth.requireAuth(['BacSi', 'QuanTri'])) return;
     auth.renderUserInfo();
 
-    // Chờ resolveMaBacSi từ doctor.js
-    await new Promise(r => setTimeout(r, 500));
+    try {
+      // 1. Tìm mã bác sĩ dựa vào tài khoản đang đăng nhập
+      const user = auth.currentUser();
+      if (user) {
+          const resBs = await api.get('/bac-si');
+          if (resBs.status === 'success') {
+              // Dùng optional chaining ?. để tránh lỗi nếu data bị null
+              const found = resBs.data?.find(bs => Number(bs.ma_tk) === Number(user.ma_tk));
+              if (found) currentMaBs = found.ma_bs;
+          }
+      }
 
-    const di = document.getElementById('filterDate');
-    di.value = todayStr();
-    di.addEventListener('change', loadSchedule);
+      const di = document.getElementById('filterDate');
+      di.value = todayStr();
+      di.addEventListener('change', loadSchedule);
 
-    loadSchedule();
+      await loadSchedule(); // Gọi và chờ load xong
+    } catch (error) {
+      console.error("Lỗi khởi tạo trang lịch:", error);
+      document.getElementById('scheduleTable').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Lỗi khởi tạo dữ liệu</td></tr>';
+    }
   });
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function statusBadgeClass(status) {
+    return { 'cho_thanh_toan': 'badge-warning', 'da_thanh_toan': 'badge-info', 'cho_kham': 'badge-doing', 'dang_kham': 'badge-doing', 'hoan_thanh': 'badge-done', 'huy': 'badge-cancel' }[status] || 'badge-wait';
+  }
+  function statusLabel(status) {
+    return { 'cho_thanh_toan': 'Chờ thanh toán', 'da_thanh_toan': 'Đã thanh toán', 'cho_kham': 'Chờ khám', 'dang_kham': 'Đang khám', 'hoan_thanh': 'Hoàn thành', 'huy': 'Đã hủy' }[status] || status;
+  }
 
   async function loadSchedule() {
     const date = document.getElementById('filterDate').value || todayStr();
@@ -67,7 +93,11 @@
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Đang tải...</td></tr>';
 
     let url = `/lich-kham?ngay=${date}&per_page=100`;
-    if (currentMaBs) url += `&ma_bs=${currentMaBs}`;
+    if (!currentMaBs) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Không xác định được tài khoản Bác sĩ!</td></tr>';
+        return;
+    }
+    url += `&ma_bac_si=${currentMaBs}`;
 
     const res = await api.get(url);
 
@@ -82,19 +112,29 @@
       return;
     }
 
-    tbody.innerHTML = data.map((l, i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td><b>${l.khung_gio?.gio_bat_dau?.slice(0,5) || '—'}</b></td>
-        <td>${l.benh_nhan?.ho_ten || '—'}</td>
-        <td><span class="badge ${statusBadgeClass(l.trang_thai)}">${statusLabel(l.trang_thai)}</span></td>
-        <td>
-          ${['ChoKham', 'DangKham'].includes(l.trang_thai)
-            ? `<button class="btn btn-primary btn-sm" onclick="openRecord(${l.ma_lich_dat})">📋 Khám</button>`
-            : '—'}
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = data.map((l, i) => {
+      const bn = l.ho_so?.benh_nhan || {};
+      const tg = l.thoi_gian_den_kham ? new Date(l.thoi_gian_den_kham) : null;
+      const gio = tg ? tg.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '—';
+
+      return `
+        <tr>
+          <td>${i+1}</td>
+          <td><b>${gio}</b></td>
+          <td>${bn.ho_ten || '—'}</td>
+          <td><span class="badge ${statusBadgeClass(l.trang_thai)}">${statusLabel(l.trang_thai)}</span></td>
+          <td>
+            ${['cho_kham', 'dang_kham'].includes(l.trang_thai)
+              ? `<button class="btn btn-primary btn-sm" onclick="openRecord(${l.ma_luot_kham})">📋 Khám</button>`
+              : '—'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function openRecord(maLuotKham) {
+    window.location.href = `patient-record.html?lich=${maLuotKham}`;
   }
 </script>
   <script src="/js/notification.js"></script>

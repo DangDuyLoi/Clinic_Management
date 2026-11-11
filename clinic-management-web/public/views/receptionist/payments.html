@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -63,6 +63,7 @@
           <tr>
             <th>Mã HĐ</th>
             <th>Bệnh nhân</th>
+            <th>Hình thức</th>
             <th>Tiền khám</th>
             <th>Dịch vụ</th>
             <th>Thuốc</th>
@@ -104,75 +105,22 @@
           <option value="ChuyenKhoan">🏦 Chuyển khoản</option>
         </select>
       </div>
-
-      <!-- ============ VÙNG QR VNPAY (MOCK) ============ -->
+           <!-- ============ VÙNG THANH TOÁN VNPAY (Chuyển hướng) ============ -->
       <div id="vnpayQRSection" style="display:none;margin-top:16px">
-        <div style="background:#e7f1ff;border:1px solid #0d6efd;border-radius:8px;padding:16px;text-align:center">
-
-          <div style="font-size:13px;font-weight:600;color:#0a58ca;margin-bottom:12px">
-            💳 Quét mã QR để thanh toán qua VNPay
+        <div style="background:#e7f1ff;border:1px solid #0d6efd;border-radius:8px;padding:20px;text-align:center">
+          
+          <div style="font-size:16px;font-weight:bold;color:#0a58ca;margin-bottom:15px">
+            💳 Thanh toán qua cổng VNPay Sandbox
           </div>
-
-          <!-- QR Code -->
-          <div style="display:inline-block;padding:12px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-            <img id="vnpayQRImage"
-                 src=""
-                 alt="QR Code VNPay"
-                 style="width:220px;height:220px;display:block">
-          </div>
-
-          <!-- Thông tin chuyển khoản -->
-          <div style="margin-top:16px;background:#fff;padding:12px;border-radius:6px;text-align:left;font-size:13px">
-            <div style="display:flex;justify-content:space-between;padding:4px 0">
-              <span style="color:#6c757d">Ngân hàng:</span>
-              <b>VNPAY Sandbox (MOCK)</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0">
-              <span style="color:#6c757d">Số hóa đơn:</span>
-              <b id="vnpayInvoiceCode">—</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0">
-              <span style="color:#6c757d">Mã giao dịch:</span>
-              <b id="vnpayTxnRef" style="font-size:11px;font-family:monospace">—</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0">
-              <span style="color:#6c757d">Số tiền:</span>
-              <b id="vnpayAmount" style="color:#dc3545;font-size:15px">—</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0">
-              <span style="color:#6c757d">Hết hạn:</span>
-              <b id="vnpayExpired" style="color:#fd7e14">—</b>
-            </div>
-          </div>
-
-          <!-- Cảnh báo đây là mock -->
-          <div style="margin-top:12px;padding:10px;background:#fff3cd;border-radius:6px;font-size:12px;color:#856404">
-            ⚠️ <b>Đây là QR giả lập để TEST.</b> Không thanh toán thật.
-            Dùng các nút bên dưới để giả lập kết quả thanh toán.
-          </div>
-
-          <!-- Nút hành động (MOCK) -->
-          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <button type="button"
-                    class="btn btn-success btn-sm"
-                    onclick="simulatePaymentSuccess()">
-              ✅ Giả lập thanh toán THÀNH CÔNG
-            </button>
-            <button type="button"
-                    class="btn btn-danger btn-sm"
-                    onclick="simulatePaymentFailed()">
-              ❌ Giả lập thanh toán THẤT BẠI
-            </button>
-          </div>
-
-          <div style="margin-top:8px;font-size:11px;color:#6c757d">
-            Trong thực tế, các nút này sẽ không có. Chúng chỉ xuất hiện ở chế độ TEST.
-          </div>
+          
+          <p style="font-size:13px;color:#555;margin-bottom:20px">
+            Vui lòng bấm nút "Xác nhận thanh toán" bên dưới.<br>
+            Hệ thống sẽ tự động chuyển hướng bạn sang trang thanh toán của VNPay.
+          </p>
 
         </div>
       </div>
-      <!-- ============ END VÙNG QR VNPAY ============ -->
-
+      <!-- ============ END VÙNG THANH TOÁN VNPAY ============ -->
       <!-- ============================================================
            VÙNG QR MOMO
            ============================================================ -->

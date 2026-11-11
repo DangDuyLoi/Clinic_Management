@@ -51,7 +51,6 @@
             <th>SĐT</th>
             <th>Giới tính</th>
             <th>Ngày sinh</th>
-            <th>Nhóm máu</th>
             <th>Hành động</th>
           </tr>
         </thead>
@@ -114,6 +113,16 @@
           <label>CCCD</label>
           <input type="text" id="f_cccd" placeholder="012345678901">
         </div>
+          <div class="form-group">
+      <label>Mã thẻ BHYT (nếu có)</label>
+      <input type="text" id="f_ma_bhyt" maxlength="15" placeholder="VD: DN4797900000123">
+  </div>
+  <div class="form-group">
+    <label>Quê quán (Tỉnh/Thành phố)</label>
+    <select id="f_que_quan" style="width:100%;padding:10px 12px;border:1px solid #dee2e6;border-radius:6px">
+        <option value="">-- Chọn Tỉnh/Thành phố --</option>
+    </select>
+</div>
         <div class="form-group">
           <label>Nhóm máu</label>
           <select id="f_nhom_mau">

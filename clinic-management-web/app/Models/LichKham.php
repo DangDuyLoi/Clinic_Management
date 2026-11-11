@@ -6,33 +6,36 @@ use Illuminate\Database\Eloquent\Model;
 
 class LichKham extends Model
 {
-    protected $table = 'LichKham';
-    protected $primaryKey = 'ma_lich_dat';
-    public $timestamps = false;
+    // Trỏ đúng vào bảng mới
+    protected $table = 'LuotKham';
+    protected $primaryKey = 'ma_luot_kham';
+    public $timestamps = true;
 
     protected $fillable = [
-        'ma_bn', 'ma_bs', 'ngay_kham', 'ma_khung_gio',
-        'thoi_gian_den_quay', 'khach_vang_lai', 'diem_uu_tien',
-        'trang_thai', 'ghi_chu', 'thoi_diem_dat','qr_token',
+        'ma_ho_so', 'ma_bac_si', 'so_thu_tu', 'thoi_gian_den_kham', 
+        'trang_thai', 'chan_doan', 'hinh_thuc_kham', 'priority_level',
+        'qr_token'
     ];
 
     protected $casts = [
-        'khach_vang_lai' => 'boolean',
-        'ngay_kham'      => 'date',
+        'thoi_gian_den_kham' => 'datetime',
     ];
 
-    public function benhNhan()
-    {
-        return $this->belongsTo(BenhNhan::class, 'ma_bn');
+    public function hoSo() {
+        return $this->belongsTo(HoSoBenhAn::class, 'ma_ho_so', 'ma_ho_so');
     }
 
-    public function bacSi()
-    {
-        return $this->belongsTo(BacSi::class, 'ma_bs');
+    // Quan hệ với Bác sĩ
+    public function bacSi() {
+        return $this->belongsTo(BacSi::class, 'ma_bac_si', 'ma_bs');
     }
 
-    public function khungGio()
-    {
-        return $this->belongsTo(KhungGio::class, 'ma_khung_gio');
+    // Hàm lấy Bệnh nhân thông qua Hồ sơ (Dùng cho Lễ tân/Bác sĩ)
+    public function benhNhan() {
+        return $this->hasOneThrough(
+            BenhNhan::class, 
+            HoSoBenhAn::class,
+            'ma_ho_so', 'ma_benh_nhan', 'ma_ho_so', 'ma_benh_nhan'
+        );
     }
 }

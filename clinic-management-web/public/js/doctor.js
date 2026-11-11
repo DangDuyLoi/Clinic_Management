@@ -8,8 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!auth.requireAuth(['BacSi', 'QuanTri'])) return;
   auth.renderUserInfo();
 
-  // Lấy mã bác sĩ từ thông tin user
-  // (backend trả về user.ma_tk; cần map sang ma_bs)
+  // Chờ lấy được mã bác sĩ trước khi load lịch
   await resolveMaBacSi();
 
   const dateInput = document.getElementById('filterDate');
@@ -28,14 +27,20 @@ async function resolveMaBacSi() {
   const user = auth.currentUser();
   if (!user) return;
 
-  // Gọi /bac-si để lấy danh sách và tìm bác sĩ khớp ma_tk
   const res = await api.get('/bac-si');
   if (res.status !== 'success') return;
 
-  const found = res.data.find(bs => bs.ma_tk === user.ma_tk);
+  // So sánh chính xác ma_tk (dạng số) để tìm ra ma_bs
+  const found = res.data.find(bs => Number(bs.ma_tk) === Number(user.ma_tk));
   if (found) {
-    currentMaBs = found.ma_bs;
-    console.log('Bác sĩ:', found.ho_ten, '| ma_bs =', currentMaBs);
+    currentMaBs = found.ma_bs; 
+    console.log('Đã tìm thấy Bác sĩ:', found.ho_ten, '| ma_bs =', currentMaBs);
+    const greetingEl = document.getElementById('greetingText');
+    if (greetingEl) {
+      greetingEl.textContent = `Xin chào, ${found.ho_ten}!`;
+    }
+  } else {
+    console.warn('Không tìm thấy thông tin bác sĩ cho tài khoản này!');
   }
 }
 
@@ -46,23 +51,25 @@ function todayStr() {
 
 function statusBadgeClass(status) {
   return {
-    'ChoXacNhan': 'badge-wait',
-    'ChoKham':    'badge-doing',
-    'DangKham':   'badge-doing',
-    'ChoThanhToan': 'badge-info',
-    'HoanThanh':  'badge-done',
-    'DaHuy':      'badge-cancel',
+    'cho_thanh_toan': 'badge-warning',
+    'da_thanh_toan':  'badge-info',
+    'cho_kham':       'badge-doing',
+    'dang_kham':      'badge-doing',
+    'hoan_tat_hoa_don': 'badge-warning',
+    'hoan_thanh':     'badge-done',
+    'huy':            'badge-cancel',
   }[status] || 'badge-wait';
 }
 
 function statusLabel(status) {
   return {
-    'ChoXacNhan': 'Chờ xác nhận',
-    'ChoKham':    'Chờ khám',
-    'DangKham':   'Đang khám',
-    'ChoThanhToan': 'Chờ thanh toán',
-    'HoanThanh':  'Hoàn thành',
-    'DaHuy':      'Đã hủy',
+    'cho_thanh_toan': 'Chờ thanh toán',
+    'da_thanh_toan':  'Đã thanh toán',
+    'cho_kham':       'Chờ khám',
+    'dang_kham':      'Đang khám',
+    'hoan_tat_hoa_don': 'Chờ thu tiền HĐ',
+    'hoan_thanh':     'Hoàn thành',
+    'huy':            'Đã hủy',
   }[status] || status;
 }
 
@@ -70,11 +77,17 @@ function statusLabel(status) {
 async function loadToday() {
   const tbody = document.getElementById('patientTable');
   if (!tbody) return;
+  
   const date = document.getElementById('filterDate')?.value || todayStr();
   tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
 
   let url = `/lich-kham?ngay=${date}&per_page=100`;
-  if (currentMaBs) url += `&ma_bs=${currentMaBs}`;
+  // Nếu không tìm thấy mã bác sĩ, không gọi API để tránh hiển thị sai dữ liệu
+  if (!currentMaBs) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Lỗi: Không xác định được tài khoản Bác sĩ.</td></tr>';
+    return;
+  }
+  url += `&ma_bac_si=${currentMaBs}`;
 
   const res = await api.get(url);
 
@@ -85,11 +98,10 @@ async function loadToday() {
 
   const data = res.data?.data || [];
 
-  // Cập nhật thống kê
   document.getElementById('totalToday').textContent    = data.length;
-  document.getElementById('waitingCount').textContent  = data.filter(l => ['ChoXacNhan', 'ChoKham'].includes(l.trang_thai)).length;
-  document.getElementById('doingCount').textContent    = data.filter(l => l.trang_thai === 'DangKham').length;
-  document.getElementById('doneCount').textContent     = data.filter(l => l.trang_thai === 'HoanThanh').length;
+  document.getElementById('waitingCount').textContent  = data.filter(l => ['cho_thanh_toan', 'cho_kham'].includes(l.trang_thai)).length;
+  document.getElementById('doingCount').textContent    = data.filter(l => l.trang_thai === 'dang_kham').length;
+  document.getElementById('doneCount').textContent     = data.filter(l => l.trang_thai === 'hoan_thanh').length;
 
   if (data.length === 0) {
     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Không có bệnh nhân</td></tr>';
@@ -97,63 +109,51 @@ async function loadToday() {
   }
 
   tbody.innerHTML = data.map((item, i) => {
-    const bn = item.benh_nhan;
-    const gio = item.khung_gio;
+    const bn = item.ho_so?.benh_nhan || {};
     const cls = statusBadgeClass(item.trang_thai);
 
-    // Bác sĩ chỉ mở phiên khám khi bệnh nhân đã check-in (trạng thái ChoKham hoặc DangKham)
-    const canOpen = ['ChoKham', 'DangKham'].includes(item.trang_thai);
+    const thoiGian = item.thoi_gian_den_kham ? new Date(item.thoi_gian_den_kham) : null;
+    const gioKham = thoiGian ? thoiGian.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : '—';
+    
+    const gioiTinhText = bn.gioi_tinh === 1 ? 'Nam' : (bn.gioi_tinh === 0 ? 'Nữ' : '');
+
+    const canOpen = ['cho_kham', 'dang_kham'].includes(item.trang_thai);
 
     return `
       <tr>
         <td>${i+1}</td>
         <td>
-          <b>${bn?.ho_ten || '—'}</b>
-          <small>${bn?.ngay_sinh ? 'NS: ' + api.formatDate(bn.ngay_sinh) : ''} · ${bn?.gioi_tinh || ''}</small>
+          <b>${bn.ho_ten || '—'}</b>
+          <small>${bn.ngay_sinh ? 'NS: ' + api.formatDate(bn.ngay_sinh) : ''} ${gioiTinhText ? '· ' + gioiTinhText : ''}</small>
         </td>
-        <td><b>${gio?.gio_bat_dau?.slice(0,5) || '—'} - ${gio?.gio_ket_thuc?.slice(0,5) || '—'}</b></td>
+        <td><b>${gioKham}</b></td>
         <td><span class="badge ${cls}">${statusLabel(item.trang_thai)}</span></td>
         <td>
           ${canOpen
-            ? `<button class="btn btn-primary btn-sm" onclick="openRecord(${item.ma_lich_dat})">📝 Khám</button>`
-            : `<span class="text-muted" style="font-size:12px">Chờ check-in</span>`}
+            ? `<button class="btn btn-primary btn-sm" onclick="openRecord(${item.ma_luot_kham})">📝 Khám</button>`
+            : (['cho_thanh_toan', 'hoan_thanh', 'huy'].includes(item.trang_thai) 
+                ? `<span class="text-muted" style="font-size:12px">—</span>` 
+                : `<span class="text-muted" style="font-size:12px">Chờ check-in</span>`)}
         </td>
       </tr>
     `;
   }).join('');
 }
 
-function openRecord(maLich) {
-  window.location.href = `patient-record.html?lich=${maLich}`;
+function openRecord(maLuotKham) {
+  window.location.href = `patient-record.html?lich=${maLuotKham}`;
 }
 
-/* ============================================================
-   REALTIME POLLING cho Bác sĩ — Cập nhật lịch làm việc mỗi 20s
-   ============================================================ */
+/* Polling */
 let doctorRealtimeInterval = null;
-
 function startDoctorPolling() {
   if (doctorRealtimeInterval) clearInterval(doctorRealtimeInterval);
-
   doctorRealtimeInterval = setInterval(async () => {
     if (document.hidden) return;
     try {
-      if (document.getElementById('patientTable')) {
-        await loadToday();
-        console.log('🔄 [Doctor auto-refresh]', new Date().toLocaleTimeString('vi-VN'));
-      }
-    } catch (e) {
-      console.warn('Doctor polling lỗi:', e);
-    }
+      if (document.getElementById('patientTable')) await loadToday();
+    } catch (e) {}
   }, 20000);
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(startDoctorPolling, 3000);
-});
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && document.getElementById('patientTable')) {
-    loadToday();
-  }
-});
+document.addEventListener('DOMContentLoaded', () => { setTimeout(startDoctorPolling, 3000); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && document.getElementById('patientTable')) loadToday(); });
