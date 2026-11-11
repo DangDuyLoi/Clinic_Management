@@ -27,4 +27,4 @@ RUN rm -f bootstrap/cache/*.php
 RUN composer install --no-dev --optimize-autoloader
 
 # Lệnh khởi động Server và chạy migrate an toàn
-CMD php artisan serve --host=0.0.0.0 --port=${PORT:-8000}
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}
