@@ -23,4 +23,4 @@ RUN rm -f bootstrap/cache/*.php
 RUN composer install --no-dev --optimize-autoloader
 
 # Lệnh khởi động Server và bơm dữ liệu
-CMD php artisan migrate:fresh --seed --force && php artisan serve --host=0.0.0.0 --port=$PORT
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT
