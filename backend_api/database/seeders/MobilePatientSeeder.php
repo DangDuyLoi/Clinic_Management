@@ -12,7 +12,7 @@ class MobilePatientSeeder extends Seeder
     public function run()
     {
         $passHash = Hash::make('123456');
-        $loiPassHash = Hash::make('SWKH@k4i');
+        $loiPassHash = Hash::make('DLakaH@k4i');
 
         // 1. Tài khoản User cho Mobile
         $mobileUsers = [
