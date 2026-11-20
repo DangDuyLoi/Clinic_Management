@@ -512,8 +512,8 @@ class MobileController extends Controller
         $ngaySinh = $hoSo?->benhNhan?->ngay_sinh;
 
         $validator = Validator::make($request->all(), [
-            'ma_ho_so' => 'required|exists:HoSoBenhAn,ma_ho_so',
-            'ma_bac_si' => 'required|exists:BacSi,ma_bs',
+            'ma_ho_so' => 'required|exists:hosobenhan,ma_ho_so',
+            'ma_bac_si' => 'required|exists:bacsi,ma_bs',
             'thoi_gian_den_kham' => 'required|date',
             'priority_level' => 'integer|in:1,2,3,4',
             'is_bhyt' => 'boolean',
