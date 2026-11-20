@@ -203,7 +203,7 @@ class PhienKhamController extends Controller
                     $benhNhan = $lich->hoSo->benhNhan ?? null;
                     if ($benhNhan && $benhNhan->ma_bhyt && strlen($benhNhan->ma_bhyt) === 15) {
                         $maDoiTuong = substr($benhNhan->ma_bhyt, 0, 2);
-                        $loaiDoiTuong = \DB::table('LoaiDoiTuongBHYT')->where('ma_doi_tuong', $maDoiTuong)->first();
+                        $loaiDoiTuong = \DB::table('loaidoituongbhyt')->where('ma_doi_tuong', $maDoiTuong)->first();
 
                         if (! $loaiDoiTuong) {
                             throw new \Exception("Lỗi dữ liệu BHYT: Mã đối tượng '{$maDoiTuong}' không có trong danh mục.");

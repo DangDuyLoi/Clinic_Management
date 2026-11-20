@@ -1,4 +1,5 @@
 <?php
+
 // database/seeders/TinhThanhSeeder.php
 
 namespace Database\Seeders;
@@ -48,12 +49,12 @@ class TinhThanhSeeder extends Seeder
         ];
 
         foreach ($ds as [$ma, $ten, $loai, $ghiChu]) {
-            DB::table('TinhThanh')->updateOrInsert(
+            DB::table('tinhthanh')->updateOrInsert(
                 ['ma_tinh' => $ma],
                 [
                     'ten_tinh' => $ten,
-                    'loai'     => $loai,
-                    'ghi_chu'  => $ghiChu,
+                    'loai' => $loai,
+                    'ghi_chu' => $ghiChu,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]
@@ -61,22 +62,22 @@ class TinhThanhSeeder extends Seeder
         }
 
         // Bổ sung mã đặc biệt cho BHYT (97 - Quốc phòng, 98 - Công an)
-        DB::table('TinhThanh')->updateOrInsert(
+        DB::table('tinhthanh')->updateOrInsert(
             ['ma_tinh' => '97'],
             [
                 'ten_tinh' => 'Bảo hiểm xã hội Bộ Quốc phòng',
-                'loai'     => 'DacBiet',
-                'ghi_chu'  => 'Mã dành riêng cho thẻ BHYT do BHXH Bộ Quốc phòng cấp',
+                'loai' => 'DacBiet',
+                'ghi_chu' => 'Mã dành riêng cho thẻ BHYT do BHXH Bộ Quốc phòng cấp',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
-        DB::table('TinhThanh')->updateOrInsert(
+        DB::table('tinhthanh')->updateOrInsert(
             ['ma_tinh' => '98'],
             [
                 'ten_tinh' => 'Bảo hiểm xã hội Công an nhân dân',
-                'loai'     => 'DacBiet',
-                'ghi_chu'  => 'Mã dành riêng cho thẻ BHYT do BHXH Công an nhân dân cấp',
+                'loai' => 'DacBiet',
+                'ghi_chu' => 'Mã dành riêng cho thẻ BHYT do BHXH Công an nhân dân cấp',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]

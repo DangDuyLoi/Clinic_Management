@@ -2,9 +2,9 @@
 
 namespace App\Rules;
 
+use Carbon\Carbon;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ValidBhyt implements ValidationRule
@@ -18,11 +18,14 @@ class ValidBhyt implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (empty($value)) return;
+        if (empty($value)) {
+            return;
+        }
 
         // 1. Kiểm tra độ dài 15 ký tự
         if (strlen($value) !== 15) {
             $fail('Mã thẻ BHYT phải có đúng 15 ký tự.');
+
             return;
         }
 
@@ -33,29 +36,33 @@ class ValidBhyt implements ValidationRule
         $soDinhDanh = substr($value, 5);    // 10 ký tự cuối
 
         // 3. KIỂM TRA CHÉO: Mã đối tượng VÀ Mức hưởng phải khớp với CSDL
-        $loaiDoiTuong = DB::table('LoaiDoiTuongBHYT')->where('ma_doi_tuong', $maDoiTuong)->first();
-        
-        if (!$loaiDoiTuong) {
+        $loaiDoiTuong = DB::table('loaidoituongbhyt')->where('ma_doi_tuong', $maDoiTuong)->first();
+
+        if (! $loaiDoiTuong) {
             $fail("Mã đối tượng '{$maDoiTuong}' không hợp lệ.");
+
             return;
         }
 
         // Kiểm tra ký tự thứ 3 có trùng với mức hưởng quy định của mã đối tượng không
-        if ((string)$loaiDoiTuong->muc_huong !== $mucHuong) {
+        if ((string) $loaiDoiTuong->muc_huong !== $mucHuong) {
             $fail("Mức hưởng '{$mucHuong}' không khớp với mã đối tượng '{$maDoiTuong}'. Mã này phải có mức hưởng là '{$loaiDoiTuong->muc_huong}'.");
+
             return;
         }
 
         // 4. Kiểm tra ký tự 4-5 (Mã tỉnh thành)
-        $isValidTinh = DB::table('TinhThanh')->where('ma_tinh', $maTinh)->exists();
-        if (!$isValidTinh) {
+        $isValidTinh = DB::table('tinhthanh')->where('ma_tinh', $maTinh)->exists();
+        if (! $isValidTinh) {
             $fail("Mã tỉnh thành '{$maTinh}' không hợp lệ.");
+
             return;
         }
 
         // 5. Kiểm tra 10 ký tự cuối (phải là số)
-        if (!ctype_digit($soDinhDanh)) {
+        if (! ctype_digit($soDinhDanh)) {
             $fail('10 ký tự cuối của mã BHYT phải là chữ số.');
+
             return;
         }
 

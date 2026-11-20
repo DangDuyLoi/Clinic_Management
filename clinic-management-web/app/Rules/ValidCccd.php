@@ -5,10 +5,13 @@ namespace App\Rules;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\DB;
+
 class ValidCccd implements ValidationRule
 {
     protected $ngaySinh;
+
     protected $gioiTinh;
+
     protected array $provinceMapping = [
         '001' => '01', // Hà Nội
         '002' => '08', // Hà Giang -> Tuyên Quang
@@ -75,7 +78,6 @@ class ValidCccd implements ValidationRule
         '096' => '96', // Cà Mau
     ];
 
-
     public function __construct($ngaySinh, $gioiTinh)
     {
         $this->ngaySinh = $ngaySinh;
@@ -84,50 +86,55 @@ class ValidCccd implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (empty($value)) return;
+        if (empty($value)) {
+            return;
+        }
 
-        $cccd = trim((string)$value);
+        $cccd = trim((string) $value);
 
-        if (strlen($cccd) !== 12 || !ctype_digit($cccd)) {
-            $fail("Số CCCD phải bao gồm chính xác 12 chữ số.");
+        if (strlen($cccd) !== 12 || ! ctype_digit($cccd)) {
+            $fail('Số CCCD phải bao gồm chính xác 12 chữ số.');
+
             return;
         }
 
         $oldProvinceCode = substr($cccd, 0, 3);
-        
-        if (!array_key_exists($oldProvinceCode, $this->provinceMapping)) {
+
+        if (! array_key_exists($oldProvinceCode, $this->provinceMapping)) {
             $fail("3 ký tự đầu của CCCD ('{$oldProvinceCode}') không phải là mã tỉnh/thành phố hợp lệ của Việt Nam.");
+
             return;
         }
         $newProvinceCode = $this->provinceMapping[$oldProvinceCode];
-        $isValidTinh = DB::table('TinhThanh')->where('ma_tinh', $newProvinceCode)->exists();
-        
-        if (!$isValidTinh) {
+        $isValidTinh = DB::table('tinhthanh')->where('ma_tinh', $newProvinceCode)->exists();
+
+        if (! $isValidTinh) {
             // Lỗi này hiếm khi xảy ra, chỉ xảy ra nếu bảng TinhThanh thiếu dữ liệu
             $fail("Lỗi hệ thống: Mã tỉnh mới ({$newProvinceCode}) không tồn tại trong danh mục TinhThanh.");
+
             return;
         }
 
-
         // Kiểm tra chéo nếu có truyền ngày sinh và giới tính
         if ($this->ngaySinh && $this->gioiTinh !== null) {
-            $genderCenturyCode = (int)$cccd[3];
+            $genderCenturyCode = (int) $cccd[3];
             $expectedGender = ($genderCenturyCode % 2 === 0) ? 1 : 0;
-            $centuryBase = 1900 + ((int)floor($genderCenturyCode / 2) * 100);
-            $yearLast2Digits = (int)substr($cccd, 4, 2);
+            $centuryBase = 1900 + ((int) floor($genderCenturyCode / 2) * 100);
+            $yearLast2Digits = (int) substr($cccd, 4, 2);
             $expectedBirthYear = $centuryBase + $yearLast2Digits;
-            $actualBirthYear = (int)date('Y', strtotime($this->ngaySinh));
+            $actualBirthYear = (int) date('Y', strtotime($this->ngaySinh));
 
             if ($actualBirthYear !== $expectedBirthYear) {
                 $fail("Năm sinh không khớp với dữ liệu từ CCCD (CCCD ghi nhận năm {$expectedBirthYear}).");
+
                 return;
             }
 
             // Chuyển đổi giới tính web (1: Nam, 0: Nữ) để so sánh
             $webGender = ($this->gioiTinh == 1 || $this->gioiTinh == 'Nam' || $this->gioiTinh == '1') ? 1 : 0;
-            
+
             if ($webGender !== $expectedGender) {
-                $fail("Giới tính không khớp với dữ liệu từ CCCD.");
+                $fail('Giới tính không khớp với dữ liệu từ CCCD.');
             }
         }
     }
