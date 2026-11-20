@@ -15,6 +15,7 @@ RUN apt-get update \
         gettext-base \
         libicu-dev \
         libjpeg62-turbo-dev \
+        libonig-dev \
         libpng-dev \
         libxml2-dev \
         libzip-dev \
