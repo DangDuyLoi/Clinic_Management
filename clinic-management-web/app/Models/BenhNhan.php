@@ -6,15 +6,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class BenhNhan extends Model
 {
-    protected $table = 'BenhNhan';
+    protected $table = 'benhnhan';
+
     protected $primaryKey = 'ma_benh_nhan';
+
     public $timestamps = false;
 
     protected $fillable = [
-        'ma_tk', 'ho_ten', 'ngay_sinh', 'gioi_tinh', 'so_dien_thoai',
-        'email', 'cccd', 'dia_chi', 'nguoi_lien_he_khan_cap',
-        'tien_su_benh', 'di_ung', 'nhom_mau', 'ma_bhyt', 
-        'muc_huong_bhyt', 'ngay_het_han_bhyt','que_quan'
+        'ma_tk', 'ho_ten', 'ho_chu_lot', 'ten', 'ngay_sinh', 'gioi_tinh',
+        'so_dien_thoai', 'email', 'cccd', 'dia_chi', 'tinh_thanh',
+        'phuong_xa', 'so_nha', 'nguoi_lien_he_khan_cap',
+        'tien_su_benh', 'di_ung', 'nhom_mau', 'ma_bhyt',
+        'muc_huong_bhyt', 'ngay_het_han_bhyt', 'que_quan',
     ];
 
     protected $casts = [
@@ -38,8 +41,8 @@ class BenhNhan extends Model
     public function lichKham()
     {
         return $this->hasManyThrough(
-            LichKham::class, 
-            HoSoBenhAn::class, 
+            LichKham::class,
+            HoSoBenhAn::class,
             'ma_benh_nhan', // FK trên bảng ho_so_benh_an
             'ma_ho_so',     // FK trên bảng luot_kham
             'ma_benh_nhan', // PK trên bảng benh_nhan

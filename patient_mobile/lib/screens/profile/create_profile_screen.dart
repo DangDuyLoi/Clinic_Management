@@ -644,8 +644,8 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                   }),
 
                   // Ô NHẬP MÃ THẺ BẢO HIỂM Y TẾ (CÓ KIỂM TRA CHÉO ĐỘ TUỔI)
-                  Obx(() {
-                    return _buildTextField(
+             
+                    _buildTextField(
                       'Mã thẻ Bảo hiểm Y tế (BHYT)',
                       _soTheBhytController,
                       isRequired: false,
@@ -657,9 +657,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                         birthYear: _profileController.birthYear.value,
                       ),
                       helperText: 'Gồm 15 ký tự (VD: DN4011234567890, GD4791234567890)',
-                    );
-                  }),
-
+                    ),
                   _buildTextField('Số Hộ chiếu', _hoChieuController),
                   _buildTextField('Số định danh cá nhân', _soDinhDanhController),
                 ],

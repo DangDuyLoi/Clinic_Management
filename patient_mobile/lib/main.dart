@@ -11,6 +11,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'screens/chatbot/chatbot_screen.dart';
 import 'screens/booking/views/select_profile_screen.dart';
+import 'screens/booking/views/payment_pending_screen.dart';
 import 'screens/profile/profile_empty_screen.dart';
 import 'screens/main/main_screen.dart';
 import 'screens/payment/payment_screen.dart';
@@ -33,10 +34,10 @@ void main() async {
   } catch (e) {
     print("Firebase initialization error: $e");
   }
-  
+
   await MasterDataService.initialize();
   await PatientProfileService.loadProfiles();
-  
+
   runApp(const UMCCareCloneApp());
 }
 
@@ -61,6 +62,35 @@ class UMCCareCloneApp extends StatelessWidget {
               : SelectProfileScreen(),
         ),
         GetPage(name: '/payment', page: () => const PaymentScreen()),
+        GetPage(
+          name: '/payment-result',
+          page: () {
+            final parameters = Get.parameters;
+            final appointmentIds = (parameters['ma_luot_kham'] ?? '')
+                .split('-')
+                .map((id) => int.tryParse(id))
+                .whereType<int>()
+                .toList();
+            if (appointmentIds.isEmpty) {
+              return const MainScreen();
+            }
+
+            final firstAppointmentId = appointmentIds.first;
+            return PaymentPendingScreen(
+              maLuotKham: firstAppointmentId,
+              maLuotKhamParam: appointmentIds.join('-'),
+              bookingData: {
+                'ma_luot_kham': firstAppointmentId,
+                'danh_sach_ma_luot_kham': appointmentIds,
+                'data': {'ma_luot_kham': firstAppointmentId},
+              },
+              amount: double.tryParse(parameters['amount'] ?? '') ?? 150000,
+              isInvoicePayment: parameters['payment_type'] == 'invoice',
+              paymentReturnStatus: parameters['status'],
+              paymentResponseCode: parameters['response_code'],
+            );
+          },
+        ),
       ],
     );
   }

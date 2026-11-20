@@ -6,6 +6,7 @@ import '../../../services/vnpay_service.dart';
 import '../../../services/fcm_service.dart';
 import '../../main/main_screen.dart';
 import 'booking_success_screen.dart';
+import 'appointment_list_screen.dart';
 import '../controllers/booking_controller.dart';
 
 class PaymentPendingScreen extends StatefulWidget {
@@ -13,6 +14,9 @@ class PaymentPendingScreen extends StatefulWidget {
   final String? maLuotKhamParam;
   final Map<String, dynamic> bookingData;
   final double amount;
+  final bool isInvoicePayment;
+  final String? paymentReturnStatus;
+  final String? paymentResponseCode;
 
   const PaymentPendingScreen({
     super.key,
@@ -20,6 +24,9 @@ class PaymentPendingScreen extends StatefulWidget {
     this.maLuotKhamParam,
     required this.bookingData,
     this.amount = 150000,
+    this.isInvoicePayment = false,
+    this.paymentReturnStatus,
+    this.paymentResponseCode,
   });
 
   @override
@@ -36,6 +43,14 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.paymentReturnStatus == 'success') {
+      _statusText = 'VNPay đã phản hồi thành công. Đang xác nhận trạng thái...';
+    } else if (widget.paymentReturnStatus == 'failed') {
+      final responseCode = widget.paymentResponseCode;
+      _statusText = responseCode == null || responseCode.isEmpty
+          ? 'Thanh toán chưa thành công. Bạn có thể thử lại.'
+          : 'Thanh toán chưa thành công (mã $responseCode). Bạn có thể thử lại.';
+    }
     _startPolling();
   }
 
@@ -70,10 +85,18 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
 
       if (data != null && data['is_paid'] == true) {
         _pollingTimer?.cancel();
-        
+
         setState(() {
-          _statusText = 'Thanh toán thành công! Đang tạo mã QR...';
+          _statusText = widget.isInvoicePayment
+              ? 'Thanh toán hóa đơn thành công.'
+              : 'Thanh toán thành công! Đang tạo mã QR...';
         });
+
+        if (widget.isInvoicePayment) {
+          await Future.delayed(const Duration(milliseconds: 600));
+          Get.off(() => const AppointmentListScreen());
+          return;
+        }
 
         // Hợp nhất dữ liệu bookingData ban đầu với dữ liệu mới từ backend
         final mergedData = Map<String, dynamic>.from(widget.bookingData);
@@ -188,7 +211,7 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 16),
-                
+
                 // Animated pulse container
                 Container(
                   width: 100,
@@ -208,9 +231,9 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 const Text(
                   'Đang chờ xác nhận thanh toán',
                   style: TextStyle(
@@ -219,9 +242,9 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                     color: Color(0xFF0F172A),
                   ),
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 Text(
                   _statusText,
                   textAlign: TextAlign.center,
@@ -231,9 +254,9 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                     height: 1.5,
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Box thông tin
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -264,9 +287,9 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 36),
-                
+
                 // Nút kiểm tra ngay
                 SizedBox(
                   width: double.infinity,
@@ -295,9 +318,9 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Nút mở lại VNPay nếu bị tắt
                 SizedBox(
                   width: double.infinity,
@@ -318,9 +341,9 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen>
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 TextButton(
                   onPressed: () {
                     if (Get.isRegistered<BookingController>()) {

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Dịch vụ AI chuyên biệt hỗ trợ giải thích kết quả xét nghiệm cận lâm sàng và đơn thuốc
 class MedicalAiService {
   static final String _defaultApiKey =
-      utf8.decode(base64.decode('QVEuQWI4Uk42Snp0RDdlZDlSRmdEWTNsT2JUQnVpLWcxZUpaUWVtR3FEczRhZmFQTDRjeEE='));
+      utf8.decode(base64.decode('QVEuQWI4Uk42SlRTdmJ1dDIzYzVXT180alFKZ09QckNfcWVMRzl1OUFUVHlYNExWbVVScmc='));
   static const String _prefKey = 'custom_gemini_api_key';
 
   static const List<String> _modelCandidates = [
@@ -129,3 +129,4 @@ class MedicalAiService {
     yield '\n⚠️ Rất tiếc, máy chủ AI y tế hiện đang bận xử lý hoặc không có phản hồi. Vui lòng thử lại sau ít phút!';
   }
 }
+ 

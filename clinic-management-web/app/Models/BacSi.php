@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class BacSi extends Model
 {
-    protected $table = 'BacSi';
+    protected $table = 'bacsi';
+
     protected $primaryKey = 'ma_bs';
+
     public $timestamps = false;
 
     protected $fillable = [

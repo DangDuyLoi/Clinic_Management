@@ -21,12 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ---------- LOAD DANH SÁCH THUỐC ---------- */
 async function loadMedicines() {
   const tbody = document.getElementById('medicineTable');
-  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:32px">Đang tải...</td></tr>';
 
   const res = await api.get('/thuoc');
 
   if (res.status !== 'success') {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger" style="padding:32px">
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger" style="padding:32px">
       Lỗi: ${res.message}
     </td></tr>`;
     return;
@@ -73,7 +73,7 @@ function renderTable(list) {
   const tbody = document.getElementById('medicineTable');
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">Không có thuốc nào</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:32px">Không có thuốc nào</td></tr>';
     return;
   }
 
@@ -88,6 +88,7 @@ function renderTable(list) {
       <tr>
         <td><b>${t.ma_thuoc}</b></td>
         <td><b>${t.ten_thuoc}</b></td>
+        <td><span class="badge ${t.is_bhyt ? 'badge-done' : 'badge-wait'}">${t.is_bhyt ? 'Trong danh mục BHYT' : 'Ngoài BHYT'}</span></td>
         <td>${t.don_vi_tinh || '—'}</td>
         <td><span class="text-primary">${api.formatMoney(t.don_gia)}</span></td>
         <td>${stockBadge}</td>
@@ -111,6 +112,7 @@ function openMedicineModal() {
   document.getElementById('f_don_vi_tinh').value = '';
   document.getElementById('f_don_gia').value = '';
   document.getElementById('f_so_luong_ton').value = '0';
+  document.getElementById('f_is_bhyt').checked = false;
   document.getElementById('medicineModal').classList.remove('hidden');
   document.getElementById('f_ten_thuoc').focus();
 }
@@ -128,6 +130,7 @@ async function openEditMedicineModal(id) {
   document.getElementById('f_don_vi_tinh').value = t.don_vi_tinh || '';
   document.getElementById('f_don_gia').value = t.don_gia || 0;
   document.getElementById('f_so_luong_ton').value = t.so_luong_ton || 0;
+  document.getElementById('f_is_bhyt').checked = t.is_bhyt;
   document.getElementById('medicineModal').classList.remove('hidden');
 }
 
@@ -152,6 +155,7 @@ async function saveMedicine() {
     don_vi_tinh: donVi,
     don_gia: donGia,
     so_luong_ton: soLuong,
+    is_bhyt: document.getElementById('f_is_bhyt').checked,
   };
 
   const btn = document.getElementById('btnSave');
@@ -207,6 +211,7 @@ async function viewMedicine(id) {
     `Tên thuốc    : ${t.ten_thuoc}\n` +
     `Đơn vị tính  : ${t.don_vi_tinh || '—'}\n` +
     `Đơn giá      : ${api.formatMoney(t.don_gia)}\n` +
+    `Danh mục BHYT: ${t.is_bhyt ? 'Có' : 'Không'}\n` +
     `Tồn kho      : ${t.so_luong_ton}`
   );
 }

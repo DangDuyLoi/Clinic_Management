@@ -7,35 +7,45 @@ use Illuminate\Database\Eloquent\Model;
 class LichKham extends Model
 {
     // Trỏ đúng vào bảng mới
-    protected $table = 'LuotKham';
+    protected $table = 'luotkham';
+
     protected $primaryKey = 'ma_luot_kham';
+
     public $timestamps = true;
 
     protected $fillable = [
-        'ma_ho_so', 'ma_bac_si', 'so_thu_tu', 'thoi_gian_den_kham', 
+        'ma_ho_so', 'ma_bac_si', 'so_thu_tu', 'thoi_gian_den_kham',
         'trang_thai', 'chan_doan', 'hinh_thuc_kham', 'priority_level',
-        'qr_token'
+        'qr_token', 'is_bhyt', 'ma_the_bhyt', 'so_tien',
     ];
 
     protected $casts = [
         'thoi_gian_den_kham' => 'datetime',
     ];
 
-    public function hoSo() {
+    public function hoSo()
+    {
         return $this->belongsTo(HoSoBenhAn::class, 'ma_ho_so', 'ma_ho_so');
     }
 
     // Quan hệ với Bác sĩ
-    public function bacSi() {
+    public function bacSi()
+    {
         return $this->belongsTo(BacSi::class, 'ma_bac_si', 'ma_bs');
     }
 
     // Hàm lấy Bệnh nhân thông qua Hồ sơ (Dùng cho Lễ tân/Bác sĩ)
-    public function benhNhan() {
+    public function benhNhan()
+    {
         return $this->hasOneThrough(
-            BenhNhan::class, 
+            BenhNhan::class,
             HoSoBenhAn::class,
             'ma_ho_so', 'ma_benh_nhan', 'ma_ho_so', 'ma_benh_nhan'
         );
+    }
+
+    public function phienKham()
+    {
+        return $this->hasOne(phienKham::class, 'ma_lich_dat', 'ma_luot_kham');
     }
 }

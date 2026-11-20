@@ -14,7 +14,7 @@ class LichKhamController extends Controller
 {
     public function index(Request $request)
     {
-        $query = LichKham::with(['hoSo.benhNhan', 'bacSi.chuyenKhoa']);
+        $query = LichKham::with(['hoSo.benhNhan', 'bacSi.chuyenKhoa', 'phienKham.hoaDon']);
 
         if ($ngay = $request->query('ngay')) {
             $query->whereDate('thoi_gian_den_kham', $ngay);
@@ -23,11 +23,36 @@ class LichKhamController extends Controller
             $query->where('ma_bac_si', $maBs);
         }
         if ($trangThai = $request->query('trang_thai')) {
-            $query->where('trang_thai', $trangThai);
+            if ($trangThai === 'hoan_tat_hoa_don') {
+                $query->where('trang_thai', $trangThai)
+                    ->whereDoesntHave('phienKham.hoaDon', function ($hoaDonQuery) {
+                        $hoaDonQuery->where('trang_thai', 'DaThanhToan');
+                    });
+            } elseif ($trangThai === 'hoan_thanh') {
+                $query->where(function ($statusQuery) {
+                    $statusQuery->where('trang_thai', 'hoan_thanh')
+                        ->orWhere(function ($legacyStatusQuery) {
+                            $legacyStatusQuery->where('trang_thai', 'hoan_tat_hoa_don')
+                                ->whereHas('phienKham.hoaDon', function ($hoaDonQuery) {
+                                    $hoaDonQuery->where('trang_thai', 'DaThanhToan');
+                                });
+                        });
+                });
+            } else {
+                $query->where('trang_thai', $trangThai);
+            }
         }
 
         $perPage = (int) $request->query('per_page', 20);
         $data = $query->orderBy('thoi_gian_den_kham', 'desc')->paginate($perPage);
+
+        foreach ($data->getCollection() as $lichKham) {
+            if ($lichKham->trang_thai === 'hoan_tat_hoa_don'
+                && $lichKham->phienKham?->hoaDon?->trang_thai === 'DaThanhToan') {
+                $lichKham->trang_thai = 'hoan_thanh';
+                $lichKham->phienKham->trang_thai = 'HoanThanh';
+            }
+        }
 
         return response()->json(['status' => 'success', 'data' => $data]);
     }
@@ -248,8 +273,14 @@ class LichKhamController extends Controller
 
     public function getQR($id)
     {
-        $lich = LichKham::find($id);
+        $lich = LichKham::with('hoSo.benhNhan')->find($id);
         if (! $lich) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy'], 404);
+        }
+
+        $currentUser = auth('api')->user();
+        if ($currentUser?->isBenhNhan() &&
+            (int) $lich->hoSo?->benhNhan?->ma_tk !== (int) $currentUser->ma_tk) {
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy'], 404);
         }
 
@@ -265,24 +296,27 @@ class LichKhamController extends Controller
         ]);
     }
 
-        public function scanQR(Request $request)
+    public function scanQR(Request $request)
     {
-        // Lấy dữ liệu thô
-        $qrContent = $request->qr_content ?? '';
-        $qrToken = $request->qr_token ?? '';
+        $qrContent = $request->input('qr_content') ?? $request->input('qr_token') ?? '';
 
-        // Nếu client gửi chuỗi dài (có chứa LICHKHAM:), ta cắt lấy token và làm sạch
-        if (str_contains($qrContent, 'LICHKHAM:')) {
-            $token = str_replace('LICHKHAM:', '', $qrContent);
-            // Loại bỏ mọi ký tự không phải chữ cái hoặc số (xóa dấu ", khoảng trắng...)
-            $token = preg_replace('/[^a-zA-Z0-9]/', '', $token);
-        } else {
-            $token = preg_replace('/[^a-zA-Z0-9]/', '', $qrToken);
+        if (empty($qrContent)) {
+            return response()->json(['status' => 'error', 'message' => 'Dữ liệu QR trống'], 400);
         }
+
+        if (str_contains($qrContent, 'data=')) {
+            $parsedUrl = parse_url($qrContent);
+            parse_str($parsedUrl['query'] ?? '', $query);
+            $qrContent = $query['data'] ?? $qrContent;
+        }
+
+        $token = str_replace('LICHKHAM:', '', $qrContent);
+
+        $token = preg_replace('/[^a-zA-Z0-9]/', '', $token);
 
         // Tìm lịch khám với token đã làm sạch
         $lich = LichKham::with(['hoSo.benhNhan', 'bacSi'])->where('qr_token', $token)->first();
-        
+
         if (! $lich) {
             return response()->json(['status' => 'error', 'message' => 'Mã QR không hợp lệ hoặc lịch khám đã bị hủy/xóa.'], 404);
         }

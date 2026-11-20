@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/fcm_service.dart';
 import '../../../widgets/live_queue_tracker_widget.dart';
@@ -9,7 +8,8 @@ import '../../../widgets/live_queue_tracker_widget.dart';
 class ETicketScreen extends StatefulWidget {
   final Map<String, dynamic> appointmentData;
 
-  const ETicketScreen({Key? key, required this.appointmentData}) : super(key: key);
+  const ETicketScreen({Key? key, required this.appointmentData})
+    : super(key: key);
 
   @override
   State<ETicketScreen> createState() => _ETicketScreenState();
@@ -20,7 +20,7 @@ class _ETicketScreenState extends State<ETicketScreen> {
   bool _isCheckedIn = false;
   late bool _isPaid;
   late String _maLuotKham;
-  late String _qrData;
+  late Future<String> _qrDataFuture;
   int _priorityLevel = 4;
   String _priorityLabel = '';
 
@@ -28,23 +28,54 @@ class _ETicketScreenState extends State<ETicketScreen> {
   void initState() {
     super.initState();
     _maLuotKham = widget.appointmentData['ma_luot_kham']?.toString() ?? '';
-    _priorityLevel = int.tryParse(widget.appointmentData['priority_level']?.toString() ?? '4') ?? 4;
+    _priorityLevel =
+        int.tryParse(
+          widget.appointmentData['priority_level']?.toString() ?? '4',
+        ) ??
+        4;
     _priorityLabel = widget.appointmentData['priority_label']?.toString() ?? '';
-    _qrData = _maLuotKham.isNotEmpty
-        ? '${ApiConstants.baseUrl}/luot-kham/$_maLuotKham/tiep-nhan'
-        : 'TICKET_${DateTime.now().millisecondsSinceEpoch}';
+    _qrDataFuture = _loadQrData();
 
-    _isPaid = widget.appointmentData['trang_thai_thanh_toan'] == 'DaThanhToan' ||
+    _isPaid =
+        widget.appointmentData['trang_thai_thanh_toan'] == 'DaThanhToan' ||
         widget.appointmentData['is_paid'] == true ||
-        ['da_thanh_toan', 'cho_kham', 'dang_kham', 'hoan_thanh'].contains(widget.appointmentData['trang_thai_kham']) ||
-        ['da_thanh_toan', 'cho_kham', 'dang_kham', 'hoan_thanh'].contains(widget.appointmentData['trang_thai']);
+        [
+          'da_thanh_toan',
+          'cho_kham',
+          'dang_kham',
+          'hoan_thanh',
+        ].contains(widget.appointmentData['trang_thai_kham']) ||
+        [
+          'da_thanh_toan',
+          'cho_kham',
+          'dang_kham',
+          'hoan_thanh',
+        ].contains(widget.appointmentData['trang_thai']);
 
-    _isCheckedIn = ['cho_kham', 'dang_kham', 'hoan_thanh'].contains(widget.appointmentData['trang_thai_kham']) ||
-        ['cho_kham', 'dang_kham', 'hoan_thanh'].contains(widget.appointmentData['trang_thai']) ||
+    _isCheckedIn =
+        [
+          'cho_kham',
+          'dang_kham',
+          'hoan_thanh',
+        ].contains(widget.appointmentData['trang_thai_kham']) ||
+        [
+          'cho_kham',
+          'dang_kham',
+          'hoan_thanh',
+        ].contains(widget.appointmentData['trang_thai']) ||
         widget.appointmentData['is_checked_in'] == true;
 
     // Luôn truy vấn trạng thái mới nhất từ server ngay khi mở màn hình
     _fetchLatestStatus();
+  }
+
+  Future<String> _loadQrData() {
+    final id = int.tryParse(_maLuotKham);
+    if (id == null) {
+      return Future<String>.error(StateError('Mã lượt khám không hợp lệ.'));
+    }
+
+    return BookingApiService.getCheckinQrData(id);
   }
 
   void _fetchLatestStatus() async {
@@ -54,11 +85,24 @@ class _ETicketScreenState extends State<ETicketScreen> {
       final res = await BookingApiService.checkStatus(id);
       final data = res['data'];
       if (data != null && mounted) {
-        final bool isPaidServer = data['is_paid'] == true ||
-            ['da_thanh_toan', 'cho_kham', 'dang_kham', 'hoan_thanh'].contains(data['trang_thai']);
-        final bool isCheckedInServer = data['is_checked_in'] == true ||
-            ['cho_kham', 'dang_kham', 'hoan_thanh'].contains(data['trang_thai']);
-        final int priorityServer = int.tryParse(data['priority_level']?.toString() ?? '4') ?? _priorityLevel;
+        final bool isPaidServer =
+            data['is_paid'] == true ||
+            [
+              'da_thanh_toan',
+              'cho_kham',
+              'dang_kham',
+              'hoan_thanh',
+            ].contains(data['trang_thai']);
+        final bool isCheckedInServer =
+            data['is_checked_in'] == true ||
+            [
+              'cho_kham',
+              'dang_kham',
+              'hoan_thanh',
+            ].contains(data['trang_thai']);
+        final int priorityServer =
+            int.tryParse(data['priority_level']?.toString() ?? '4') ??
+            _priorityLevel;
 
         setState(() {
           _isPaid = isPaidServer;
@@ -82,8 +126,13 @@ class _ETicketScreenState extends State<ETicketScreen> {
         final res = await BookingApiService.checkStatus(id);
         final data = res['data'];
         if (data != null && mounted) {
-          final bool checkedIn = data['is_checked_in'] == true ||
-              ['cho_kham', 'dang_kham', 'hoan_thanh'].contains(data['trang_thai']);
+          final bool checkedIn =
+              data['is_checked_in'] == true ||
+              [
+                'cho_kham',
+                'dang_kham',
+                'hoan_thanh',
+              ].contains(data['trang_thai']);
 
           if (checkedIn && !_isCheckedIn) {
             timer.cancel();
@@ -111,16 +160,32 @@ class _ETicketScreenState extends State<ETicketScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String date = widget.appointmentData['date'] ?? widget.appointmentData['thoi_gian_den_kham'] ?? '15/04/2026';
+    final String date =
+        widget.appointmentData['date'] ??
+        widget.appointmentData['thoi_gian_den_kham'] ??
+        '15/04/2026';
     final String time = widget.appointmentData['time'] ?? '';
-    final String doctor = widget.appointmentData['doctor'] ?? widget.appointmentData['ten_bac_si'] ?? 'Bác sĩ chuyên khoa';
-    final String specialty = widget.appointmentData['specialty'] ?? 'Khám Tổng Quát';
-    final String room = widget.appointmentData['room'] ?? 'Phòng Khám - Tầng 1';
+    final String doctor =
+        widget.appointmentData['doctor'] ??
+        widget.appointmentData['ten_bac_si'] ??
+        'Bác sĩ chuyên khoa';
+    final String specialty =
+        widget.appointmentData['specialty'] ??
+        widget.appointmentData['ten_chuyen_khoa'] ??
+        widget.appointmentData['chuyen_khoa'] ??
+        'Chưa xác định chuyên khoa';
+    final String room =
+        widget.appointmentData['room'] ??
+        widget.appointmentData['phong_kham'] ??
+        'Chưa phân phòng';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Phiếu khám điện tử', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Phiếu khám điện tử',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
@@ -146,11 +211,17 @@ class _ETicketScreenState extends State<ETicketScreen> {
                 children: [
                   const Text(
                     'PHÒNG KHÁM HUIT CARE',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0056D2)),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0056D2),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isCheckedIn ? 'Phiếu khám đã tiếp nhận' : 'Phiếu check-in điện tử',
+                    _isCheckedIn
+                        ? 'Phiếu khám đã tiếp nhận'
+                        : 'Phiếu check-in điện tử',
                     style: const TextStyle(fontSize: 16, color: Colors.black54),
                   ),
 
@@ -158,12 +229,21 @@ class _ETicketScreenState extends State<ETicketScreen> {
                   if (_priorityLevel < 4 || _priorityLabel.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: _priorityLevel == 2
-                              ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
-                              : [const Color(0xFFEA580C), const Color(0xFFC2410C)],
+                              ? [
+                                  const Color(0xFFF59E0B),
+                                  const Color(0xFFD97706),
+                                ]
+                              : [
+                                  const Color(0xFFEA580C),
+                                  const Color(0xFFC2410C),
+                                ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -179,12 +259,18 @@ class _ETicketScreenState extends State<ETicketScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.stars_rounded, color: Colors.white, size: 18),
+                          const Icon(
+                            Icons.stars_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             _priorityLabel.isNotEmpty
                                 ? _priorityLabel
-                                : (_priorityLevel == 2 ? 'Ưu tiên: Trẻ em / Người cao tuổi' : 'Ưu tiên: Thai phụ / Khuyết tật'),
+                                : (_priorityLevel == 2
+                                      ? 'Ưu tiên: Trẻ em / Người cao tuổi'
+                                      : 'Ưu tiên: Thai phụ / Khuyết tật'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -197,8 +283,12 @@ class _ETicketScreenState extends State<ETicketScreen> {
                     ),
                   ],
 
-                  const Divider(height: 32, thickness: 1, color: Color(0xFFEEEEEE)),
-                  
+                  const Divider(
+                    height: 32,
+                    thickness: 1,
+                    color: Color(0xFFEEEEEE),
+                  ),
+
                   // QR Code (Chỉ hiển thị khi đã thanh toán)
                   if (_isPaid) ...[
                     if (_isCheckedIn) ...[
@@ -207,7 +297,10 @@ class _ETicketScreenState extends State<ETicketScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0FDF4),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF86EFAC), width: 3),
+                          border: Border.all(
+                            color: const Color(0xFF86EFAC),
+                            width: 3,
+                          ),
                         ),
                         child: const Icon(
                           Icons.done_all_rounded,
@@ -218,7 +311,11 @@ class _ETicketScreenState extends State<ETicketScreen> {
                       const SizedBox(height: 12),
                       const Text(
                         'ĐÃ CHECK-IN TIẾP NHẬN',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF16A34A),
+                        ),
                       ),
                     ] else ...[
                       Container(
@@ -226,25 +323,74 @@ class _ETicketScreenState extends State<ETicketScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF0284C7), width: 2),
+                          border: Border.all(
+                            color: const Color(0xFF0284C7),
+                            width: 2,
+                          ),
                         ),
-                        child: QrImageView(
-                          data: _qrData,
-                          version: QrVersions.auto,
-                          size: 200.0,
-                          backgroundColor: Colors.white,
+                        child: FutureBuilder<String>(
+                          future: _qrDataFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState !=
+                                ConnectionState.done) {
+                              return const SizedBox(
+                                width: 200,
+                                height: 200,
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            if (snapshot.hasError ||
+                                !snapshot.hasData ||
+                                snapshot.data!.isEmpty) {
+                              return SizedBox(
+                                width: 200,
+                                height: 200,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text('Không thể tải mã QR check-in'),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _qrDataFuture = _loadQrData();
+                                        });
+                                      },
+                                      child: const Text('Thử lại'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            return QrImageView(
+                              data: snapshot.data!,
+                              version: QrVersions.auto,
+                              size: 200.0,
+                              backgroundColor: Colors.white,
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'MÃ LƯỢT KHÁM: #$_maLuotKham',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0284C7),
+                        ),
                       ),
                       const SizedBox(height: 6),
                       const Text(
                         'Đưa mã này cho Lễ tân quét để check-in',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: Color(0xFF059669), fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF059669),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ] else ...[
@@ -257,42 +403,74 @@ class _ETicketScreenState extends State<ETicketScreen> {
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.payment_outlined, size: 50, color: Colors.amber),
+                          Icon(
+                            Icons.payment_outlined,
+                            size: 50,
+                            color: Colors.amber,
+                          ),
                           SizedBox(height: 12),
                           Text(
                             'Chưa hoàn tất thanh toán',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.brown),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.brown,
+                            ),
                           ),
                           SizedBox(height: 8),
                           Text(
                             'Vui lòng thanh toán viện phí để nhận mã QR check-in.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Colors.black54),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                  
-                  const Divider(height: 32, thickness: 1, color: Color(0xFFEEEEEE)),
-                  
+
+                  const Divider(
+                    height: 32,
+                    thickness: 1,
+                    color: Color(0xFFEEEEEE),
+                  ),
+
                   // Appointment Details
-                  _buildDetailRow(Icons.calendar_today, 'Thời gian khám', '$date $time'),
+                  _buildDetailRow(
+                    Icons.calendar_today,
+                    'Thời gian khám',
+                    '$date $time',
+                  ),
                   _buildDetailRow(Icons.person, 'Bác sĩ', doctor),
-                  _buildDetailRow(Icons.medical_services, 'Chuyên khoa', specialty),
+                  _buildDetailRow(
+                    Icons.medical_services,
+                    'Chuyên khoa',
+                    specialty,
+                  ),
                   _buildDetailRow(Icons.room, 'Phòng', room),
-                  
+
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: _isCheckedIn
                           ? Colors.blue.withValues(alpha: 0.1)
-                          : (_isPaid ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1)),
+                          : (_isPaid
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.orange.withValues(alpha: 0.1)),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      _isCheckedIn ? 'Đã tiếp nhận - Chờ khám' : (_isPaid ? 'Đã thanh toán - Chờ check-in' : 'Chờ thanh toán'),
+                      _isCheckedIn
+                          ? 'Đã tiếp nhận - Chờ khám'
+                          : (_isPaid
+                                ? 'Đã thanh toán - Chờ check-in'
+                                : 'Chờ thanh toán'),
                       style: TextStyle(
                         color: _isCheckedIn
                             ? Colors.blue.shade800
@@ -306,7 +484,8 @@ class _ETicketScreenState extends State<ETicketScreen> {
             ),
 
             // Tiến trình hàng đợi khám theo thời gian thực (Live Queue Tracker)
-            if (_maLuotKham.isNotEmpty && int.tryParse(_maLuotKham) != null) ...[
+            if (_maLuotKham.isNotEmpty &&
+                int.tryParse(_maLuotKham) != null) ...[
               const SizedBox(height: 18),
               LiveQueueTrackerWidget(
                 maLuotKham: int.parse(_maLuotKham),
@@ -335,9 +514,19 @@ class _ETicketScreenState extends State<ETicketScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
                 const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
               ],
             ),
           ),

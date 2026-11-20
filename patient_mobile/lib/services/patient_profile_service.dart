@@ -11,6 +11,27 @@ class PatientProfileService {
   // In-memory cache for demo purposes
   static final List<Map<String, dynamic>> cachedProfiles = [];
 
+  static Map<String, dynamic>? get accountOwnerProfile {
+    for (final profile in cachedProfiles) {
+      if (profile['quan_he']?.toString().trim() == 'Bản thân') {
+        return profile;
+      }
+    }
+    return null;
+  }
+
+  static String profileFullName(Map<String, dynamic> profile) {
+    final fullName = profile['ho_ten']?.toString().trim() ?? '';
+    if (fullName.isNotEmpty) {
+      return fullName;
+    }
+
+    return [
+      profile['ho_chu_lot']?.toString().trim() ?? '',
+      profile['ten']?.toString().trim() ?? '',
+    ].where((part) => part.isNotEmpty).join(' ');
+  }
+
   /// Tải danh sách hồ sơ cho tài khoản người dùng đang đăng nhập
   static Future<void> loadProfiles() async {
     final phone = await AuthService().getUserPhone();
@@ -22,9 +43,10 @@ class PatientProfileService {
     }
 
     try {
+      final token = await AuthService().getToken();
       // 1. Ưu tiên đồng bộ từ Backend theo số điện thoại người dùng
       final url = Uri.parse('$baseUrl/patient-profiles/by-phone?phone=$phone');
-      final response = await http.get(url, headers: {'Accept': 'application/json'}).timeout(
+      final response = await http.get(url, headers: {'Accept': 'application/json',if (token != null) 'Authorization': 'Bearer $token',}).timeout(
         const Duration(seconds: 5),
       );
 
@@ -77,9 +99,15 @@ class PatientProfileService {
   }
 
   Future<Map<String, dynamic>> createProfile(Map<String, dynamic> data) async {
+    print("DỮ LIỆU GỬI LÊN TẠO HỒ SƠ: $data");
+    final token = await AuthService().getToken(); 
     final response = await http.post(
       Uri.parse('$baseUrl/patient-profiles'),
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
       body: json.encode(data),
     );
 
@@ -96,11 +124,13 @@ class PatientProfileService {
   }
 
   Future<Map<String, dynamic>> updateProfile(dynamic id, Map<String, dynamic> data) async {
+    final token = await AuthService().getToken(); 
     final response = await http.put(
       Uri.parse('$baseUrl/patient-profiles/$id'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token', // <-- Thêm dòng này
       },
       body: json.encode(data),
     );

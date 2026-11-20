@@ -70,6 +70,7 @@
           <tr>
             <th>Mã</th>
             <th>Tên thuốc</th>
+            <th>Danh mục BHYT</th>
             <th>Đơn vị</th>
             <th>Đơn giá</th>
             <th>Tồn kho</th>
@@ -78,7 +79,7 @@
         </thead>
         <tbody id="medicineTable">
           <tr>
-            <td colspan="6" class="text-center text-muted" style="padding:32px">
+            <td colspan="7" class="text-center text-muted" style="padding:32px">
               Đang tải...
             </td>
           </tr>
@@ -129,6 +130,13 @@
         <label>Số lượng tồn kho</label>
         <input type="number" id="f_so_luong_ton" min="0" value="0">
         <span class="form-hint">Số lượng hiện có trong kho</span>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="f_is_bhyt">
+          Thuốc thuộc danh mục BHYT chi trả
+        </label>
       </div>
     </div>
     <div class="modal-footer">

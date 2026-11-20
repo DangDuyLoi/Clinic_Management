@@ -54,7 +54,7 @@ class _ProfileEmptyScreenState extends State<ProfileEmptyScreen> {
   }
 
   Future<void> _confirmDeleteProfile(Map<String, dynamic> profile) async {
-    final fullName = '${profile['ho_chu_lot'] ?? ''} ${profile['ten'] ?? ''}'.trim();
+    final fullName = PatientProfileService.profileFullName(profile);
     final profileId = profile['ma_ho_so'] ?? profile['id'];
 
     final confirm = await showDialog<bool>(
@@ -189,7 +189,8 @@ class _ProfileEmptyScreenState extends State<ProfileEmptyScreen> {
   }
 
   Widget _buildProfileItem(Map<String, dynamic> profile) {
-    final fullName = '${profile['ho_chu_lot'] ?? ''} ${profile['ten'] ?? ''}'.trim().toUpperCase();
+    final fullName =
+        PatientProfileService.profileFullName(profile).toUpperCase();
     final relationship = profile['quan_he']?.toString() ?? 'Bản thân';
     final isSelf = relationship == 'Bản thân';
     final maHoSo = profile['ma_ho_so'] ?? profile['id'] ?? 'N/A';

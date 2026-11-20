@@ -4,6 +4,7 @@ import '../controllers/booking_controller.dart';
 import 'package:intl/intl.dart';
 import '../../../services/vnpay_service.dart';
 import '../../../services/fcm_service.dart';
+import '../../../services/patient_profile_service.dart';
 import '../../../screens/home/controllers/notification_controller.dart';
 import 'booking_success_screen.dart';
 import 'payment_pending_screen.dart';
@@ -25,6 +26,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
     if (controller.bookedItems.isEmpty) {
       controller.addCurrentBookingToItems();
     }
+  }
+
+  String? _profileId(Map<String, dynamic> profile) {
+    return (profile['ma_ho_so'] ?? profile['id'])?.toString();
+  }
+
+  String _profileName(Map<String, dynamic> profile) {
+    final name = PatientProfileService.profileFullName(profile);
+    if (name.isNotEmpty) {
+      return name;
+    }
+
+    return 'Hồ sơ ${_profileId(profile) ?? ''}';
   }
 
   @override
@@ -56,51 +70,119 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Hồ sơ người bệnh dropdown-like button
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                Obx(() {
+                  final selectedProfile = controller.selectedProfile.value;
+                  final profileOptions = PatientProfileService.cachedProfiles
+                      .where((profile) => _profileId(profile) != null)
+                      .toList();
+                  final selectedProfileId = selectedProfile == null
+                      ? null
+                      : _profileId(selectedProfile);
+
+                  if (selectedProfile != null &&
+                      selectedProfileId != null &&
+                      !profileOptions.any(
+                        (profile) => _profileId(profile) == selectedProfileId,
+                      )) {
+                    profileOptions.insert(0, selectedProfile);
+                  }
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                        child: const Icon(
-                          Icons.person,
-                          color: Colors.blue,
-                          size: 20,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.blue,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Hồ sơ người bệnh',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Hồ sơ người bệnh',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                        DropdownButton<String>(
+                          value: selectedProfileId,
+                          isExpanded: true,
+                          hint: const Text('Chọn hồ sơ bệnh nhân'),
+                          items: profileOptions.map((profile) {
+                            final profileId = _profileId(profile)!;
+                            return DropdownMenuItem<String>(
+                              value: profileId,
+                              child: Text(
+                                _profileName(profile),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: profileOptions.isEmpty
+                              ? null
+                              : (profileId) {
+                                  if (profileId == null) {
+                                    return;
+                                  }
+
+                                  for (final profile in profileOptions) {
+                                    if (_profileId(profile) == profileId) {
+                                      controller.selectedProfile.value =
+                                          profile;
+                                      break;
+                                    }
+                                  }
+                                },
+                        ),
+                        if (selectedProfile != null) ...[
+                          Text(
+                            [
+                              if (_profileId(selectedProfile) != null)
+                                'Mã hồ sơ: ${_profileId(selectedProfile)}',
+                              if (selectedProfile['so_dien_thoai'] != null &&
+                                  selectedProfile['so_dien_thoai']
+                                      .toString()
+                                      .isNotEmpty)
+                                'SĐT: ${selectedProfile['so_dien_thoai']}',
+                            ].join('  ·  '),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ),
-                      const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-                    ],
-                  ),
-                ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
 
                 // Huy hiệu Diện ưu tiên trên màn hình tóm tắt
                 Obx(() {

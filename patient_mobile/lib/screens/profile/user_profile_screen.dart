@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_colors.dart';
-import '../../core/constants/api_constants.dart';
 import '../../services/auth_service.dart';
+import '../../services/patient_profile_service.dart';
 import '../auth/login_screen.dart';
 import 'personal_info_screen.dart';
 import 'change_password_screen.dart';
@@ -20,8 +18,8 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final AuthService _authService = AuthService();
-  String _userName = 'ĐẶNG DUY LỢI';
-  String _userPhone = '037****315';
+  String _userName = 'NGƯỜI DÙNG';
+  String _userPhone = '';
   bool _notificationsEnabled = true;
 
   @override
@@ -34,7 +32,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _loadUserHeader() async {
     try {
       final phone = await _authService.getUserPhone();
+      await PatientProfileService.loadProfiles();
       if (phone == null || phone.isEmpty) {
+        if (!mounted) {
+          return;
+        }
         setState(() {
           _userPhone = '';
           _userName = 'NGƯỜI DÙNG';
@@ -44,19 +46,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final masked = phone.length >= 7
           ? '${phone.substring(0, 3)}****${phone.substring(phone.length - 3)}'
           : phone;
-      setState(() => _userPhone = masked);
-
-      final url = Uri.parse('${ApiConstants.baseUrl}/user-info?phone=$phone');
-      final res = await http.get(url, headers: {'Accept': 'application/json'});
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'];
-        if (data != null && data['name'] != null && mounted) {
-          setState(() {
-            _userName = data['name'].toString().toUpperCase();
-          });
-        }
+      final ownerProfile = PatientProfileService.accountOwnerProfile;
+      final ownerName = ownerProfile == null
+          ? ''
+          : PatientProfileService.profileFullName(ownerProfile);
+      if (mounted) {
+        setState(() {
+          _userPhone = masked;
+          _userName = ownerName.isEmpty ? 'NGƯỜI DÙNG' : ownerName.toUpperCase();
+        });
       }
-    } catch (_) {}
+    } catch (error) {
+      debugPrint('Không thể tải thông tin chủ tài khoản: $error');
+    }
   }
 
   Future<void> _loadNotificationSetting() async {

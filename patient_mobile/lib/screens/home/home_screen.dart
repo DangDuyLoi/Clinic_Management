@@ -103,7 +103,10 @@ class HomeScreen extends StatelessWidget {
                               time: timeStr,
                               appointmentDateTime: aptDate,
                               doctorName: upcoming['ten_bac_si'] ?? 'Bác sĩ',
-                              specialty: upcoming['khoa'] ?? upcoming['chuyen_khoa'] ?? 'Khoa Khám Bệnh',
+                              specialty: upcoming['ten_chuyen_khoa'] ??
+                                  upcoming['khoa'] ??
+                                  upcoming['chuyen_khoa'] ??
+                                  'Chưa xác định chuyên khoa',
                               patientName: upcoming['ten_benh_nhan'] ?? 'Bệnh nhân',
                               maLuotKham: upcoming['ma_luot_kham'] != null ? int.tryParse(upcoming['ma_luot_kham'].toString()) : null,
                               roomName: upcoming['phong_kham'],

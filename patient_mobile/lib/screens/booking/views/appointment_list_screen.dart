@@ -13,7 +13,8 @@ class AppointmentListScreen extends StatefulWidget {
   State<AppointmentListScreen> createState() => _AppointmentListScreenState();
 }
 
-class _AppointmentListScreenState extends State<AppointmentListScreen> {
+class _AppointmentListScreenState extends State<AppointmentListScreen>
+    with WidgetsBindingObserver {
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -21,7 +22,21 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchData();
+    }
   }
 
   Future<void> _fetchData() async {
@@ -148,8 +163,12 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
         itemBuilder: (context, index) {
           final apt = _appointments[index];
           final isPaid = apt['trang_thai_thanh_toan'] == 'DaThanhToan';
-          final statusText = isPaid ? 'Đã thanh toán' : 'Chưa thanh toán';
-
+          final bool isCompleted = apt['is_completed'] == true;
+          final statusText = isPaid
+              ? 'Đã thanh toán'
+              : isCompleted
+              ? 'Còn hóa đơn'
+              : 'Chưa thanh toán';
           // Chuyển đổi dữ liệu để truyền vào ETicketScreen
           final formattedApt = {
             ...apt,
@@ -157,8 +176,8 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
             'date': _formatDate(apt['thoi_gian_den_kham'] ?? ''),
             'time': _formatTime(apt['thoi_gian_den_kham'] ?? ''),
             'doctor': apt['ten_bac_si'] ?? 'Đang cập nhật',
-            'specialty': 'Khám Bệnh', // Backend chưa trả về chuyên khoa
-            'room': 'Đang sắp xếp',
+            'specialty': apt['ten_chuyen_khoa'] ?? 'Chưa xác định chuyên khoa',
+            'room': apt['phong_kham'] ?? 'Chưa phân phòng',
             'is_paid': isPaid,
             'trang_thai_thanh_toan':
                 apt['trang_thai_thanh_toan'] ??
@@ -296,7 +315,8 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      if (isPaid) ...[
+
+                      if (isPaid && !isCompleted) ...[
                         const Divider(height: 1, color: Color(0xFFEEEEEE)),
                         const SizedBox(height: 16),
                         SizedBox(
@@ -321,6 +341,35 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                             ),
                           ),
                         ),
+                      ] else if (isPaid && isCompleted) ...[
+                        // Hiển thị trạng thái đã khám xong
+                        const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.green),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Đã khám xong',
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ] else ...[
                         const Divider(height: 1, color: Color(0xFFEEEEEE)),
                         const SizedBox(height: 16),
@@ -328,7 +377,22 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                           width: double.infinity,
                           child: OutlinedButton(
                             onPressed: () async {
-                              final maLK = int.tryParse(formattedApt['ma_luot_kham']?.toString() ?? '');
+                              final maLK = int.tryParse(
+                                formattedApt['ma_luot_kham']?.toString() ?? '',
+                              );
+                              final double amountToPay =
+                                  double.tryParse(
+                                    apt['so_tien_can_tra']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+                              if (amountToPay <= 0) {
+                                Get.snackbar(
+                                  'Thông báo',
+                                  'Lượt khám này không cần thanh toán thêm.',
+                                );
+                                _fetchData(); // Refresh lại để cập nhật trạng thái
+                                return; // Dừng lại, không mở VNPay
+                              }
                               if (maLK != null) {
                                 Get.dialog(
                                   const Center(
@@ -340,7 +404,9 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                                           children: [
                                             CircularProgressIndicator(),
                                             SizedBox(height: 16),
-                                            Text('Đang kết nối cổng thanh toán VNPay...'),
+                                            Text(
+                                              'Đang kết nối cổng thanh toán VNPay...',
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -350,12 +416,18 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                                 );
 
                                 try {
-                                  await VNPayService.openPayment(maLuotKham: maLK, amount: 150000);
+                                  await VNPayService.openPayment(
+                                    maLuotKham: maLK,
+                                    amount: amountToPay,
+                                  );
                                   if (Get.isDialogOpen ?? false) Get.back();
                                   _fetchData();
                                 } catch (e) {
                                   if (Get.isDialogOpen ?? false) Get.back();
-                                  Get.snackbar('Lỗi thanh toán', 'Không thể mở VNPay: $e');
+                                  Get.snackbar(
+                                    'Lỗi thanh toán',
+                                    'Không thể mở VNPay: $e',
+                                  );
                                 }
                               }
                             },
@@ -367,7 +439,12 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: const Text('Thanh toán ngay'),
+                            child: Text(
+                              '${isCompleted ? 'Thanh toán hóa đơn' : 'Thanh toán'} ${NumberFormat('#,###', 'vi_VN').format(double.tryParse(apt['so_tien_can_tra']?.toString() ?? '0') ?? 0)}đ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ],

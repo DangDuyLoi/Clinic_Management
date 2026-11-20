@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class ThongBao extends Model
 {
-    protected $table = 'ThongBao';
+    protected $table = 'thongbao';
+
     protected $primaryKey = 'ma_thong_bao';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -31,12 +33,12 @@ class ThongBao extends Model
     public static function gui($maTk, $tieuDe, $noiDung, $loai = 'he_thong', $duongDan = null)
     {
         return self::create([
-            'ma_tk'     => $maTk,
-            'tieu_de'   => $tieuDe,
-            'noi_dung'  => $noiDung,
-            'loai'      => $loai,
+            'ma_tk' => $maTk,
+            'tieu_de' => $tieuDe,
+            'noi_dung' => $noiDung,
+            'loai' => $loai,
             'duong_dan' => $duongDan,
-            'da_doc'    => false,
+            'da_doc' => false,
             'thoi_gian' => now(),
         ]);
     }

@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChiDinhDichVu extends Model
 {
-    protected $table = 'ChiDinhDichVu';
+    protected $table = 'chidinhdichvu';
+
     protected $primaryKey = 'ma_chi_dinh';
+
     public $timestamps = false;
 
     protected $fillable = ['ma_phien_kham', 'ma_dich_vu', 'ket_qua_chi_tiet', 'trang_thai'];

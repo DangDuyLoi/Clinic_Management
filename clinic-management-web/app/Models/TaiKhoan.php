@@ -7,8 +7,10 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 
 class TaiKhoan extends Authenticatable implements JWTSubject
 {
-    protected $table = 'TaiKhoan';
+    protected $table = 'taikhoan';
+
     protected $primaryKey = 'ma_tk';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -16,7 +18,8 @@ class TaiKhoan extends Authenticatable implements JWTSubject
         'mat_khau',
         'vai_tro',
         'trang_thai',
-        'ho_ten'
+        'ho_ten',
+        'fcm_token',
     ];
 
     protected $hidden = [

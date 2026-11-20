@@ -1,17 +1,24 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import '../../../core/constants/api_constants.dart';
-import '../../../services/auth_service.dart';
+import '../../../services/booking_api_service.dart';
 import '../../../services/vnpay_service.dart';
+
+typedef PaymentDataLoader = Future<Map<String, dynamic>> Function();
 
 /// Controller quản lý nghiệp vụ và trạng thái Thanh toán viện phí
 class PaymentTabController extends GetxController {
+  PaymentTabController({PaymentDataLoader? paymentDataLoader})
+    : _paymentDataLoader =
+          paymentDataLoader ?? BookingApiService.fetchPaymentBills;
+
+  final PaymentDataLoader _paymentDataLoader;
+
   // ================= 1. OBSERVABLE STATE =================
   /// Trạng thái đang tải dữ liệu
-  final isLoading = false.obs;
+  final isLoading = true.obs;
+
+  final errorMessage = RxnString();
 
   /// Danh sách phiếu viện phí chờ thanh toán
   final pendingBills = <Map<String, dynamic>>[].obs;
@@ -19,65 +26,50 @@ class PaymentTabController extends GetxController {
   /// Danh sách lịch sử giao dịch đã thanh toán
   final paymentHistory = <Map<String, dynamic>>[].obs;
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Tự động tải dữ liệu sau khi build frame kết thúc để tránh lỗi setState trong lúc build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchPaymentData();
-    });
-  }
-
   // ================= 2. FETCH DATA LOGIC =================
   /// Lấy đồng thời danh sách phiếu chờ thanh toán và lịch sử giao dịch đồng bộ từ Database
   Future<void> fetchPaymentData() async {
     try {
       isLoading.value = true;
-
-      final authService = AuthService();
-      String? phone = await authService.getUserPhone();
-      if (phone == null || phone.trim().isEmpty) {
-        pendingBills.clear();
-        paymentHistory.clear();
-        isLoading.value = false;
-        return;
-      }
-
-      final url = Uri.parse('${ApiConstants.baseUrl}/payment/bills?phone=$phone');
-      final response = await http.get(
-        url,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final resData = json.decode(response.body);
-        final data = resData['data'];
-        if (data != null) {
-          final List<dynamic> pendingRaw = data['pending_bills'] ?? [];
-          final List<dynamic> historyRaw = data['payment_history'] ?? [];
-
-          final pending = pendingRaw.map((e) => Map<String, dynamic>.from(e)).toList();
-          final history = historyRaw.map((e) => Map<String, dynamic>.from(e)).toList();
-
-          pendingBills.assignAll(pending);
-          paymentHistory.assignAll(history);
-          return;
-        }
-      }
-      pendingBills.clear();
-      paymentHistory.clear();
+      errorMessage.value = null;
+      final data = await _paymentDataLoader();
+      final pending = _parseBills(
+        data['pending_bills'],
+        'hóa đơn chờ thanh toán',
+      );
+      final history = _parseBills(
+        data['payment_history'],
+        'lịch sử thanh toán',
+      );
+      pendingBills.assignAll(pending);
+      paymentHistory.assignAll(history);
     } catch (e) {
       debugPrint('Lỗi tải dữ liệu thanh toán: $e');
       pendingBills.clear();
       paymentHistory.clear();
+      errorMessage.value =
+          'Không thể tải dữ liệu viện phí. Vui lòng thử lại. ($e)';
     } finally {
       isLoading.value = false;
     }
   }
 
+  List<Map<String, dynamic>> _parseBills(dynamic value, String label) {
+    if (value is! List) {
+      throw FormatException('Dữ liệu $label không hợp lệ.');
+    }
+    return value.map((item) {
+      if (item is! Map) {
+        throw FormatException('Một mục trong $label không hợp lệ.');
+      }
+      return Map<String, dynamic>.from(item);
+    }).toList();
+  }
+
   void clearData() {
     pendingBills.clear();
     paymentHistory.clear();
+    errorMessage.value = null;
   }
 
   // ================= 3. PAYMENT LOGIC =================
@@ -88,10 +80,16 @@ class PaymentTabController extends GetxController {
       final bill = pendingBills.firstWhereOrNull(
         (b) => b['ma_luot_kham'] == maLuotKham,
       );
-
-      final double amount = bill != null
-          ? (bill['tong_tien'] as num).toDouble()
-          : 150000.0;
+      if (bill == null) {
+        throw Exception('Không tìm thấy hóa đơn. Vui lòng tải lại danh sách.');
+      }
+      final amountValue = bill['tong_tien'];
+      if (amountValue is! num || amountValue <= 0) {
+        throw Exception(
+          'Số tiền hóa đơn không hợp lệ. Vui lòng tải lại danh sách.',
+        );
+      }
+      final amount = amountValue.toDouble();
 
       // Hiển thị dialog đang kết nối cổng VNPay
       Get.dialog(
@@ -141,9 +139,6 @@ class PaymentTabController extends GetxController {
         icon: const Icon(Icons.payment, color: Colors.white),
         duration: const Duration(seconds: 4),
       );
-
-      // Sau khi thanh toán xong, gọi lại fetchPaymentData() để cập nhật UI
-      await fetchPaymentData();
     } catch (e) {
       if (Get.isDialogOpen ?? false) {
         Get.back();

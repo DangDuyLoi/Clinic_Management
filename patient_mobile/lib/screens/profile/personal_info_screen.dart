@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../core/app_colors.dart';
 import '../../core/constants/api_constants.dart';
 import '../../services/auth_service.dart';
+import '../../services/patient_profile_service.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
   const PersonalInfoScreen({Key? key}) : super(key: key);
@@ -45,28 +46,50 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
+      await PatientProfileService.loadProfiles();
+      final ownerProfile = PatientProfileService.accountOwnerProfile;
       final phone = await _authService.getUserPhone() ?? '';
-      if (phone.isEmpty) return;
-      final url = Uri.parse('${ApiConstants.baseUrl}/user-info?phone=$phone');
-      final res = await http.get(url, headers: {'Accept': 'application/json'});
+      if (!mounted) {
+        return;
+      }
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'];
-        setState(() {
-          _nameController.text = data['name'] ?? '';
-          _phoneController.text = data['phone'] ?? phone;
-          _emailController.text = data['email'] ?? '';
-          _dobController.text = data['dob'] ?? '2000-01-01';
-          _gender = (data['gender'] == 'Nữ' || data['gender'] == 'Nu') ? 'Nữ' : 'Nam';
-          _addressController.text = data['address'] ?? '';
-          _cccdController.text = data['cccd'] ?? '';
-          _isLoading = false;
-        });
-      } else {
+      final addressParts = ownerProfile == null
+          ? <String>[]
+          : [
+              ownerProfile['so_nha'],
+              ownerProfile['phuong_xa'],
+              ownerProfile['quan_huyen'],
+              ownerProfile['tinh_thanh'],
+            ]
+                .map((part) => part?.toString().trim() ?? '')
+                .where((part) => part.isNotEmpty)
+                .toList();
+
+      setState(() {
+        if (ownerProfile != null) {
+          _nameController.text =
+              PatientProfileService.profileFullName(ownerProfile);
+          _phoneController.text =
+              ownerProfile['so_dien_thoai']?.toString() ?? phone;
+          _emailController.text = ownerProfile['email']?.toString() ?? '';
+          _dobController.text = ownerProfile['ngay_sinh']?.toString() ?? '';
+          final gender = ownerProfile['gioi_tinh'];
+          _gender = gender == 0 || gender == 'Nữ' || gender == 'Nu'
+              ? 'Nữ'
+              : 'Nam';
+          _addressController.text = addressParts.isNotEmpty
+              ? addressParts.join(', ')
+              : ownerProfile['dia_chi']?.toString() ?? '';
+          _cccdController.text = ownerProfile['cccd']?.toString() ?? '';
+        } else {
+          _phoneController.text = phone;
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
         setState(() => _isLoading = false);
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
     }
   }
 

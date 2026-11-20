@@ -8,6 +8,7 @@ let maBenhNhan = null;
 let dsThuoc = [];
 let dsDichVu = [];
 let dsChiTietDonThuoc = [];
+let apDungBhytChoThuoc = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!auth.requireAuth(['BacSi', 'QuanTri'])) return;
@@ -51,7 +52,7 @@ async function loadCategories() {
     dsThuoc = thuocRes.data;
     document.getElementById('chonThuoc').innerHTML =
       '<option value="">-- Chọn thuốc --</option>' +
-      dsThuoc.map(t => `<option value="${t.ma_thuoc}">${t.ten_thuoc} — ${api.formatMoney(t.don_gia)}/${t.don_vi_tinh || 'đv'}</option>`).join('');
+      dsThuoc.map(t => `<option value="${t.ma_thuoc}">${t.ten_thuoc} — ${api.formatMoney(t.don_gia)}/${t.don_vi_tinh || 'đv'} — ${t.is_bhyt ? 'BHYT' : 'Ngoài BHYT'}</option>`).join('');
   }
 
   if (dvRes.status === 'success') {
@@ -76,6 +77,8 @@ async function loadRecord() {
   const { lich_kham, phien_kham } = res.data;
   maPhienKham = phien_kham.ma_phien_kham;
   maBenhNhan  = lich_kham.ho_so?.ma_benh_nhan; 
+  const maBhyt = lich_kham.ho_so?.benh_nhan?.ma_bhyt || '';
+  apDungBhytChoThuoc = lich_kham.hinh_thuc_kham === 'BHYT' && String(maBhyt).length === 15;
 
   renderPatientInfo(lich_kham);
 
@@ -330,6 +333,7 @@ function renderMedicines(chiTiet) {
   dsChiTietDonThuoc = chiTiet.map(ct => ({
     ma_thuoc: ct.ma_thuoc,
     ten_thuoc: ct.thuoc?.ten_thuoc || '',
+    is_bhyt: Boolean(ct.thuoc?.is_bhyt),
     so_luong: ct.so_luong,
     lieu_luong: ct.lieu_luong,
     thanh_tien: ct.thanh_tien,
@@ -340,22 +344,38 @@ function renderMedicines(chiTiet) {
 function renderMedicineTable() {
   const tbody = document.getElementById('medicineList');
   if (!dsChiTietDonThuoc.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:20px">Chưa có thuốc</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:20px">Chưa có thuốc</td></tr>';
+    document.getElementById('medicineCoverageSummary').textContent = '';
     document.getElementById('tongTienThuoc').textContent = '0đ';
     return;
   }
   tbody.innerHTML = dsChiTietDonThuoc.map((ct, i) => `
     <tr>
       <td>${ct.ten_thuoc}</td>
+      <td><span class="badge ${ct.is_bhyt ? 'badge-done' : 'badge-wait'}">${ct.is_bhyt ? 'Trong danh mục BHYT' : 'Ngoài danh mục BHYT'}</span></td>
       <td>${ct.so_luong}</td>
       <td>${ct.lieu_luong}</td>
-      <td>${api.formatMoney(ct.thanh_tien)}</td>
+      <td>${api.formatMoney(tienNguoiBenhTraThuoc(ct))}</td>
       <td><button class="btn btn-danger btn-sm" onclick="removeMedicine(${i})">🗑</button></td>
     </tr>
   `).join('');
 
-  const tong = dsChiTietDonThuoc.reduce((s, ct) => s + parseFloat(ct.thanh_tien || 0), 0);
-  document.getElementById('tongTienThuoc').textContent = api.formatMoney(tong);
+  const thuocBhyt = dsChiTietDonThuoc.filter(ct => ct.is_bhyt);
+  const thuocNgoaiBhyt = dsChiTietDonThuoc.filter(ct => !ct.is_bhyt);
+  const tienThuocBhyt = thuocBhyt.reduce((sum, ct) => sum + parseFloat(ct.thanh_tien || 0), 0);
+  const tienThuocNgoaiBhyt = thuocNgoaiBhyt.reduce((sum, ct) => sum + parseFloat(ct.thanh_tien || 0), 0);
+  const tongNguoiBenhTra = dsChiTietDonThuoc.reduce((sum, ct) => sum + tienNguoiBenhTraThuoc(ct), 0);
+
+  document.getElementById('medicineCoverageSummary').innerHTML = `
+    <span class="badge badge-done">Trong danh mục BHYT: ${thuocBhyt.length} loại — người bệnh trả ${api.formatMoney(apDungBhytChoThuoc ? 0 : tienThuocBhyt)}</span>
+    <span class="badge badge-wait">Ngoài danh mục BHYT: ${thuocNgoaiBhyt.length} loại — người bệnh trả ${api.formatMoney(tienThuocNgoaiBhyt)}</span>
+    ${apDungBhytChoThuoc ? '' : '<small class="text-muted">Miễn tiền thuốc BHYT chỉ áp dụng cho lượt khám BHYT có mã thẻ hợp lệ.</small>'}
+  `;
+  document.getElementById('tongTienThuoc').textContent = api.formatMoney(tongNguoiBenhTra);
+}
+
+function tienNguoiBenhTraThuoc(chiTiet) {
+  return apDungBhytChoThuoc && chiTiet.is_bhyt ? 0 : parseFloat(chiTiet.thanh_tien || 0);
 }
 
 function addMedicine() {
@@ -383,6 +403,7 @@ function addMedicine() {
       so_luong: soLuong,
       lieu_luong: lieuLuong,
       thanh_tien: soLuong * parseFloat(thuoc.don_gia),
+      is_bhyt: Boolean(thuoc.is_bhyt),
     });
   }
 
@@ -484,9 +505,10 @@ function printPrescription() {
           <tr>
             <th>STT</th>
             <th>Tên thuốc</th>
+            <th>Phân loại</th>
             <th>Số lượng</th>
             <th>Liều lượng</th>
-            <th>Thành tiền</th>
+            <th>Người bệnh trả</th>
           </tr>
         </thead>
         <tbody>
@@ -494,16 +516,17 @@ function printPrescription() {
             <tr>
               <td>${i + 1}</td>
               <td>${ct.ten_thuoc}</td>
+              <td>${ct.is_bhyt ? 'Trong danh mục BHYT' : 'Ngoài danh mục BHYT'}</td>
               <td>${ct.so_luong}</td>
               <td>${ct.lieu_luong}</td>
-              <td>${api.formatMoney(ct.thanh_tien)}</td>
+              <td>${api.formatMoney(tienNguoiBenhTraThuoc(ct))}</td>
             </tr>
           `).join('')}
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="4" style="text-align:right"><b>TỔNG CỘNG:</b></td>
-            <td><b>${api.formatMoney(dsChiTietDonThuoc.reduce((s, ct) => s + parseFloat(ct.thanh_tien || 0), 0))}</b></td>
+            <td colspan="5" style="text-align:right"><b>NGƯỜI BỆNH TRẢ:</b></td>
+            <td><b>${api.formatMoney(dsChiTietDonThuoc.reduce((s, ct) => s + tienNguoiBenhTraThuoc(ct), 0))}</b></td>
           </tr>
         </tfoot>
       </table>

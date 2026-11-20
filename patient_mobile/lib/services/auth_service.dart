@@ -6,7 +6,7 @@ import 'patient_profile_service.dart';
 import '../screens/home/controllers/notification_controller.dart';
 import '../screens/payment/controllers/payment_tab_controller.dart';
 import '../screens/booking/controllers/booking_controller.dart';
-
+import 'package:flutter/foundation.dart';
 class AuthService {
   final Dio _dio = Dio(BaseOptions(
     baseUrl: ApiConstants.baseUrl, 
@@ -16,8 +16,18 @@ class AuthService {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
     },
-  ));
+  ))
+  ..interceptors.add(LogInterceptor(
+      request: true,
+      requestHeader: true,
+      requestBody: true,
+      responseHeader: true,
+      responseBody: true,
+      error: true,       // ← quan trọng: log cả error
+      logPrint: (obj) => debugPrint(obj.toString()),
+    ));
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   

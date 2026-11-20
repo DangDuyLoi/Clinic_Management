@@ -40,6 +40,7 @@ function statusBadgeClass(status) {
     'da_thanh_toan':  'badge-info',
     'cho_kham':       'badge-doing',
     'dang_kham':      'badge-doing',
+    'hoan_tat_hoa_don': 'badge-warning',
     'hoan_thanh':     'badge-done',
     'huy':            'badge-cancel',
   }[status] || 'badge-wait';
@@ -51,6 +52,7 @@ function statusLabel(status) {
     'da_thanh_toan':  'Đã thanh toán',
     'cho_kham':       'Chờ khám',
     'dang_kham':      'Đang khám',
+    'hoan_tat_hoa_don': 'Chờ thu tiền HĐ',
     'hoan_thanh':     'Hoàn thành',
     'huy':            'Đã hủy',
   }[status] || status;
@@ -118,7 +120,9 @@ async function loadAppointments() {
     
     const canCheckIn = ['da_thanh_toan'].includes(item.trang_thai); 
     const canCancel  = !['hoan_thanh', 'huy'].includes(item.trang_thai);
-    const canPay     = item.trang_thai === 'hoan_tat_hoa_don';
+    const invoice = item.phien_kham?.hoa_don;
+    const canPay = item.trang_thai === 'hoan_tat_hoa_don'
+      && invoice?.trang_thai === 'ChuaThanhToan';
 
     const hoTenBn = item.ho_so?.benh_nhan?.ho_ten || '—';
     const sdtBn   = item.ho_so?.benh_nhan?.so_dien_thoai || '';

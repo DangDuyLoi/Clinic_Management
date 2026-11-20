@@ -22,12 +22,14 @@ class VNPayService {
       }
 
       final uri = Uri.parse(apiUrl).replace(queryParameters: queryParams);
+       print('🔵 [DEBUG] Gọi VNPay API: $uri');
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
-
+ print('🟢 [DEBUG] VNPay response: ${response.statusCode} - ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['status'] == 'success') {
           final paymentUrl = data['payment_url'];
+          print('✅ [DEBUG] Payment URL: $paymentUrl');
           final paymentUri = Uri.parse(paymentUrl);
 
           try {
@@ -57,6 +59,7 @@ class VNPayService {
         throw 'Lỗi kết nối máy chủ (${response.statusCode})';
       }
     } catch (e) {
+      print('💥 [DEBUG] VNPay exception: $e');
       throw 'Không thể khởi tạo thanh toán VNPay: $e';
     }
   }

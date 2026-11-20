@@ -26,9 +26,10 @@ class HomeController extends GetxController {
         return;
       }
 
-      // Lấy tên hiển thị từ hồ sơ chính
-      final firstP = profiles.first;
-      final hoTen = '${firstP['ho_chu_lot'] ?? ''} ${firstP['ten'] ?? ''}'.trim();
+      final ownerProfile = PatientProfileService.accountOwnerProfile;
+      final hoTen = ownerProfile == null
+          ? ''
+          : PatientProfileService.profileFullName(ownerProfile);
       patientName.value = hoTen.isNotEmpty ? hoTen : 'Quý khách';
 
       final List<int> maHoSoList = profiles.map((p) => p['ma_ho_so'] as int).toList();

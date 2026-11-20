@@ -6,6 +6,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:crypto/crypto.dart';
 
 /// Controller quản lý logic của Trợ lý Y tế AI (AI Healthcare Chatbot)
 /// Sử dụng GetX để quản lý trạng thái (state management) và tích hợp Google Gemini AI
@@ -44,7 +45,7 @@ class ChatbotController extends GetxController {
 
   /// API Key mặc định của Google Gemini API
   static final String _defaultApiKey =
-      utf8.decode(base64.decode('QVEuQWI4Uk42Snp0RDdlZDlSRmdEWTNsT2JUQnVpLWcxZUpaUWVtR3FEczRhZmFQTDRjeEE='));
+      utf8.decode(base64.decode('QVEuQWI4Uk42THdvdjlBc3d5M1ptZTZOWGRVRERkNlFhM19Qc2dDTU1qSXdVWTNxMEtpTUE='));
 
   /// Khóa API hiện hành (cho phép ghi đè linh hoạt qua Settings/Dialog)
   final RxString currentApiKey = _defaultApiKey.obs;
@@ -335,6 +336,13 @@ class ChatbotController extends GetxController {
         ? currentApiKey.value.trim()
         : _defaultApiKey;
 
+    final fingerprint = sha256
+        .convert(utf8.encode(activeKey))
+        .toString();
+
+    debugPrint('API KEY LENGTH: ${activeKey.length}');
+    debugPrint('API KEY FINGERPRINT: ${fingerprint.substring(0, 12)}');
+    debugPrint('API KEY PREFIX: ${activeKey.substring(0, 3)}');
     // Thử lần lượt các model Flash tốc độ cao
     for (final modelName in _modelCandidates) {
       try {

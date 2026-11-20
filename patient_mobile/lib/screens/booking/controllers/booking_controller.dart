@@ -247,17 +247,21 @@ class BookingController extends GetxController {
       return false;
     }
 
-    final regex = RegExp(r'^[A-Z]{2}[1-5][0-9]{12}$');
+    final regex = RegExp(r'^[A-Z]{2}[1-5](0[1-9]|[1-8][0-9]|9[0-6])[0-9]{10}$');
+    
     if (!regex.hasMatch(clean)) {
       final prefix = clean.substring(0, 2);
       final char3 = clean[2];
+      final char45 = clean.substring(3, 5);
+      
       if (!RegExp(r'^[A-Z]{2}$').hasMatch(prefix)) {
-        bhytCardError.value =
-            '2 ký tự đầu phải là chữ cái (mã đối tượng: DN, TE, CN...)';
+        bhytCardError.value = '2 ký tự đầu phải là chữ cái (VD: DN, TE, GD...)';
       } else if (!RegExp(r'^[1-5]$').hasMatch(char3)) {
         bhytCardError.value = 'Ký tự thứ 3 phải là mức hưởng từ 1 đến 5';
+      } else if (!RegExp(r'^(0[1-9]|[1-8][0-9]|9[0-6])$').hasMatch(char45)) {
+        bhytCardError.value = 'Mã tỉnh/thành phố (ký tự 4-5) không hợp lệ (01-96)';
       } else {
-        bhytCardError.value = '12 ký tự cuối phải là các chữ số';
+        bhytCardError.value = '10 ký tự cuối phải là các chữ số';
       }
       isBhytCardValid.value = false;
       return false;
@@ -1164,10 +1168,15 @@ class BookingController extends GetxController {
         );
       }
 
-      final maHoSoStr =
-          (selectedProfile.value!['ma_ho_so'] ?? selectedProfile.value!['id'])
-              .toString();
-      final maHoSo = int.parse(maHoSoStr);
+      final selectedPatientProfile = selectedProfile.value!;
+      final maHoSoRaw =
+          selectedPatientProfile['ma_ho_so'] ?? selectedPatientProfile['id'];
+      final maHoSo = int.tryParse(maHoSoRaw?.toString() ?? '');
+      if (maHoSo == null) {
+        throw Exception(
+          'Không xác định được mã hồ sơ người bệnh. Vui lòng chọn lại hồ sơ.',
+        );
+      }
 
       List<int> createdIds = [];
       Map<String, dynamic>? lastResult;
@@ -1189,8 +1198,15 @@ class BookingController extends GetxController {
         }
 
         final thoiGian = '${DateFormat('yyyy-MM-dd').format(date)} $timeStr';
-        final maBacSiStr = (doctor['ma_bac_si'] ?? doctor['id']).toString();
-        final maBacSi = int.parse(maBacSiStr);
+
+        final maBacSiRaw =
+            doctor['ma_bac_si'] ?? doctor['id'] ?? doctor['ma_bs'];
+        final maBacSi = int.tryParse(maBacSiRaw?.toString() ?? '');
+        if (maBacSi == null) {
+          throw Exception(
+            'Không xác định được mã bác sĩ. Vui lòng chọn lại bác sĩ.',
+          );
+        }
 
         // Giá của từng chuyên khoa theo bảng tính chi phí (không gửi tổng gộp cho từng khoa)
         final int perItemCost = i < breakdown.length

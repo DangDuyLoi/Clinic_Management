@@ -221,6 +221,30 @@ class DoctorBookingCard extends StatefulWidget {
 }
 
 class _DoctorBookingCardState extends State<DoctorBookingCard> {
+    // Hàm kiểm tra xem khung giờ này đã trôi qua chưa (dựa vào giờ hiện tại)
+  bool _isSlotInPast(String slot) {
+    if (selectedDate == null) return false;
+    final now = DateTime.now();
+    
+    // 1. Nếu là ngày trong quá khứ -> chắc chắn đã qua
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day);
+    if (selected.isBefore(today)) return true;
+
+    // 2. Nếu là hôm nay, kiểm tra xem giờ bắt đầu có nhỏ hơn giờ hiện tại không
+    if (selected.isAtSameMomentAs(today)) {
+      String startStr = slot;
+      if (slot.contains(' - ')) {
+        startStr = slot.split(' - ')[0].trim();
+      }
+      final parts = startStr.split(':');
+      if (parts.length >= 2) {
+        final slotTime = DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+        if (slotTime.isBefore(now)) return true;
+      }
+    }
+    return false;
+  }
   DateTime? selectedDate;
   late List<DateTime> dates;
   bool _isLoadingSlots = false;
@@ -230,7 +254,16 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
   List<String> get timeSlots {
     if (widget.configuredSlots.isNotEmpty) {
       return widget.configuredSlots
-          .map((s) => (s['label'] ?? s['time_range'] ?? '').toString())
+          .map((s) {
+            // API trả về: gio_bat_dau, gio_ket_thuc (format "HH:mm:ss")
+            final start = (s['gio_bat_dau'] ?? '').toString();
+            final end = (s['gio_ket_thuc'] ?? '').toString();
+            if (start.isEmpty) return '';
+            // Cắt "HH:mm:ss" → "HH:mm" để hiển thị gọn
+            final startHm = start.length >= 5 ? start.substring(0, 5) : start;
+            final endHm = end.length >= 5 ? end.substring(0, 5) : end;
+            return '$startHm - $endHm';
+          })
           .where((s) => s.isNotEmpty)
           .toList();
     }
@@ -290,11 +323,10 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
     if (selectedDate == null) return;
     final doctorId = widget.doctor['id'] ?? widget.doctor['ma_bs'];
     if (doctorId == null) return;
-
     final int? docId = int.tryParse(doctorId.toString());
     if (docId == null) return;
-
     final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate!);
+    print(' Đang lấy giờ trống cho Bác sĩ ID: $docId, Ngày: $dateStr');
     _lastLoadedDate = dateStr;
 
     if (mounted) {
@@ -343,7 +375,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
     final picked = await showDatePicker(
       context: context,
       initialDate: selectedDate ?? now,
-      firstDate: now,
+      firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 90)),
     );
     if (picked != null) {
@@ -639,6 +671,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                           itemBuilder: (context, index) {
                             final slot = timeSlots[index];
                             final isAvailable = _isSlotAvailable(slot);
+                            final isPast = _isSlotInPast(slot);
 
                             return GestureDetector(
                               onTap: isAvailable
@@ -650,6 +683,10 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                                       Get.to(() => const InsuranceScreen());
                                     }
                                   : () {
+                                    if (isPast) {
+                                        Get.snackbar('Đã qua giờ', 'Khung giờ $slot đã trôi qua. Vui lòng chọn khung giờ khác.', 
+                                          snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.grey.shade700, colorText: Colors.white, margin: const EdgeInsets.all(12));
+                                      } else {
                                       Get.snackbar(
                                         'Khung giờ đã kín chỗ',
                                         'Khung giờ $slot của bác sĩ này đã có người đặt trước. Vui lòng chọn khung giờ khác.',
@@ -659,6 +696,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                                         duration: const Duration(seconds: 3),
                                         margin: const EdgeInsets.all(12),
                                       );
+                                      }
                                     },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -682,7 +720,7 @@ class _DoctorBookingCardState extends State<DoctorBookingCard> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      isAvailable ? 'Còn chỗ' : 'Hết chỗ',
+                                      isAvailable ? 'Còn chỗ' : (isPast ? 'Đã qua' : 'Hết chỗ'),
                                       style: TextStyle(
                                         color: isAvailable ? const Color(0xFF059669) : const Color(0xFFDC2626),
                                         fontSize: 11,

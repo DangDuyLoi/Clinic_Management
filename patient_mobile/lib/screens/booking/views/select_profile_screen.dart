@@ -93,31 +93,6 @@ class _SelectProfileScreenState extends State<SelectProfileScreen> {
             ),
           ),
           
-          // Current selected quick avatar (From user's screenshot)
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.blue, width: 2),
-                  ),
-                  child: const CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, color: Colors.blue, size: 30),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text('LỢI', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                const Text('W26-0452260', style: TextStyle(color: Colors.blue, fontSize: 10)),
-              ],
-            ),
-          ),
-          
           const SizedBox(height: 16),
           
           // Danh sách hồ sơ dạng Card

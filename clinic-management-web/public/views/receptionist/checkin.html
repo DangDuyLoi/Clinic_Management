@@ -137,40 +137,38 @@
     }
 
     async function quickCheckInByQr() {
-      let val = document.getElementById('qrInput')?.value?.trim();
+      const val = document.getElementById('qrInput')?.value?.trim();
       if (!val) {
         alert('Vui lòng quét hoặc nhập mã QR');
         return;
       }
-      let id = val;
-      let match = val.match(/luot-kham\/(\d+)\/tiep-nhan/);
-      if (match) {
-        id = match[1];
-      } else {
-        let numMatch = val.match(/\d+/);
-        if (numMatch) id = numMatch[0];
-      }
 
       try {
-        const apiHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-          ? 'http://127.0.0.1:8000'
-          : `http://${window.location.hostname}:8000`;
-        const res = await api.put(`/lich-kham/${id}/checkin-by-qr`);
-
-        if (res.status === 'success') {
-          (`✅ Check-in thành công cho lượt khám #${id}!`);
-          document.getElementById('qrInput').value = '';
-          loadPendingList();
+        let id;
+        if (val.startsWith('LICHKHAM:')) {
+          const lookup = await api.post('/lich-kham/scan-qr', { qr_content: val });
+          if (lookup.status !== 'success' || !lookup.data?.ma_luot_kham) {
+            alert(`❌ Lỗi: ${lookup.message || 'Mã QR không hợp lệ'}`);
+            return;
+          }
+          id = lookup.data.ma_luot_kham;
         } else {
-          alert(`❌ Lỗi: ${res.message}`);
+          const match = val.match(/luot-kham\/(\d+)\/tiep-nhan/);
+          id = match ? match[1] : (/^\d+$/.test(val) ? val : null);
         }
-        const data = await res.json();
-        if (res.ok) {
-          alert(`✅ Check-in thành công cho lượt khám #${id}!\nĐã đẩy thông báo tới điện thoại của bệnh nhân.`);
+
+        if (!id) {
+          alert('Mã QR không hợp lệ');
+          return;
+        }
+
+        const result = await api.put(`/lich-kham/${id}/checkin-by-qr`);
+        if (result.status === 'success') {
+          alert(`✅ Check-in thành công cho lượt khám #${id}!`);
           document.getElementById('qrInput').value = '';
           loadPendingList();
         } else {
-          alert(`❌ Lỗi: ${data.message || 'Không thể check-in'}`);
+          alert(`❌ Lỗi: ${result.message || 'Không thể check-in'}`);
         }
       } catch (e) {
         alert(`❌ Lỗi kết nối API check-in: ${e.message}`);

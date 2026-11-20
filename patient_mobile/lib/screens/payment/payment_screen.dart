@@ -12,23 +12,39 @@ class PaymentScreen extends StatefulWidget {
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
+class _PaymentScreenState extends State<PaymentScreen>
+    with WidgetsBindingObserver {
   late final PaymentTabController controller;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     controller = Get.isRegistered<PaymentTabController>()
         ? Get.find<PaymentTabController>()
         : Get.put(PaymentTabController());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.fetchPaymentData();
+      if (mounted) {
+        controller.fetchPaymentData();
+      }
     });
   }
 
   @override
-  Widget build(BuildContext context) {
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      controller.fetchPaymentData();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -46,7 +62,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
           backgroundColor: AppColors.primary,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              color: Colors.white,
+              size: 20,
+            ),
             onPressed: () => Get.back(),
           ),
           bottom: const TabBar(
@@ -55,7 +75,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 15),
+            unselectedLabelStyle: TextStyle(
+              fontWeight: FontWeight.normal,
+              fontSize: 15,
+            ),
             tabs: [
               Tab(
                 child: Row(
@@ -97,6 +120,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                   ),
                 ],
+              ),
+            );
+          }
+
+          if (controller.errorMessage.value != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      controller.errorMessage.value!,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: controller.fetchPaymentData,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -201,14 +253,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final num tienKham = bill['tien_kham'] ?? 150000;
     final num tienDichVu = bill['tien_dich_Vu'] ?? bill['tien_dich_vu'] ?? 0;
     final num tienThuoc = bill['tien_thuoc'] ?? 0;
-    final num tongTien = bill['tong_tien'] ?? (tienKham + tienDichVu + tienThuoc);
+    final num tongTien =
+        bill['tong_tien'] ?? (tienKham + tienDichVu + tienThuoc);
 
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -245,7 +296,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade50,
                     borderRadius: BorderRadius.circular(12),
@@ -296,11 +350,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               child: Column(
                 children: [
-                  _buildCostRow('Tiền khám', controller.formatCurrency(tienKham)),
+                  _buildCostRow(
+                    'Tiền khám',
+                    controller.formatCurrency(tienKham),
+                  ),
                   const SizedBox(height: 6),
-                  _buildCostRow('Tiền dịch vụ / CLS', controller.formatCurrency(tienDichVu)),
+                  _buildCostRow(
+                    'Tiền dịch vụ / CLS',
+                    controller.formatCurrency(tienDichVu),
+                  ),
                   const SizedBox(height: 6),
-                  _buildCostRow('Tiền thuốc', controller.formatCurrency(tienThuoc)),
+                  _buildCostRow(
+                    'Tiền thuốc',
+                    controller.formatCurrency(tienThuoc),
+                  ),
                 ],
               ),
             ),
@@ -409,9 +472,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -449,7 +510,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 // Badge màu xanh lá báo "Thành công" theo yêu cầu
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F5E9), // Xanh lá nhạt
                     borderRadius: BorderRadius.circular(12),
@@ -537,10 +601,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 icon: const Icon(Icons.receipt_outlined, size: 18),
                 label: const Text(
                   'Xem biên lai',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -551,7 +612,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ================= BIÊN LAI CHI TIẾT (BOTTOM SHEET) =================
-  void _showReceiptModal(Map<String, dynamic> history, PaymentTabController controller) {
+  void _showReceiptModal(
+    Map<String, dynamic> history,
+    PaymentTabController controller,
+  ) {
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.all(24),
@@ -606,15 +670,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const Divider(thickness: 1),
               const SizedBox(height: 12),
 
-              _buildReceiptRow('Mã giao dịch', history['ma_giao_dich'] ?? 'N/A', isBold: true),
+              _buildReceiptRow(
+                'Mã giao dịch',
+                history['ma_giao_dich'] ?? 'N/A',
+                isBold: true,
+              ),
               const SizedBox(height: 8),
-              _buildReceiptRow('Thời gian thanh toán', history['thoi_gian_thanh_toan'] ?? 'N/A'),
+              _buildReceiptRow(
+                'Thời gian thanh toán',
+                history['thoi_gian_thanh_toan'] ?? 'N/A',
+              ),
               const SizedBox(height: 8),
-              _buildReceiptRow('Phương thức', history['phuong_thuc'] ?? 'VNPay'),
+              _buildReceiptRow(
+                'Phương thức',
+                history['phuong_thuc'] ?? 'VNPay',
+              ),
               const SizedBox(height: 8),
-              _buildReceiptRow('Chuyên khoa', history['chuyen_khoa'] ?? 'Khoa khám bệnh'),
+              _buildReceiptRow(
+                'Chuyên khoa',
+                history['chuyen_khoa'] ?? 'Khoa khám bệnh',
+              ),
               const SizedBox(height: 8),
-              _buildReceiptRow('Bác sĩ điều trị', history['bac_si'] ?? 'Bác sĩ chuyên khoa'),
+              _buildReceiptRow(
+                'Bác sĩ điều trị',
+                history['bac_si'] ?? 'Bác sĩ chuyên khoa',
+              ),
               const SizedBox(height: 12),
               const Divider(thickness: 1),
               const SizedBox(height: 12),
@@ -626,7 +706,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const Expanded(
                     child: Text(
                       'Tổng tiền đã thanh toán:',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   Text(
@@ -682,10 +765,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         const SizedBox(width: 8),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -735,7 +815,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         Text(

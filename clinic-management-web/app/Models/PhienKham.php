@@ -6,13 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class PhienKham extends Model
 {
-    protected $table = 'PhienKham';
+    protected $table = 'phienkham';
+
     protected $primaryKey = 'ma_phien_kham';
+
     public $timestamps = false;
 
     protected $fillable = [
         'ma_lich_dat', 'chan_doan_so_bo', 'chan_doan_cuoi_cung',
-        'ghi_chu_y_te', 'trang_thai', 'ngay_tao',
+        'ghi_chu_y_te', 'trang_thai', 'ngay_tao', 'phong_kham',
     ];
 
     public function lichKham()

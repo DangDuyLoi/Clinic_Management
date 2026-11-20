@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class KhungGio extends Model
 {
-    protected $table = 'KhungGio';
+    protected $table = 'khunggio';
+
     protected $primaryKey = 'ma_khung_gio';
+
     public $timestamps = false;
 
     protected $fillable = [

@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class NhatKyHeThong extends Model
 {
-    protected $table = 'NhatKyHeThong';
+    protected $table = 'nhatkyhethong';
+
     protected $primaryKey = 'ma_nhat_ky';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -16,7 +18,7 @@ class NhatKyHeThong extends Model
     ];
 
     protected $casts = [
-        'du_lieu_cu'  => 'array',
+        'du_lieu_cu' => 'array',
         'du_lieu_moi' => 'array',
     ];
 

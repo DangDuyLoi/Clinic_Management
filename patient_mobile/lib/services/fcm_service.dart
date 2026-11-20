@@ -45,6 +45,7 @@ class FCMService {
     _firebaseMessaging.onTokenRefresh.listen((newToken) async {
       print("FCM Token refreshed: $newToken");
       final phone = await AuthService().getUserPhone();
+      print("Debug phone từ AuthService: '$phone'");
       if (phone != null && phone.isNotEmpty) {
         await AuthService().updateFcmToken(phone, newToken);
       }
