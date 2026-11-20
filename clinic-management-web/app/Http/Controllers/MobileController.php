@@ -77,12 +77,19 @@ class MobileController extends Controller
 
     public function sendOtp(Request $request)
     {
-        // Giả lập gửi OTP (Dùng cho đồ án)
+        if (! config('otp.demo_enabled')) {
+            return response()->json(['message' => 'OTP provider is not configured.'], 503);
+        }
+
         return response()->json(['message' => 'Mã OTP đã được gửi đến số điện thoại (Mã mặc định: 123456)']);
     }
 
     public function verifyOtp(Request $request)
     {
+        if (! config('otp.demo_enabled')) {
+            return response()->json(['message' => 'OTP provider is not configured.'], 503);
+        }
+
         $otp = $request->otp;
         if ($otp === '123456') {
             return response()->json(['message' => 'Xác thực OTP thành công']);

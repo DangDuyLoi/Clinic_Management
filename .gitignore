@@ -11,6 +11,13 @@
 # Bỏ qua dữ liệu của Database (tránh push data thật lên Git)
 /docker/db_data/
 
+# Bỏ qua Firebase service-account keys
+*firebase-adminsdk*.json
+
+# Bỏ qua SQL dumps có thể chứa dữ liệu bệnh nhân thật
+*.sql
+!/clinic-management-web/database/schema/mysql-schema.sql
+
 # Bỏ qua file hệ thống
 .DS_Store
 .idea/
