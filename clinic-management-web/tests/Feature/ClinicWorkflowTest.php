@@ -48,9 +48,9 @@ class ClinicWorkflowTest extends TestCase
         parent::setUp();
 
         // 1. Tạo Ca làm việc
-        $ca = DB::table('CaLamViec')->first();
+        $ca = DB::table('calamviec')->first();
         if (! $ca) {
-            $maCa = DB::table('CaLamViec')->insertGetId([
+            $maCa = DB::table('calamviec')->insertGetId([
                 'ten_ca' => 'Ca sáng test',
                 'gio_bat_dau' => '07:00:00',
                 'gio_ket_thuc' => '12:00:00',
@@ -61,9 +61,9 @@ class ClinicWorkflowTest extends TestCase
         }
 
         // 2. Tạo Khung giờ
-        $kg = DB::table('KhungGio')->first();
+        $kg = DB::table('khunggio')->first();
         if (! $kg) {
-            $maKg = DB::table('KhungGio')->insertGetId([
+            $maKg = DB::table('khunggio')->insertGetId([
                 'ma_ca' => $maCa,
                 'gio_bat_dau' => '08:00:00',
                 'gio_ket_thuc' => '09:00:00',
@@ -74,9 +74,9 @@ class ClinicWorkflowTest extends TestCase
         }
 
         // 3. Tạo Chuyên khoa
-        $ck = DB::table('ChuyenKhoa')->first();
+        $ck = DB::table('chuyenkhoa')->first();
         if (! $ck) {
-            $maCk = DB::table('ChuyenKhoa')->insertGetId(['ten_chuyen_khoa' => 'Nội tổng hợp', 'trang_thai' => 1]);
+            $maCk = DB::table('chuyenkhoa')->insertGetId(['ten_chuyen_khoa' => 'Nội tổng hợp', 'trang_thai' => 1]);
         } else {
             $maCk = $ck->ma_chuyen_khoa;
         }
@@ -153,8 +153,8 @@ class ClinicWorkflowTest extends TestCase
      */
     public function test_patient_can_book_appointment()
     {
-        $maKg = DB::table('KhungGio')->first()->ma_khung_gio;
-        $maCk = DB::table('ChuyenKhoa')->first()->ma_chuyen_khoa;
+        $maKg = DB::table('khunggio')->first()->ma_khung_gio;
+        $maCk = DB::table('chuyenkhoa')->first()->ma_chuyen_khoa;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->tokenLeTan)
             ->postJson('/api/lich-kham', [
@@ -177,8 +177,8 @@ class ClinicWorkflowTest extends TestCase
      */
     public function test_booking_fails_on_past_date()
     {
-        $maKg = DB::table('KhungGio')->first()->ma_khung_gio;
-        $maCk = DB::table('ChuyenKhoa')->first()->ma_chuyen_khoa;
+        $maKg = DB::table('khunggio')->first()->ma_khung_gio;
+        $maCk = DB::table('chuyenkhoa')->first()->ma_chuyen_khoa;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->tokenLeTan)
             ->postJson('/api/lich-kham', [
@@ -259,6 +259,36 @@ class ClinicWorkflowTest extends TestCase
             ]);
 
         $response->assertStatus(200);
+    }
+
+    public function test_doctor_can_add_service_to_medical_session(): void
+    {
+        $lichKham = LichKham::create([
+            'ma_ho_so' => $this->maHoSo,
+            'ma_bac_si' => $this->maBacSi,
+            'thoi_gian_den_kham' => now(),
+            'trang_thai' => 'dang_kham',
+        ]);
+        $phienKham = PhienKham::create([
+            'ma_lich_dat' => $lichKham->ma_luot_kham,
+            'trang_thai' => 'ChoCanLamSang',
+        ]);
+        $dichVu = DichVu::create([
+            'ten_dich_vu' => 'Dịch vụ test '.uniqid(),
+            'don_gia' => 120000,
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->tokenBacSi)
+            ->postJson("/api/phien-kham/{$phienKham->ma_phien_kham}/chi-dinh", [
+                'ma_dich_vu' => $dichVu->ma_dich_vu,
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.dich_vu.ma_dich_vu', $dichVu->ma_dich_vu);
+        $this->assertDatabaseHas('chidinhdichvu', [
+            'ma_phien_kham' => $phienKham->ma_phien_kham,
+            'ma_dich_vu' => $dichVu->ma_dich_vu,
+        ]);
     }
 
     public function test_finishing_unpaid_appointment_creates_pending_invoice_for_exam_fee()

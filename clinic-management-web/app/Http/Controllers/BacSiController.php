@@ -56,10 +56,10 @@ class BacSiController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ten_dang_nhap' => 'required|string|min:3|max:50|unique:TaiKhoan,ten_dang_nhap',
+            'ten_dang_nhap' => 'required|string|min:3|max:50|unique:taikhoan,ten_dang_nhap',
             'mat_khau' => 'required|string|min:6|max:255',
             'ho_ten' => 'required|string|min:2|max:100',
-            'ma_chuyen_khoa' => 'required|integer|exists:ChuyenKhoa,ma_chuyen_khoa',
+            'ma_chuyen_khoa' => 'required|integer|exists:chuyenkhoa,ma_chuyen_khoa',
             'trinh_do' => 'nullable|string|max:100',
             'luot_kham_toi_da_moi_ca' => 'nullable|integer|min:1|max:100',
         ], [
@@ -145,7 +145,7 @@ class BacSiController extends Controller
 
         $data = $request->validate([
             'ho_ten' => 'sometimes|string|min:2|max:100',
-            'ma_chuyen_khoa' => 'sometimes|integer|exists:ChuyenKhoa,ma_chuyen_khoa',
+            'ma_chuyen_khoa' => 'sometimes|integer|exists:chuyenkhoa,ma_chuyen_khoa',
             'trinh_do' => 'nullable|string|max:100',
             'luot_kham_toi_da_moi_ca' => 'sometimes|integer|min:1|max:100',
         ], [

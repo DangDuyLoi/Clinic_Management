@@ -15,48 +15,61 @@ class ChuyenKhoaController extends Controller
             $query->where('ten_chuyen_khoa', 'like', "%{$q}%");
         }
         $data = $query->orderBy('ma_chuyen_khoa', 'asc')->get();
+
         return response()->json(['status' => 'success', 'data' => $data]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ten_chuyen_khoa' => 'required|string|min:2|max:100|unique:ChuyenKhoa,ten_chuyen_khoa',
-            'mo_ta'           => 'nullable|string|max:1000',
+            'ten_chuyen_khoa' => 'required|string|min:2|max:100|unique:chuyenkhoa,ten_chuyen_khoa',
+            'mo_ta' => 'nullable|string|max:1000',
         ]);
         $ck = ChuyenKhoa::create($data);
+
         return response()->json(['status' => 'success', 'message' => 'Thêm chuyên khoa thành công', 'data' => $ck], 201);
     }
 
     public function show($id)
     {
         $ck = ChuyenKhoa::with(['bacSi.chuyenKhoa'])->find($id);
-        if (!$ck) return response()->json(['status' => 'error', 'message' => 'Không tìm thấy chuyên khoa'], 404);
+        if (! $ck) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy chuyên khoa'], 404);
+        }
+
         return response()->json(['status' => 'success', 'data' => $ck]);
     }
 
     public function update(Request $request, $id)
     {
         $ck = ChuyenKhoa::find($id);
-        if (!$ck) return response()->json(['status' => 'error', 'message' => 'Không tìm thấy chuyên khoa'], 404);
+        if (! $ck) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy chuyên khoa'], 404);
+        }
 
         $data = $request->validate([
-            'ten_chuyen_khoa' => ['sometimes', 'string', 'min:2', 'max:100', Rule::unique('ChuyenKhoa', 'ten_chuyen_khoa')->ignore($id, 'ma_chuyen_khoa')],
+            'ten_chuyen_khoa' => ['sometimes', 'string', 'min:2', 'max:100', Rule::unique('chuyenkhoa', 'ten_chuyen_khoa')->ignore($id, 'ma_chuyen_khoa')],
             'mo_ta' => 'nullable|string|max:1000',
         ]);
         $ck->update($data);
+
         return response()->json(['status' => 'success', 'message' => 'Cập nhật thành công', 'data' => $ck->fresh()]);
     }
 
     public function destroy($id)
     {
         $ck = ChuyenKhoa::find($id);
-        if (!$ck) return response()->json(['status' => 'error', 'message' => 'Không tìm thấy chuyên khoa'], 404);
+        if (! $ck) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy chuyên khoa'], 404);
+        }
 
         $soBacSi = $ck->bacSi()->count();
-        if ($soBacSi > 0) return response()->json(['status' => 'error', 'message' => "Không thể xóa. Còn {$soBacSi} bác sĩ thuộc chuyên khoa này."], 400);
+        if ($soBacSi > 0) {
+            return response()->json(['status' => 'error', 'message' => "Không thể xóa. Còn {$soBacSi} bác sĩ thuộc chuyên khoa này."], 400);
+        }
 
         $ck->delete();
+
         return response()->json(['status' => 'success', 'message' => 'Đã xóa chuyên khoa']);
     }
 }

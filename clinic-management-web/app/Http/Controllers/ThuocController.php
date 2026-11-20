@@ -32,7 +32,7 @@ class ThuocController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ten_thuoc' => 'required|string|max:150|unique:Thuoc,ten_thuoc',
+            'ten_thuoc' => 'required|string|max:150|unique:thuoc,ten_thuoc',
             'don_vi_tinh' => 'nullable|string|max:50',
             'don_gia' => 'required|numeric|min:0',
             'so_luong_ton' => 'nullable|integer|min:0',
@@ -86,7 +86,7 @@ class ThuocController extends Controller
         }
 
         $data = $request->validate([
-            'ten_thuoc' => 'sometimes|string|max:150|unique:Thuoc,ten_thuoc,'.$id.',ma_thuoc',
+            'ten_thuoc' => 'sometimes|string|max:150|unique:thuoc,ten_thuoc,'.$id.',ma_thuoc',
             'don_vi_tinh' => 'nullable|string|max:50',
             'don_gia' => 'sometimes|numeric|min:0',
             'so_luong_ton' => 'sometimes|integer|min:0',

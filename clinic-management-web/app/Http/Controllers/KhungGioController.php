@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\KhungGio;
 use App\Models\CaLamViec;
+use App\Models\KhungGio;
+use App\Models\LichKham;
 use Illuminate\Http\Request;
 
 class KhungGioController extends Controller
@@ -24,7 +25,7 @@ class KhungGioController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $data,
+            'data' => $data,
         ]);
     }
 
@@ -34,23 +35,23 @@ class KhungGioController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ma_ca'           => 'required|integer|exists:CaLamViec,ma_ca',
-            'gio_bat_dau'     => 'required|date_format:H:i:s',
-            'gio_ket_thuc'    => 'required|date_format:H:i:s|after:gio_bat_dau',
-            'luot_kham_toi_da'=> 'nullable|integer|min:1|max:100',
+            'ma_ca' => 'required|integer|exists:calamviec,ma_ca',
+            'gio_bat_dau' => 'required|date_format:H:i:s',
+            'gio_ket_thuc' => 'required|date_format:H:i:s|after:gio_bat_dau',
+            'luot_kham_toi_da' => 'nullable|integer|min:1|max:100',
         ], [
-            'ma_ca.required'       => 'Vui lòng chọn ca làm việc',
-            'ma_ca.exists'         => 'Ca làm việc không tồn tại',
+            'ma_ca.required' => 'Vui lòng chọn ca làm việc',
+            'ma_ca.exists' => 'Ca làm việc không tồn tại',
             'gio_bat_dau.required' => 'Vui lòng chọn giờ bắt đầu',
-            'gio_ket_thuc.required'=> 'Vui lòng chọn giờ kết thúc',
-            'gio_ket_thuc.after'   => 'Giờ kết thúc phải sau giờ bắt đầu',
+            'gio_ket_thuc.required' => 'Vui lòng chọn giờ kết thúc',
+            'gio_ket_thuc.after' => 'Giờ kết thúc phải sau giờ bắt đầu',
         ]);
 
         // Kiểm tra khung giờ nằm trong ca
         $ca = CaLamViec::find($data['ma_ca']);
         if ($data['gio_bat_dau'] < $ca->gio_bat_dau || $data['gio_ket_thuc'] > $ca->gio_ket_thuc) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Khung giờ phải nằm trong ca {$ca->gio_bat_dau} - {$ca->gio_ket_thuc}",
             ], 400);
         }
@@ -58,9 +59,9 @@ class KhungGioController extends Controller
         $kg = KhungGio::create($data);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Thêm khung giờ thành công',
-            'data'    => $kg->load('caLamViec'),
+            'data' => $kg->load('caLamViec'),
         ], 201);
     }
 
@@ -71,16 +72,16 @@ class KhungGioController extends Controller
     {
         $kg = KhungGio::with('caLamViec')->find($id);
 
-        if (!$kg) {
+        if (! $kg) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy khung giờ',
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => $kg,
+            'data' => $kg,
         ]);
     }
 
@@ -91,26 +92,26 @@ class KhungGioController extends Controller
     {
         $kg = KhungGio::find($id);
 
-        if (!$kg) {
+        if (! $kg) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy khung giờ',
             ], 404);
         }
 
         $data = $request->validate([
-            'ma_ca'           => 'sometimes|integer|exists:CaLamViec,ma_ca',
-            'gio_bat_dau'     => 'sometimes|date_format:H:i:s',
-            'gio_ket_thuc'    => 'sometimes|date_format:H:i:s|after:gio_bat_dau',
-            'luot_kham_toi_da'=> 'nullable|integer|min:1|max:100',
+            'ma_ca' => 'sometimes|integer|exists:calamviec,ma_ca',
+            'gio_bat_dau' => 'sometimes|date_format:H:i:s',
+            'gio_ket_thuc' => 'sometimes|date_format:H:i:s|after:gio_bat_dau',
+            'luot_kham_toi_da' => 'nullable|integer|min:1|max:100',
         ]);
 
         $kg->update($data);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Cập nhật thành công',
-            'data'    => $kg->fresh()->load('caLamViec'),
+            'data' => $kg->fresh()->load('caLamViec'),
         ]);
     }
 
@@ -122,21 +123,21 @@ class KhungGioController extends Controller
     {
         $kg = KhungGio::find($id);
 
-        if (!$kg) {
+        if (! $kg) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy khung giờ',
             ], 404);
         }
 
         // Kiểm tra có lịch khám không
-        $soLich = \App\Models\LichKham::where('ma_khung_gio', $id)
+        $soLich = LichKham::where('ma_khung_gio', $id)
             ->whereNotIn('trang_thai', ['DaHuy'])
             ->count();
 
         if ($soLich > 0) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Không thể xóa. Khung giờ đã có {$soLich} lịch khám.",
             ], 400);
         }
@@ -144,7 +145,7 @@ class KhungGioController extends Controller
         $kg->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Đã xóa khung giờ',
         ]);
     }

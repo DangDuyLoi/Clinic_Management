@@ -40,7 +40,7 @@ class TaiKhoanController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $users,
+            'data' => $users,
         ]);
     }
 
@@ -51,29 +51,29 @@ class TaiKhoanController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ten_dang_nhap' => 'required|string|min:3|max:50|unique:TaiKhoan,ten_dang_nhap',
-            'mat_khau'      => 'required|string|min:6|max:255',
-            'vai_tro'       => 'required|in:QuanTri,BacSi,LeTan,BenhNhan',
+            'ten_dang_nhap' => 'required|string|min:3|max:50|unique:taikhoan,ten_dang_nhap',
+            'mat_khau' => 'required|string|min:6|max:255',
+            'vai_tro' => 'required|in:QuanTri,BacSi,LeTan,BenhNhan',
         ], [
             'ten_dang_nhap.required' => 'Vui lòng nhập tên đăng nhập',
-            'ten_dang_nhap.unique'   => 'Tên đăng nhập đã tồn tại',
-            'mat_khau.required'      => 'Vui lòng nhập mật khẩu',
-            'mat_khau.min'           => 'Mật khẩu phải có ít nhất 6 ký tự',
-            'vai_tro.required'       => 'Vui lòng chọn vai trò',
-            'vai_tro.in'             => 'Vai trò không hợp lệ',
+            'ten_dang_nhap.unique' => 'Tên đăng nhập đã tồn tại',
+            'mat_khau.required' => 'Vui lòng nhập mật khẩu',
+            'mat_khau.min' => 'Mật khẩu phải có ít nhất 6 ký tự',
+            'vai_tro.required' => 'Vui lòng chọn vai trò',
+            'vai_tro.in' => 'Vai trò không hợp lệ',
         ]);
 
         $tk = TaiKhoan::create([
             'ten_dang_nhap' => $data['ten_dang_nhap'],
-            'mat_khau'      => Hash::make($data['mat_khau']),
-            'vai_tro'       => $data['vai_tro'],
-            'trang_thai'    => true,
+            'mat_khau' => Hash::make($data['mat_khau']),
+            'vai_tro' => $data['vai_tro'],
+            'trang_thai' => true,
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Tạo tài khoản thành công',
-            'data'    => $tk,
+            'data' => $tk,
         ], 201);
     }
 
@@ -84,16 +84,16 @@ class TaiKhoanController extends Controller
     {
         $tk = TaiKhoan::with(['bacSi', 'benhNhan'])->find($id);
 
-        if (!$tk) {
+        if (! $tk) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy tài khoản',
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => $tk,
+            'data' => $tk,
         ]);
     }
 
@@ -105,9 +105,9 @@ class TaiKhoanController extends Controller
     {
         $tk = TaiKhoan::find($id);
 
-        if (!$tk) {
+        if (! $tk) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy tài khoản',
             ], 404);
         }
@@ -115,15 +115,15 @@ class TaiKhoanController extends Controller
         $data = $request->validate([
             'ten_dang_nhap' => [
                 'sometimes', 'string', 'min:3', 'max:50',
-                Rule::unique('tai_khoan', 'ten_dang_nhap')->ignore($id, 'ma_tk'),
+                Rule::unique('taikhoan', 'ten_dang_nhap')->ignore($id, 'ma_tk'),
             ],
-            'mat_khau'   => 'sometimes|string|min:6|max:255',
-            'vai_tro'    => 'sometimes|in:QuanTri,BacSi,LeTan,BenhNhan',
+            'mat_khau' => 'sometimes|string|min:6|max:255',
+            'vai_tro' => 'sometimes|in:QuanTri,BacSi,LeTan,BenhNhan',
             'trang_thai' => 'sometimes|boolean',
         ], [
             'ten_dang_nhap.unique' => 'Tên đăng nhập đã tồn tại',
-            'mat_khau.min'         => 'Mật khẩu phải có ít nhất 6 ký tự',
-            'vai_tro.in'           => 'Vai trò không hợp lệ',
+            'mat_khau.min' => 'Mật khẩu phải có ít nhất 6 ký tự',
+            'vai_tro.in' => 'Vai trò không hợp lệ',
         ]);
 
         // Nếu đổi mật khẩu → hash
@@ -134,9 +134,9 @@ class TaiKhoanController extends Controller
         $tk->update($data);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Cập nhật thành công',
-            'data'    => $tk->fresh(),
+            'data' => $tk->fresh(),
         ]);
     }
 
@@ -147,9 +147,9 @@ class TaiKhoanController extends Controller
     {
         $tk = TaiKhoan::find($id);
 
-        if (!$tk) {
+        if (! $tk) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy tài khoản',
             ], 404);
         }
@@ -157,7 +157,7 @@ class TaiKhoanController extends Controller
         // Chặn xóa tài khoản Quản trị viên
         if ($tk->vai_tro === 'QuanTri') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không thể xóa tài khoản Quản trị viên',
             ], 403);
         }
@@ -166,7 +166,7 @@ class TaiKhoanController extends Controller
         $currentUser = auth('api')->user();
         if ($currentUser && $currentUser->ma_tk === $tk->ma_tk) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không thể xóa tài khoản đang đăng nhập',
             ], 403);
         }
@@ -174,7 +174,7 @@ class TaiKhoanController extends Controller
         $tk->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Đã xóa tài khoản',
         ]);
     }
@@ -193,9 +193,9 @@ class TaiKhoanController extends Controller
 
         $tk = TaiKhoan::find($id);
 
-        if (!$tk) {
+        if (! $tk) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy tài khoản',
             ], 404);
         }
@@ -204,7 +204,7 @@ class TaiKhoanController extends Controller
         $currentUser = auth('api')->user();
         if ($currentUser && $currentUser->ma_tk === $tk->ma_tk) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không thể tự khóa tài khoản của mình',
             ], 403);
         }
@@ -213,11 +213,11 @@ class TaiKhoanController extends Controller
         $tk->save();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => $request->trang_thai
                 ? 'Đã mở khóa tài khoản'
                 : 'Đã khóa tài khoản',
-            'data'    => $tk,
+            'data' => $tk,
         ]);
     }
 }

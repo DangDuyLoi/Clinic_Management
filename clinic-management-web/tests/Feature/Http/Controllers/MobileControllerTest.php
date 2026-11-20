@@ -216,7 +216,7 @@ class MobileControllerTest extends TestCase
             'vai_tro' => 'BacSi',
             'trang_thai' => true,
         ]);
-        $maChuyenKhoa = DB::table('ChuyenKhoa')->insertGetId([
+        $maChuyenKhoa = DB::table('chuyenkhoa')->insertGetId([
             'ten_chuyen_khoa' => 'Chuyên khoa đặt lịch test',
             'trang_thai' => 1,
         ]);
@@ -263,7 +263,7 @@ class MobileControllerTest extends TestCase
             'vai_tro' => 'BenhNhan',
             'trang_thai' => true,
         ]);
-        $maChuyenKhoa = DB::table('ChuyenKhoa')->insertGetId([
+        $maChuyenKhoa = DB::table('chuyenkhoa')->insertGetId([
             'ten_chuyen_khoa' => 'Chuyên khoa QR test',
             'trang_thai' => 1,
         ]);
@@ -684,7 +684,7 @@ class MobileControllerTest extends TestCase
             'vai_tro' => 'BenhNhan',
             'trang_thai' => true,
         ]);
-        $maChuyenKhoa = DB::table('ChuyenKhoa')->insertGetId([
+        $maChuyenKhoa = DB::table('chuyenkhoa')->insertGetId([
             'ten_chuyen_khoa' => 'Chuyên khoa VNPay test',
             'trang_thai' => 1,
         ]);

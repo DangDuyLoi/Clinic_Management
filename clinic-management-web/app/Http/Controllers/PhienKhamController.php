@@ -277,7 +277,7 @@ class PhienKhamController extends Controller
     public function addChiDinh(Request $request, $id)
     {
         $data = $request->validate([
-            'ma_dich_vu' => 'required|integer|exists:DichVu,ma_dich_vu',
+            'ma_dich_vu' => 'required|integer|exists:dichvu,ma_dich_vu',
             'ket_qua_chi_tiet' => 'nullable|string',
         ]);
 

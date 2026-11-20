@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChiDinhDichVu;
 use App\Models\DichVu;
 use Illuminate\Http\Request;
 
@@ -38,7 +39,7 @@ class DichVuController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->get(),
+            'data' => $query->get(),
         ]);
     }
 
@@ -49,24 +50,24 @@ class DichVuController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ten_dich_vu' => 'required|string|min:2|max:150|unique:DichVu,ten_dich_vu',
-            'don_gia'     => 'required|numeric|min:0|max:999999999',
-            'mo_ta'       => 'nullable|string|max:1000',
+            'ten_dich_vu' => 'required|string|min:2|max:150|unique:dichvu,ten_dich_vu',
+            'don_gia' => 'required|numeric|min:0|max:999999999',
+            'mo_ta' => 'nullable|string|max:1000',
         ], [
             'ten_dich_vu.required' => 'Vui lòng nhập tên dịch vụ',
-            'ten_dich_vu.unique'   => 'Tên dịch vụ đã tồn tại',
-            'ten_dich_vu.min'      => 'Tên dịch vụ phải có ít nhất 2 ký tự',
-            'don_gia.required'     => 'Vui lòng nhập đơn giá',
-            'don_gia.numeric'      => 'Đơn giá phải là số',
-            'don_gia.min'          => 'Đơn giá phải >= 0',
+            'ten_dich_vu.unique' => 'Tên dịch vụ đã tồn tại',
+            'ten_dich_vu.min' => 'Tên dịch vụ phải có ít nhất 2 ký tự',
+            'don_gia.required' => 'Vui lòng nhập đơn giá',
+            'don_gia.numeric' => 'Đơn giá phải là số',
+            'don_gia.min' => 'Đơn giá phải >= 0',
         ]);
 
         $dv = DichVu::create($data);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Thêm dịch vụ thành công',
-            'data'    => $dv,
+            'data' => $dv,
         ], 201);
     }
 
@@ -77,16 +78,16 @@ class DichVuController extends Controller
     {
         $dv = DichVu::find($id);
 
-        if (!$dv) {
+        if (! $dv) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy dịch vụ',
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => $dv,
+            'data' => $dv,
         ]);
     }
 
@@ -98,28 +99,28 @@ class DichVuController extends Controller
     {
         $dv = DichVu::find($id);
 
-        if (!$dv) {
+        if (! $dv) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy dịch vụ',
             ], 404);
         }
 
         $data = $request->validate([
-            'ten_dich_vu' => 'sometimes|string|min:2|max:150|unique:DichVu,ten_dich_vu,' . $id . ',ma_dich_vu',
-            'don_gia'     => 'sometimes|numeric|min:0|max:999999999',
-            'mo_ta'       => 'nullable|string|max:1000',
+            'ten_dich_vu' => 'sometimes|string|min:2|max:150|unique:dichvu,ten_dich_vu,'.$id.',ma_dich_vu',
+            'don_gia' => 'sometimes|numeric|min:0|max:999999999',
+            'mo_ta' => 'nullable|string|max:1000',
         ], [
             'ten_dich_vu.unique' => 'Tên dịch vụ đã tồn tại',
-            'don_gia.numeric'    => 'Đơn giá phải là số',
+            'don_gia.numeric' => 'Đơn giá phải là số',
         ]);
 
         $dv->update($data);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Cập nhật thành công',
-            'data'    => $dv->fresh(),
+            'data' => $dv->fresh(),
         ]);
     }
 
@@ -131,18 +132,18 @@ class DichVuController extends Controller
     {
         $dv = DichVu::find($id);
 
-        if (!$dv) {
+        if (! $dv) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy dịch vụ',
             ], 404);
         }
 
         // Kiểm tra xem dịch vụ có đang được sử dụng không
-        $soLanSuDung = \App\Models\ChiDinhDichVu::where('ma_dich_vu', $id)->count();
+        $soLanSuDung = ChiDinhDichVu::where('ma_dich_vu', $id)->count();
         if ($soLanSuDung > 0) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Không thể xóa. Dịch vụ đã được chỉ định {$soLanSuDung} lần.",
             ], 400);
         }
@@ -150,7 +151,7 @@ class DichVuController extends Controller
         $dv->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Đã xóa dịch vụ',
         ]);
     }

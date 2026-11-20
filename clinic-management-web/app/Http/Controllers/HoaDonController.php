@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\HoaDon;
-use App\Models\PhienKham;
+use App\Models\ThongBao;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -40,7 +40,7 @@ class HoaDonController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('ma_hoa_don', 'desc')->paginate($perPage),
+            'data' => $query->orderBy('ma_hoa_don', 'desc')->paginate($perPage),
         ]);
     }
 
@@ -56,16 +56,16 @@ class HoaDonController extends Controller
             'phienKham.donThuoc.chiTiet.thuoc',
         ])->find($id);
 
-        if (!$hd) {
+        if (! $hd) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy hóa đơn',
             ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'data'   => $hd,
+            'data' => $hd,
         ]);
     }
 
@@ -80,34 +80,34 @@ class HoaDonController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ma_phien_kham'  => 'required|integer|exists:PhienKham,ma_phien_kham|unique:HoaDon,ma_phien_kham',
+            'ma_phien_kham' => 'required|integer|exists:phienkham,ma_phien_kham|unique:hoadon,ma_phien_kham',
             'tien_kham_benh' => 'nullable|numeric|min:0',
-            'tien_dich_vu'   => 'nullable|numeric|min:0',
-            'tien_thuoc'     => 'nullable|numeric|min:0',
+            'tien_dich_vu' => 'nullable|numeric|min:0',
+            'tien_thuoc' => 'nullable|numeric|min:0',
         ], [
             'ma_phien_kham.required' => 'Vui lòng chọn phiên khám',
-            'ma_phien_kham.unique'   => 'Phiên khám này đã có hóa đơn',
-            'ma_phien_kham.exists'   => 'Phiên khám không tồn tại',
+            'ma_phien_kham.unique' => 'Phiên khám này đã có hóa đơn',
+            'ma_phien_kham.exists' => 'Phiên khám không tồn tại',
         ]);
 
-        $tienKham  = (float) ($data['tien_kham_benh'] ?? 0);
-        $tienDv    = (float) ($data['tien_dich_vu'] ?? 0);
+        $tienKham = (float) ($data['tien_kham_benh'] ?? 0);
+        $tienDv = (float) ($data['tien_dich_vu'] ?? 0);
         $tienThuoc = (float) ($data['tien_thuoc'] ?? 0);
-        $tongCong  = $tienKham + $tienDv + $tienThuoc;
+        $tongCong = $tienKham + $tienDv + $tienThuoc;
 
         $hd = HoaDon::create([
-            'ma_phien_kham'  => $data['ma_phien_kham'],
+            'ma_phien_kham' => $data['ma_phien_kham'],
             'tien_kham_benh' => $tienKham,
-            'tien_dich_vu'   => $tienDv,
-            'tien_thuoc'     => $tienThuoc,
-            'tong_cong'      => $tongCong,
-            'trang_thai'     => 'ChuaThanhToan',
+            'tien_dich_vu' => $tienDv,
+            'tien_thuoc' => $tienThuoc,
+            'tong_cong' => $tongCong,
+            'trang_thai' => 'ChuaThanhToan',
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Tạo hóa đơn thành công',
-            'data'    => $hd->load('phienKham.lichKham.benhNhan'),
+            'data' => $hd->load('phienKham.lichKham.benhNhan'),
         ], 201);
     }
 
@@ -116,85 +116,85 @@ class HoaDonController extends Controller
        Xác nhận thanh toán
        Body: { phuong_thuc: TienMat|Momo|VNPay|ChuyenKhoan }
        ============================================================ */
-public function pay(Request $request, $id)
-{
-    $request->validate([
-        'phuong_thuc' => 'required|in:TienMat,Momo,VNPay,ChuyenKhoan',
-    ]);
+    public function pay(Request $request, $id)
+    {
+        $request->validate([
+            'phuong_thuc' => 'required|in:TienMat,Momo,VNPay,ChuyenKhoan',
+        ]);
 
-    $hd = HoaDon::with('phienKham.lichKham')->find($id);
+        $hd = HoaDon::with('phienKham.lichKham')->find($id);
 
-    if (!$hd) {
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Không tìm thấy hóa đơn',
-        ], 404);
-    }
+        if (! $hd) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy hóa đơn',
+            ], 404);
+        }
 
-    if ($hd->trang_thai === 'DaThanhToan') {
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Hóa đơn đã được thanh toán',
-        ], 400);
-    }
+        if ($hd->trang_thai === 'DaThanhToan') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hóa đơn đã được thanh toán',
+            ], 400);
+        }
 
-    if ($hd->trang_thai === 'DaHuy') {
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Hóa đơn đã bị hủy',
-        ], 400);
-    }
+        if ($hd->trang_thai === 'DaHuy') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hóa đơn đã bị hủy',
+            ], 400);
+        }
 
-    try {
-        DB::transaction(function () use ($hd, $request) {
-            // 1. Cập nhật hóa đơn
-            $hd->trang_thai      = 'DaThanhToan';
-            $hd->phuong_thuc     = $request->phuong_thuc;
-            $hd->ngay_thanh_toan = now();
-            $hd->save();
+        try {
+            DB::transaction(function () use ($hd, $request) {
+                // 1. Cập nhật hóa đơn
+                $hd->trang_thai = 'DaThanhToan';
+                $hd->phuong_thuc = $request->phuong_thuc;
+                $hd->ngay_thanh_toan = now();
+                $hd->save();
 
-            // 2. Cập nhật phiên khám → Hoàn thành
-            if ($hd->phienKham) {
-                $hd->phienKham->trang_thai = 'HoanThanh';
-                $hd->phienKham->save();
+                // 2. Cập nhật phiên khám → Hoàn thành
+                if ($hd->phienKham) {
+                    $hd->phienKham->trang_thai = 'HoanThanh';
+                    $hd->phienKham->save();
 
-                // 3. Cập nhật lịch khám → Hoàn thành (giờ mới xong)
-                if ($hd->phienKham->lichKham) {
-                    $hd->phienKham->lichKham->trang_thai = 'hoan_thanh';
-                    $hd->phienKham->lichKham->save();
+                    // 3. Cập nhật lịch khám → Hoàn thành (giờ mới xong)
+                    if ($hd->phienKham->lichKham) {
+                        $hd->phienKham->lichKham->trang_thai = 'hoan_thanh';
+                        $hd->phienKham->lichKham->save();
+                    }
                 }
-            }
-        });
-        //Thông báo cho ADMIN
+            });
+            // Thông báo cho ADMIN
             try {
                 $hd->load('phienKham.lichKham.benhNhan', 'phienKham.lichKham.bacSi');
                 $tenBn = $hd->phienKham->lichKham->benhNhan->ho_ten ?? 'bệnh nhân';
                 $tenBs = $hd->phienKham->lichKham->bacSi->ho_ten ?? 'bác sĩ';
-                $soTien = number_format($hd->tong_cong, 0, ',', '.') . 'đ';
+                $soTien = number_format($hd->tong_cong, 0, ',', '.').'đ';
 
-                \App\Models\ThongBao::guiTheoVaiTro(
+                ThongBao::guiTheoVaiTro(
                     'QuanTri',
-                    "💰 Có hóa đơn mới đã thanh toán",
+                    '💰 Có hóa đơn mới đã thanh toán',
                     "HĐ #{$hd->ma_hoa_don} — {$tenBn} (BS {$tenBs}) — {$soTien}",
                     'thanh_toan',
                     '/views/admin/dashboard.html'
                 );
             } catch (\Exception $notiErr) {
-                \Log::warning('[ThongBao] Sự kiện thanh_toan: ' . $notiErr->getMessage());
+                \Log::warning('[ThongBao] Sự kiện thanh_toan: '.$notiErr->getMessage());
             }
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Xác nhận thanh toán thành công',
-            'data'    => $hd->fresh(),
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Lỗi: ' . $e->getMessage(),
-        ], 500);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Xác nhận thanh toán thành công',
+                'data' => $hd->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lỗi: '.$e->getMessage(),
+            ], 500);
+        }
     }
-}
 
     /* ============================================================
        PUT /api/hoa-don/{id}/cancel
@@ -204,16 +204,16 @@ public function pay(Request $request, $id)
     {
         $hd = HoaDon::find($id);
 
-        if (!$hd) {
+        if (! $hd) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không tìm thấy hóa đơn',
             ], 404);
         }
 
         if ($hd->trang_thai === 'DaThanhToan') {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không thể hủy hóa đơn đã thanh toán',
             ], 400);
         }
@@ -222,9 +222,9 @@ public function pay(Request $request, $id)
         $hd->save();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Đã hủy hóa đơn',
-            'data'    => $hd,
+            'data' => $hd,
         ]);
     }
 }
