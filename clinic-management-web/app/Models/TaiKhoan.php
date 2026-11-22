@@ -62,10 +62,10 @@ class TaiKhoan extends Authenticatable implements JWTSubject
         return $this->hasOne(BacSi::class, 'ma_tk');
     }
 
-    /** 1 tài khoản có thể là 1 bệnh nhân */
-    public function benhNhan()
+    /** 1 tài khoản có thể quản lý nhiều hồ sơ bệnh nhân */
+    public function benhNhans()
     {
-        return $this->hasOne(BenhNhan::class, 'ma_tk');
+        return $this->hasMany(BenhNhan::class, 'ma_tk');
     }
 
     /** 1 tài khoản có nhiều log */

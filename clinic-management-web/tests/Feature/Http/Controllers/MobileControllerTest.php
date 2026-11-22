@@ -173,6 +173,10 @@ class MobileControllerTest extends TestCase
             'vai_tro' => 'BenhNhan',
             'trang_thai' => true,
         ]);
+        BenhNhan::create([
+            'ma_tk' => $taiKhoan->ma_tk,
+            'ho_ten' => 'Hồ sơ hiện tại',
+        ]);
         $token = JWTAuth::fromUser($taiKhoan);
 
         $response = $this->withToken($token)->postJson('/api/mobile/patient-profiles', [
@@ -189,6 +193,7 @@ class MobileControllerTest extends TestCase
         $response->assertStatus(201);
         $this->assertDatabaseHas('benhnhan', [
             'ma_benh_nhan' => $response->json('data.ma_benh_nhan'),
+            'ma_tk' => $taiKhoan->ma_tk,
             'ho_chu_lot' => 'Nguyễn Văn',
             'ten' => 'An',
             'tinh_thanh' => 'Thành phố Hồ Chí Minh',

@@ -130,7 +130,7 @@ class AuthController extends Controller
             'ten_dang_nhap' => $user->ten_dang_nhap,
             'vai_tro' => $user->vai_tro,
             'trang_thai' => (bool) $user->trang_thai,
-            'ho_ten' => $user->ho_ten ?? $user->bacSi?->ho_ten ?? $user->benhNhan?->ho_ten ?? $user->ten_dang_nhap,
+            'ho_ten' => $user->ho_ten ?? $user->bacSi?->ho_ten ?? $user->benhNhans()->value('ho_ten') ?? $user->ten_dang_nhap,
         ];
     }
 }
