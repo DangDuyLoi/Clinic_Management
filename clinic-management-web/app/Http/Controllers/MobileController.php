@@ -31,14 +31,27 @@ class MobileController extends Controller
             'password' => 'required|string',
         ]);
 
-        $taiKhoan = TaiKhoan::where('ten_dang_nhap', $request->phone_number)
-            ->where('vai_tro', 'BenhNhan')
-            ->first();
+        $phoneNumbers = $this->phoneNumberVariants($request->phone_number);
+        $taiKhoan = null;
+        foreach ($phoneNumbers as $phoneNumber) {
+            $taiKhoan = TaiKhoan::where('ten_dang_nhap', $phoneNumber)
+                ->where('vai_tro', 'BenhNhan')
+                ->first();
+
+            if ($taiKhoan) {
+                break;
+            }
+        }
 
         if (! $taiKhoan) {
-            $benhNhan = BenhNhan::where('so_dien_thoai', $request->phone_number)->first();
-            if ($benhNhan && $benhNhan->ma_tk) {
-                $taiKhoan = TaiKhoan::find($benhNhan->ma_tk);
+            foreach ($phoneNumbers as $phoneNumber) {
+                $benhNhan = BenhNhan::where('so_dien_thoai', $phoneNumber)->first();
+                if ($benhNhan && $benhNhan->ma_tk) {
+                    $taiKhoan = TaiKhoan::find($benhNhan->ma_tk);
+                    if ($taiKhoan) {
+                        break;
+                    }
+                }
             }
         }
         if (! $taiKhoan) {
@@ -1324,5 +1337,25 @@ class MobileController extends Controller
         });
 
         return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function phoneNumberVariants(string $phoneNumber): array
+    {
+        $phoneNumber = trim($phoneNumber);
+        $phoneNumbers = [$phoneNumber];
+
+        if (preg_match('/^0\d{9}$/', $phoneNumber)) {
+            $phoneNumbers[] = '+84'.substr($phoneNumber, 1);
+        } elseif (preg_match('/^\+84\d{9}$/', $phoneNumber)) {
+            $phoneNumbers[] = '0'.substr($phoneNumber, 3);
+        } elseif (preg_match('/^84\d{9}$/', $phoneNumber)) {
+            $phoneNumbers[] = '+'.$phoneNumber;
+            $phoneNumbers[] = '0'.substr($phoneNumber, 2);
+        }
+
+        return array_values(array_unique($phoneNumbers));
     }
 }

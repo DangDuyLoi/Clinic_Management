@@ -19,6 +19,30 @@ class MobileControllerTest extends TestCase
 {
     use DatabaseTransactions;
 
+    public function test_mobile_registration_can_log_in_with_local_phone_number_after_storing_e164(): void
+    {
+        $phoneNumber = '+84961521561';
+        $password = 'SecureTest123!';
+
+        $registrationResponse = $this->postJson('/api/mobile/set-password', [
+            'phone_number' => $phoneNumber,
+            'password' => $password,
+        ]);
+
+        $registrationResponse
+            ->assertOk()
+            ->assertJson(['message' => 'Tạo mật khẩu thành công']);
+        $this->assertDatabaseHas('taikhoan', ['ten_dang_nhap' => $phoneNumber]);
+        $this->assertDatabaseHas('benhnhan', ['so_dien_thoai' => $phoneNumber]);
+
+        $this->postJson('/api/mobile/login', [
+            'phone_number' => '0961521561',
+            'password' => $password,
+        ])
+            ->assertOk()
+            ->assertJson(['message' => 'Đăng nhập thành công']);
+    }
+
     public function test_returns_canonical_hcm_province_and_components_from_combined_patient_address(): void
     {
         $taiKhoan = TaiKhoan::create([
