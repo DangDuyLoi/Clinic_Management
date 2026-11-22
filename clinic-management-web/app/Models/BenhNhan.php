@@ -14,7 +14,7 @@ class BenhNhan extends Model
 
     protected $fillable = [
         'ma_tk', 'ho_ten', 'ho_chu_lot', 'ten', 'ngay_sinh', 'gioi_tinh',
-        'so_dien_thoai', 'email', 'cccd', 'dia_chi', 'tinh_thanh',
+        'so_dien_thoai', 'email', 'cccd', 'ho_chieu', 'dia_chi', 'tinh_thanh',
         'phuong_xa', 'so_nha', 'nguoi_lien_he_khan_cap',
         'tien_su_benh', 'di_ung', 'nhom_mau', 'ma_bhyt',
         'muc_huong_bhyt', 'ngay_het_han_bhyt', 'que_quan',

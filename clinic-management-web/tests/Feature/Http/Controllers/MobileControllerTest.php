@@ -165,7 +165,7 @@ class MobileControllerTest extends TestCase
         ]);
     }
 
-    public function test_creates_patient_relative_with_name_and_address_fields_on_patient_record(): void
+    public function test_creates_patient_relative_with_address_and_identity_fields_on_patient_record(): void
     {
         $taiKhoan = TaiKhoan::create([
             'ten_dang_nhap' => 'profile-relative-'.Str::random(10),
@@ -182,6 +182,8 @@ class MobileControllerTest extends TestCase
             'phuong_xa' => 'Phường Tân Định',
             'quan_huyen' => 'Quận 1',
             'tinh_thanh' => 'Thành phố Hồ Chí Minh',
+            'email' => 'relative@example.test',
+            'ho_chieu' => 'P12345678',
         ]);
 
         $response->assertStatus(201);
@@ -192,10 +194,12 @@ class MobileControllerTest extends TestCase
             'tinh_thanh' => 'Thành phố Hồ Chí Minh',
             'phuong_xa' => 'Phường Tân Định',
             'so_nha' => '207 Nguyễn Văn Thủ',
+            'email' => 'relative@example.test',
+            'ho_chieu' => 'P12345678',
         ]);
     }
 
-    public function test_updates_name_and_address_fields_on_patient_record(): void
+    public function test_updates_patient_contact_and_identity_fields_on_patient_record(): void
     {
         $taiKhoan = TaiKhoan::create([
             'ten_dang_nhap' => 'profile-update-'.Str::random(10),
@@ -218,6 +222,8 @@ class MobileControllerTest extends TestCase
                 'so_nha' => '207 Nguyễn Văn Thủ',
                 'phuong_xa' => 'Phường Tân Định',
                 'tinh_thanh' => 'Thành phố Hồ Chí Minh',
+                'email' => 'updated@example.test',
+                'ho_chieu' => 'P87654321',
             ]
         );
 
@@ -229,7 +235,10 @@ class MobileControllerTest extends TestCase
             'tinh_thanh' => 'Thành phố Hồ Chí Minh',
             'phuong_xa' => 'Phường Tân Định',
             'so_nha' => '207 Nguyễn Văn Thủ',
+            'email' => 'updated@example.test',
+            'ho_chieu' => 'P87654321',
         ]);
+        $response->assertJsonPath('data.ho_chieu', 'P87654321');
     }
 
     public function test_mobile_booking_uses_patient_birth_date_for_insurance_rule(): void

@@ -48,7 +48,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   final _cccdController = TextEditingController();
   final _soTheBhytController = TextEditingController();
   final _hoChieuController = TextEditingController();
-  final _soDinhDanhController = TextEditingController();
   final _soNhaController = TextEditingController();
 
   // Selected values
@@ -79,7 +78,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
       _cccdController.text = p['cccd']?.toString() ?? '';
       _soTheBhytController.text = p['so_the_bhyt']?.toString() ?? '';
       _hoChieuController.text = p['ho_chieu']?.toString() ?? '';
-      _soDinhDanhController.text = p['so_dinh_danh']?.toString() ?? '';
       _soNhaController.text = p['so_nha']?.toString() ?? '';
 
       if (p['ngay_sinh'] != null) {
@@ -137,7 +135,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     _cccdController.dispose();
     _soTheBhytController.dispose();
     _hoChieuController.dispose();
-    _soDinhDanhController.dispose();
     _soNhaController.dispose();
     super.dispose();
   }
@@ -173,7 +170,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
           'cccd': _cccdController.text.trim().isEmpty ? null : _cccdController.text.trim(),
           'so_the_bhyt': _soTheBhytController.text.trim().isEmpty ? null : _soTheBhytController.text.trim(),
           'ho_chieu': _hoChieuController.text.trim(),
-          'so_dinh_danh': _soDinhDanhController.text.trim(),
           'quoc_gia': _addressController.selectedCountry?.name ?? 'Việt Nam',
           'tinh_thanh': _addressController.selectedProvince?.name,
           'quan_huyen': _addressController.selectedDistrict?.name,
@@ -659,7 +655,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
                       helperText: 'Gồm 15 ký tự (VD: DN4011234567890, GD4791234567890)',
                     ),
                   _buildTextField('Số Hộ chiếu', _hoChieuController),
-                  _buildTextField('Số định danh cá nhân', _soDinhDanhController),
                 ],
               ),
 

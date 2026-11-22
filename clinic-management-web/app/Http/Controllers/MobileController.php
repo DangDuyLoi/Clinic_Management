@@ -262,6 +262,7 @@ class MobileController extends Controller
                     'so_dien_thoai' => $benhNhan->so_dien_thoai,
                     'email' => $benhNhan->email ?? '',
                     'cccd' => $benhNhan->cccd ?? '',
+                    'ho_chieu' => $benhNhan->ho_chieu ?? '',
                     'dia_chi' => $benhNhan->dia_chi ?? '',
                     'que_quan' => $benhNhan->que_quan ?? '',
                     'nguoi_lien_he_khan_cap' => $benhNhan->nguoi_lien_he_khan_cap ?? '',
@@ -317,6 +318,7 @@ class MobileController extends Controller
                     'so_dien_thoai' => $request->so_dien_thoai,
                     'cccd' => $request->cccd,
                     'email' => $request->email,
+                    'ho_chieu' => $request->input('ho_chieu'),
                     'dia_chi' => $diaChiFull,
                     'tinh_thanh' => $request->input('tinh_thanh'),
                     'phuong_xa' => $request->input('phuong_xa'),
@@ -426,6 +428,12 @@ class MobileController extends Controller
             }
             if ($request->has('cccd')) {
                 $benhNhan->cccd = $request->cccd;
+            }
+            if ($request->exists('email')) {
+                $benhNhan->email = $request->input('email');
+            }
+            if ($request->exists('ho_chieu')) {
+                $benhNhan->ho_chieu = $request->input('ho_chieu');
             }
             if ($request->exists('nguoi_lien_he_khan_cap')) {
                 $benhNhan->nguoi_lien_he_khan_cap = $request->input('nguoi_lien_he_khan_cap');
