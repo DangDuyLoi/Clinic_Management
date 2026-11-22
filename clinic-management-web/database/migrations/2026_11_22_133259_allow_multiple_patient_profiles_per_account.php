@@ -12,8 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('benhnhan', function (Blueprint $table) {
-            $table->dropUnique('ma_tk');
             $table->index('ma_tk', 'benhnhan_ma_tk_index');
+        });
+
+        Schema::table('benhnhan', function (Blueprint $table) {
+            $table->dropUnique('ma_tk');
         });
     }
 
@@ -23,8 +26,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('benhnhan', function (Blueprint $table) {
-            $table->dropIndex('benhnhan_ma_tk_index');
             $table->unique('ma_tk', 'ma_tk');
+        });
+
+        Schema::table('benhnhan', function (Blueprint $table) {
+            $table->dropIndex('benhnhan_ma_tk_index');
         });
     }
 };
